@@ -24,8 +24,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     # Si estás en tu compu local (y no hay variable en Railway), usa tu localhost de respaldo:
-    DATABASE_URL = "postgresql+psycopg://postgres:NotPub168_26@localhost:5432/cancelaciones_db"
-
+DATABASE_URL = "postgresql+psycopg://postgres:SHrReilQVtrhgSjEXNDDkbvwOmWZMESa@shinkansen.proxy.rlwy.net:20745/railway"
 # Asegurar que use el driver moderno psycopg
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
