@@ -48,13 +48,14 @@ def crear_usuario_admin_defecto():
     finally:
         db.close()
 
-        
+
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://192.168.0.53:5173",
+    "https://sistema-cancelaciones.netlify.app",  # <-- Reemplaza por tu enlace real
     "https://sistema-cancelaciones-production.up.railway.app",  # URL Dominio Backend/Frontend Railway
 ]
 
