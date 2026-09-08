@@ -19,18 +19,11 @@ from sqlalchemy import create_engine
 
 import os
 
-# Lee la variable de entorno de Railway obligatoriamente
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-    # Si estás en tu compu local (y no hay variable en Railway), usa tu localhost de respaldo:
+# URL directa a PostgreSQL en Railway
 DATABASE_URL = "postgresql+psycopg://postgres:SHrReilQVtrhgSjEXNDDkbvwOmWZMESa@shinkansen.proxy.rlwy.net:20745/railway"
-# Asegurar que use el driver moderno psycopg
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
-elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+psycopg://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
+# Crear el engine con la URL fija
+engine = create_engine(DATABASE_URL)
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
 @app.on_event("startup")
