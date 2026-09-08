@@ -9,9 +9,21 @@ import uuid
 from database import get_db
 from models import Usuario
 
-# Contexto de contraseñas compatible con bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from passlib.context import CryptContext
 
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
+
+def hash_password(password: str) -> str:
+    # Truncar a 72 bytes si excede el límite estricto de bcrypt
+    pwd_bytes = password.encode('utf-8')[:72]
+    return pwd_context.hash(pwd_bytes.decode('utf-8', errors='ignore'))
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    pwd_bytes = plain_password.encode('utf-8')[:72]
+    return pwd_context.verify(pwd_bytes.decode('utf-8', errors='ignore'), hashed_password)
 # Almacenamiento temporal de sesiones activas (Session Store)
 SESSIONS = {}
 

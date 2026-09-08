@@ -21,12 +21,14 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
+import auth  # O de donde importes hash_password
+
 @app.on_event("startup")
 def crear_usuario_admin_defecto():
     db = SessionLocal()
     try:
         admin_existente = db.query(models.Usuario).filter(models.Usuario.username == "admin").first()
-        pass_hash = auth.pwd_context.hash("admin123") if hasattr(auth, 'pwd_context') else "admin123"
+        pass_hash = auth.hash_password("admin123")
         
         if not admin_existente:
             nuevo_admin = models.Usuario(
@@ -36,15 +38,17 @@ def crear_usuario_admin_defecto():
             )
             db.add(nuevo_admin)
         else:
-            # Asegura que la contraseña sea admin123 incluso si ya existía el registro previo
             admin_existente.password_hash = pass_hash
         
         db.commit()
+        print("--> USUARIO ADMIN CONFIGURADO CORRECTAMENTE")
     except Exception as e:
         db.rollback()
         print(f"Error en startup: {e}")
     finally:
         db.close()
+
+        
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",

@@ -5,7 +5,8 @@ python-docx
 PyMuPDF
 python-multipart
 pydantic
-bcrypt==5.0.0
+bcrypt==4.0.1
+passlib[bcrypt]
 passlib==1.7.4
 psycopg==3.3.5
 psycopg-binary==3.3.5
