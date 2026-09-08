@@ -7,23 +7,18 @@ from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Bod
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-import os
 from sqlalchemy import create_engine
 
 import models, services
-from database import engine, get_db, SessionLocal
+from database import get_db, SessionLocal, engine
 import auth
-
-import os
-from sqlalchemy import create_engine
-
-import os
 
 # URL directa a PostgreSQL en Railway
 DATABASE_URL = "postgresql+psycopg://postgres:SHrReilQVtrhgSjEXNDDkbvwOmWZMESa@shinkansen.proxy.rlwy.net:20745/railway"
 
-# Crear el engine con la URL fija
-engine = create_engine(DATABASE_URL)
+# Crear las tablas en PostgreSQL automáticamente al arrancar
+models.Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
 @app.on_event("startup")
@@ -42,6 +37,7 @@ def crear_usuario_admin_defecto():
             db.commit()
     except Exception as e:
         db.rollback()
+        print(f"Error en startup: {e}")
     finally:
         db.close()
 
@@ -51,13 +47,13 @@ origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://192.168.0.53:5173",
-    "https://sistema-cancelaciones-production.up.railway.app",  # <--- URL Dominio Backend/Frontend Railway
+    "https://sistema-cancelaciones-production.up.railway.app",  # URL Dominio Backend/Frontend Railway
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,  # Necesario para que viajen las cookies de sesión
+    allow_credentials=True,  # Necesario para cookies de sesión
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -105,9 +101,9 @@ def obtener_historial(
                 "_id": str(exp.id),
                 "usuario_propietario": exp.usuario_propietario,
                 "numero_credito": exp.numero_credito,
-                "acreditado": acreditado,             # <-- Expuesto para el frontend
-                "monto": monto,                       # <-- Expuesto para el frontend
-                "hora": hora_sola,                    # <-- Expuesto para la columna de hora
+                "acreditado": acreditado,
+                "monto": monto,
+                "hora": hora_sola,
                 "manera": exp.manera,
                 "estado": exp.estado,
                 "datos_extraidos": datos,
@@ -229,7 +225,6 @@ async def procesar_masivo(
 
             datos_finales.update(datos_plantilla)
 
-            # LOGS EN CONSOLA POR CADA GRUPO/CRÉDITO PROCESADO
             print(f"\n--- Expediente Procesado: Crédito {num_credito} ---")
             print(f"  * Archivos consolidados: {len(grupo)}")
             print(f"  * Acreditado: {datos_finales.get('nombre_acreditado')}")
@@ -257,7 +252,7 @@ async def procesar_masivo(
                 "expediente_id": str(nuevo_expediente.id),
                 "archivos_asociados": len(grupo),
                 "datos": datos_finales,
-                "datos_extraidos": datos_finales,  # Contrato esperado por la interfaz en React
+                "datos_extraidos": datos_finales,
                 "ruta_word": ruta_salida
             })
 
