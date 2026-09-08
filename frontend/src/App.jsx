@@ -7,10 +7,11 @@ import {
   Plus, Trash2, Edit, Save, FileCode, Check, Calendar, Clock, DollarSign
 } from 'lucide-react';
 
-// Configuración base de Axios con inclusión de credenciales/cookies
+// ✅ Configuración producción / Railway
 axios.defaults.withCredentials = true;
+
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api'
+  baseURL: 'https://sistema-cancelaciones-production.up.railway.app/api'
 });
 
 export default function App() {
@@ -28,7 +29,7 @@ export default function App() {
   // --- NAVEGACIÓN ---
   const [activeTab, setActiveTab] = useState('single');
   
-  // Mapa de desbloqueo: clave única `key` -> boolean (para caso individual y masivo)
+  // Mapa de desbloqueo: clave única `key` -> boolean
   const [unlockedFields, setUnlockedFields] = useState({});
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [fieldToUnlock, setFieldToUnlock] = useState(null);
@@ -61,7 +62,6 @@ export default function App() {
 
   // ESTADOS - Panel de Plantillas / Configuración Notarial
   const [plantillas, setPlantillas] = useState([]);
-  const [plantillaSeleccionada, setPlantillaSeleccionada] = useState('');
   const [archivoPlantilla, setArchivoPlantilla] = useState(null);
 
   // Verificar sesión activa al cargar
@@ -150,7 +150,7 @@ export default function App() {
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
     try {
-      const res = await api.get('/usuarios');
+      const res = await api.get('/admin/usuarios');
       setUsuariosLista(res.data);
     } catch (err) {
       console.error('Error al cargar usuarios:', err);
@@ -161,8 +161,8 @@ export default function App() {
 
   const cargarPlantillas = async () => {
     try {
-      const res = await api.get('/plantillas');
-      setPlantillas(res.data);
+      const res = await api.get('/admin/plantilla');
+      setPlantillas(res.data || []);
     } catch (err) {
       console.error('Error al cargar plantillas:', err);
     }
@@ -172,7 +172,12 @@ export default function App() {
   const handleCrearUsuario = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/usuarios', nuevoUsuario);
+      const formData = new FormData();
+      formData.append('username', nuevoUsuario.username);
+      formData.append('password', nuevoUsuario.password);
+      formData.append('es_admin', nuevoUsuario.es_admin);
+
+      await api.post('/admin/usuarios', formData);
       setNuevoUsuario({ username: '', password: '', role: 'operador', es_admin: false });
       cargarUsuarios();
     } catch (err) {
@@ -183,7 +188,7 @@ export default function App() {
   const handleEliminarUsuario = async (id) => {
     if (!window.confirm('¿Deseas eliminar este usuario?')) return;
     try {
-      await api.delete(`/usuarios/${id}`);
+      await api.delete(`/admin/usuarios/${id}`);
       cargarUsuarios();
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al eliminar usuario.');
@@ -199,7 +204,7 @@ export default function App() {
     formData.append('file', archivoPlantilla);
 
     try {
-      await api.post('/plantillas/subir', formData);
+      await api.post('/admin/plantilla', formData);
       setArchivoPlantilla(null);
       cargarPlantillas();
       alert('Plantilla subida correctamente.');
@@ -208,7 +213,7 @@ export default function App() {
     }
   };
 
-  // --- LÓGICA DE DESBLOQUEO MEDIANTE CONTRASEÑA VERIFICADA EN BACKEND ---
+  // --- LÓGICA DE DESBLOQUEO MEDIANTE CONTRASEÑA ---
   const handleRequestUnlock = (fieldKey) => {
     if (unlockedFields[fieldKey]) {
       setUnlockedFields((prev) => ({ ...prev, [fieldKey]: false }));
@@ -223,7 +228,6 @@ export default function App() {
   const handleConfirmUnlock = async (e) => {
     e.preventDefault();
     try {
-      // Modificado para asegurar que coincida con la contraseña del usuario actualmente logueado
       const res = await api.post('/auth/verify-password', { 
         username: currentUser?.username,
         password: inputPassword 
@@ -415,7 +419,6 @@ export default function App() {
     setDatos((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Handler de edición para la carga masiva
   const handleBatchInputChange = (index, field, value) => {
     setBatchResults((prev) => {
       const updated = [...prev];
@@ -466,13 +469,6 @@ export default function App() {
   };
 
   const formatLabel = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-
-  const formatMonto = (val) => {
-    if (!val) return '';
-    const num = parseFloat(String(val).replace(/[^0-9.-]+/g, ''));
-    if (isNaN(num)) return val;
-    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
-  };
 
   const esAdmin = currentUser?.es_admin || currentUser?.role === 'admin';
 
@@ -715,7 +711,7 @@ export default function App() {
               </div>
             )}
 
-            {/* NAVEGACIÓN */}
+            {/* NAVEGACIÓN TABS */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '28px', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', flexWrap: 'wrap' }}>
               <button
                 onClick={() => setActiveTab('single')}
@@ -794,6 +790,7 @@ export default function App() {
                   >
                     <Users size={18} /> Usuarios
                   </button>
+
                   <button
                     onClick={() => setActiveTab('templates')}
                     style={{
@@ -816,331 +813,220 @@ export default function App() {
               )}
             </div>
 
-            {error && (
-              <div style={{ backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444', color: '#991b1b', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <AlertCircle size={20} />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* TAB: CASO INDIVIDUAL */}
+            {/* SECCIÓN 1: CASO INDIVIDUAL */}
             {activeTab === 'single' && (
-              <div className="fade-in">
+              <div>
                 <div 
                   onDragOver={handleDragOver}
                   onDrop={handleDropSingle}
-                  style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '36px', textAlign: 'center', backgroundColor: '#f8fafc', marginBottom: '24px', cursor: 'pointer' }}
+                  style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '36px', textAlign: 'center', backgroundColor: '#f8fafc', marginBottom: '24px' }}
                 >
-                  <Upload size={36} color="#64748b" style={{ margin: '0 auto 12px auto' }} />
-                  <p style={{ margin: '0 0 8px 0', fontSize: '15px', fontWeight: '600', color: '#334155' }}>Arrastra tus archivos PDF aquí o selecciona tus documentos</p>
-                  <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#94a3b8' }}>Soporta múltiples archivos PDF por expediente</p>
-                  <input type="file" multiple accept=".pdf" onChange={handleSingleFileChange} id="single-file-input" style={{ display: 'none' }} />
-                  <label htmlFor="single-file-input" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: '#475569', cursor: 'pointer' }}>
-                    Examinar Archivos
+                  <Upload size={36} color="#2563eb" style={{ marginBottom: '12px' }} />
+                  <p style={{ margin: '0 0 12px 0', fontWeight: '600', color: '#1e293b' }}>Arrastra tus archivos PDF aquí</p>
+                  <input type="file" multiple accept=".pdf" onChange={handleSingleFileChange} id="single-upload" style={{ display: 'none' }} />
+                  <label htmlFor="single-upload" style={{ backgroundColor: '#2563eb', color: '#fff', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', display: 'inline-block' }}>
+                    Seleccionar Documentos
                   </label>
+                  {singleFiles.length > 0 && (
+                    <div style={{ marginTop: '16px', fontSize: '14px', color: '#16a34a', fontWeight: '600' }}>
+                      {singleFiles.length} archivo(s) seleccionado(s)
+                    </div>
+                  )}
                 </div>
 
-                {singleFiles.length > 0 && (
-                  <div style={{ marginBottom: '24px' }}>
-                    <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#334155', marginBottom: '10px' }}>Archivos seleccionados ({singleFiles.length}):</h4>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {singleFiles.map((f, i) => (
-                        <span key={i} style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <FileCode size={14} /> {f.name}
-                        </span>
-                      ))}
-                    </div>
-                    <button
-                      onClick={handleUploadSingle}
-                      disabled={loading}
-                      style={{ marginTop: '16px', backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      {loading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                      {loading ? 'Procesando expediente...' : 'Procesar Expediente'}
-                    </button>
-                  </div>
+                {singleFiles.length > 0 && !loading && !datos && (
+                  <button onClick={handleUploadSingle} style={{ width: '100%', backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: '600', fontSize: '15px', cursor: 'pointer' }}>
+                    Procesar Documentos
+                  </button>
                 )}
 
                 {loading && (
-                  <div style={{ marginTop: '20px', marginBottom: '20px' }}>
-                    <div style={{ height: '8px', width: '100%', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${progressSingle}%`, backgroundColor: '#2563eb', transition: 'width 0.2s' }} />
-                    </div>
+                  <div style={{ textAlign: 'center', padding: '24px' }}>
+                    <Loader2 size={32} color="#2563eb" style={{ margin: '0 auto 12px auto', animation: 'spin 1s linear infinite' }} />
+                    <p style={{ margin: 0, fontWeight: '600' }}>Procesando {progressSingle}%...</p>
                   </div>
                 )}
 
                 {datos && (
-                  <div style={{ marginTop: '32px', borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                      <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: 0 }}>Datos Extraídos del Expediente</h3>
-                      <button
-                        onClick={() => handleDownloadWord(expedienteId, datos)}
-                        style={{ backgroundColor: '#16a34a', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      >
-                        <Download size={16} /> Descargar Cancelación (.docx)
-                      </button>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                      {Object.entries(datos).map(([key, val]) => {
-                        const unlockKey = `single_${key}`;
-                        const isUnlocked = !!unlockedFields[unlockKey];
-
+                  <div style={{ marginTop: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', backgroundColor: '#fff' }}>
+                    <h3 style={{ marginTop: 0, marginBottom: '20px', fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>Campos Extraídos</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                      {Object.keys(datos).map((key) => {
+                        const isUnlocked = unlockedFields[key];
                         return (
-                          <div key={key} style={{ backgroundColor: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                              <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>{formatLabel(key)}</label>
-                              <button
-                                type="button"
-                                onClick={() => handleRequestUnlock(unlockKey)}
-                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: isUnlocked ? '#16a34a' : '#94a3b8', padding: 0 }}
-                              >
-                                {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
+                          <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', textTransform: 'uppercase' }}>{formatLabel(key)}</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input
+                                type="text"
+                                value={datos[key] || ''}
+                                disabled={!isUnlocked}
+                                onChange={(e) => handleInputChange(key, e.target.value)}
+                                style={{ flex: 1, padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: isUnlocked ? '#fff' : '#f1f5f9', fontSize: '14px' }}
+                              />
+                              <button onClick={() => handleRequestUnlock(key)} style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#fff', cursor: 'pointer' }}>
+                                {isUnlocked ? <Unlock size={16} color="#16a34a" /> : <Lock size={16} color="#64748b" />}
                               </button>
                             </div>
-                            <input
-                              type="text"
-                              value={val || ''}
-                              disabled={!isUnlocked}
-                              onChange={(e) => handleInputChange(key, e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '8px 10px',
-                                border: isUnlocked ? '1px solid #2563eb' : '1px solid #cbd5e1',
-                                borderRadius: '6px',
-                                fontSize: '13px',
-                                backgroundColor: isUnlocked ? '#ffffff' : '#f1f5f9',
-                                color: isUnlocked ? '#0f172a' : '#475569'
-                              }}
-                            />
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB: CARGA MASIVA */}
-            {activeTab === 'batch' && (
-              <div className="fade-in">
-                <div 
-                  onDragOver={handleDragOver}
-                  onDrop={handleDropBatch}
-                  style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '36px', textAlign: 'center', backgroundColor: '#f8fafc', marginBottom: '24px', cursor: 'pointer' }}
-                >
-                  <FolderPlus size={36} color="#64748b" style={{ margin: '0 auto 12px auto' }} />
-                  <p style={{ margin: '0 0 8px 0', fontSize: '15px', fontWeight: '600', color: '#334155' }}>Arrastra carpetas o múltiples archivos PDF para carga en lote</p>
-                  <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#94a3b8' }}>Procesamiento automático de múltiples cancelaciones simultáneas</p>
-                  <input type="file" multiple accept=".pdf" onChange={handleBatchFileChange} id="batch-file-input" style={{ display: 'none' }} />
-                  <label htmlFor="batch-file-input" style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: '#475569', cursor: 'pointer' }}>
-                    Seleccionar Archivos
-                  </label>
-                </div>
-
-                {batchFiles.length > 0 && (
-                  <div style={{ marginBottom: '24px' }}>
-                    <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#334155', marginBottom: '10px' }}>Archivos en lote ({batchFiles.length}):</h4>
-                    <button
-                      onClick={handleUploadBatch}
-                      disabled={batchLoading}
-                      style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      {batchLoading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                      {batchLoading ? 'Procesando Lote...' : 'Procesar Todo el Lote'}
+                    <button onClick={() => handleDownloadWord(expedienteId, datos)} style={{ marginTop: '24px', backgroundColor: '#16a34a', color: '#fff', border: 'none', padding: '14px 24px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Download size={18} /> Descargar Documento Word
                     </button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* SECCIÓN 2: CARGA MASIVA */}
+            {activeTab === 'batch' && (
+              <div>
+                <div 
+                  onDragOver={handleDragOver}
+                  onDrop={handleDropBatch}
+                  style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '36px', textAlign: 'center', backgroundColor: '#f8fafc', marginBottom: '24px' }}
+                >
+                  <FolderPlus size={36} color="#2563eb" style={{ marginBottom: '12px' }} />
+                  <p style={{ margin: '0 0 12px 0', fontWeight: '600', color: '#1e293b' }}>Arrastra carpetas o múltiples PDFs</p>
+                  <input type="file" multiple accept=".pdf" onChange={handleBatchFileChange} id="batch-upload" style={{ display: 'none' }} />
+                  <label htmlFor="batch-upload" style={{ backgroundColor: '#2563eb', color: '#fff', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', display: 'inline-block' }}>
+                    Seleccionar Lote
+                  </label>
+                  {batchFiles.length > 0 && (
+                    <div style={{ marginTop: '16px', fontSize: '14px', color: '#16a34a', fontWeight: '600' }}>
+                      {batchFiles.length} archivo(s) listo(s) para procesar
+                    </div>
+                  )}
+                </div>
+
+                {batchFiles.length > 0 && !batchLoading && batchResults.length === 0 && (
+                  <button onClick={handleUploadBatch} style={{ width: '100%', backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: '600', fontSize: '15px', cursor: 'pointer' }}>
+                    Procesar Lote Completo
+                  </button>
+                )}
 
                 {batchLoading && (
-                  <div style={{ marginTop: '20px', marginBottom: '20px' }}>
-                    <div style={{ height: '8px', width: '100%', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${progressBatch}%`, backgroundColor: '#2563eb', transition: 'width 0.2s' }} />
-                    </div>
+                  <div style={{ textAlign: 'center', padding: '24px' }}>
+                    <Loader2 size={32} color="#2563eb" style={{ margin: '0 auto 12px auto', animation: 'spin 1s linear infinite' }} />
+                    <p style={{ margin: 0, fontWeight: '600' }}>Procesando Lote {progressBatch}%...</p>
                   </div>
                 )}
 
-                {/* MODIFICADO EXCLUSIVAMENTE: Muestra directa y edicion de lotes masivos */}
                 {batchResults.length > 0 && (
-                  <div style={{ marginTop: '32px', borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                      <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: 0 }}>Resultados del Lote ({batchResults.length})</h3>
-                      <button
-                        onClick={handleDownloadZip}
-                        style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                      >
-                        <FileArchive size={16} /> Descargar Todos (ZIP)
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Resultados del Lote ({batchResults.length})</h3>
+                      <button onClick={handleDownloadZip} style={{ backgroundColor: '#16a34a', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FileArchive size={18} /> Descargar Todo (ZIP)
                       </button>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {batchResults.map((item, index) => {
-                        const isOpen = !!openAccordion[index];
-                        const datosExtraidos = item.datos_extraidos || {};
-                        const expId = item.expediente_id || index;
+                    {batchResults.map((res, index) => (
+                      <div key={index} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', marginBottom: '12px', overflow: 'hidden' }}>
+                        <div 
+                          onClick={() => toggleAccordion(index)}
+                          style={{ padding: '16px', backgroundColor: '#f8fafc', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                        >
+                          <span style={{ fontWeight: '600' }}>Crédito: {res.datos_extraidos?.numero_credito || 'N/A'} - {res.datos_extraidos?.acreditado || 'Acreditado'}</span>
+                          {openAccordion[index] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </div>
 
-                        return (
-                          <div key={index} style={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                            <div 
-                              onClick={() => toggleAccordion(index)}
-                              style={{ padding: '16px 20px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', borderBottom: isOpen ? '1px solid #e2e8f0' : 'none' }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ backgroundColor: '#eff6ff', padding: '8px', borderRadius: '8px' }}>
-                                  <FileText size={18} color="#2563eb" />
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
-                                    {datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || `Expediente #${index + 1}`}
+                        {openAccordion[index] && (
+                          <div style={{ padding: '20px', backgroundColor: '#fff', borderTop: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                              {Object.keys(res.datos_extraidos || {}).map((fKey) => {
+                                const unlockKey = `${index}_${fKey}`;
+                                const isUnlocked = unlockedFields[unlockKey];
+                                return (
+                                  <div key={fKey}>
+                                    <label style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>{formatLabel(fKey)}</label>
+                                    <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                                      <input
+                                        type="text"
+                                        value={res.datos_extraidos[fKey] || ''}
+                                        disabled={!isUnlocked}
+                                        onChange={(e) => handleBatchInputChange(index, fKey, e.target.value)}
+                                        style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', backgroundColor: isUnlocked ? '#fff' : '#f8fafc' }}
+                                      />
+                                      <button onClick={() => handleRequestUnlock(unlockKey)} style={{ padding: '6px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff' }}>
+                                        {isUnlocked ? <Unlock size={14} color="#16a34a" /> : <Lock size={14} color="#64748b" />}
+                                      </button>
+                                    </div>
                                   </div>
-                                  <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                    Crédito: {datosExtraidos.numero_credito || 'N/A'} | Monto: {formatMonto(datosExtraidos.monto)}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDownloadWord(expId, datosExtraidos);
-                                  }}
-                                  style={{ backgroundColor: '#16a34a', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                                >
-                                  <Download size={14} /> Word
-                                </button>
-                                {isOpen ? <ChevronUp size={18} color="#64748b" /> : <ChevronDown size={18} color="#64748b" />}
-                              </div>
+                                );
+                              })}
                             </div>
-
-                            {isOpen && (
-                              <div style={{ padding: '20px', backgroundColor: '#ffffff' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
-                                  {Object.entries(datosExtraidos).map(([fieldKey, fieldValue]) => {
-                                    const unlockKey = `batch_${index}_${fieldKey}`;
-                                    const isUnlocked = !!unlockedFields[unlockKey];
-
-                                    return (
-                                      <div key={fieldKey} style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                          <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#64748b' }}>{formatLabel(fieldKey)}</label>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleRequestUnlock(unlockKey)}
-                                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: isUnlocked ? '#16a34a' : '#94a3b8', padding: 0 }}
-                                          >
-                                            {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
-                                          </button>
-                                        </div>
-                                        <input
-                                          type="text"
-                                          value={fieldValue || ''}
-                                          disabled={!isUnlocked}
-                                          onChange={(e) => handleBatchInputChange(index, fieldKey, e.target.value)}
-                                          style={{
-                                            width: '100%',
-                                            padding: '8px 10px',
-                                            border: isUnlocked ? '1px solid #2563eb' : '1px solid #cbd5e1',
-                                            borderRadius: '6px',
-                                            fontSize: '13px',
-                                            backgroundColor: isUnlocked ? '#ffffff' : '#f1f5f9',
-                                            color: isUnlocked ? '#0f172a' : '#475569'
-                                          }}
-                                        />
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
+                            <button onClick={() => handleDownloadWord(res.expediente_id, res.datos_extraidos)} style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}>
+                              Descargar Word
+                            </button>
                           </div>
-                        );
-                      })}
-                    </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             )}
 
-           {/* TAB: HISTORIAL */}
-{activeTab === 'history' && (
-  <div className="fade-in">
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', backgroundColor: '#f8fafc', padding: '8px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-      <Search size={18} color="#94a3b8" />
-      <input
-        type="text"
-        placeholder="Buscar por acreditado o número de crédito..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '14px', outline: 'none' }}
-      />
-    </div>
+            {/* SECCIÓN 3: HISTORIAL */}
+            {activeTab === 'history' && (
+              <div>
+                <div style={{ marginBottom: '20px', position: 'relative' }}>
+                  <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+                  <input
+                    type="text"
+                    placeholder="Buscar por acreditado o número de crédito..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ width: '100%', padding: '10px 10px 10px 40px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}
+                  />
+                </div>
 
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#f1f5f9', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>
-            <th style={{ padding: '12px' }}>Acreditado</th>
-            <th style={{ padding: '12px' }}>N° Crédito</th>
-            <th style={{ padding: '12px' }}>Monto</th>
-            <th style={{ padding: '12px' }}>Fecha</th>
-            <th style={{ padding: '12px', textAlign: 'right' }}>Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredHistorial.length === 0 ? (
-            <tr>
-              <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>No se encontraron expedientes en tu historial.</td>
-            </tr>
-          ) : (
-            filteredHistorial.map((item, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: '12px', fontWeight: '600', color: '#0f172a' }}>
-                  {item.datos_extraidos?.acreditado || item.datos_extraidos?.nombre_acreditado || item.acreditado || 'Sin nombre'}
-                </td>
-                <td style={{ padding: '12px', color: '#475569' }}>
-                  {item.datos_extraidos?.numero_credito || item.numero_credito || 'N/A'}
-                </td>
-                <td style={{ padding: '12px', color: '#475569' }}>
-                  {formatMonto(item.datos_extraidos?.monto || item.monto)}
-                </td>
-                
-                {/* CELDA DE FECHA Y HORA CORREGIDA */}
-                <td style={{ padding: '12px', color: '#64748b' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontWeight: '500', color: '#334155' }}>
-                      {item.fecha || 'N/A'}
-                    </span>
-                    {item.hora && (
-                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                        {item.hora} hrs
-                      </span>
-                    )}
-                  </div>
-                </td>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                        <th style={{ padding: '12px' }}>Fecha</th>
+                        <th style={{ padding: '12px' }}>Hora</th>
+                        <th style={{ padding: '12px' }}>Crédito</th>
+                        <th style={{ padding: '12px' }}>Acreditado</th>
+                        <th style={{ padding: '12px' }}>Monto</th>
+                        <th style={{ padding: '12px' }}>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredHistorial.length > 0 ? (
+                        filteredHistorial.map((item) => (
+                          <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                            <td style={{ padding: '12px' }}>{item.fecha || 'N/A'}</td>
+                            <td style={{ padding: '12px' }}>{item.hora || 'N/A'}</td>
+                            <td style={{ padding: '12px', fontWeight: '600' }}>{item.numero_credito || 'N/A'}</td>
+                            <td style={{ padding: '12px' }}>{item.acreditado || 'N/A'}</td>
+                            <td style={{ padding: '12px' }}>{item.monto || 'N/A'}</td>
+                            <td style={{ padding: '12px' }}>
+                              <button onClick={() => handleDownloadWord(item.id, item.datos_extraidos)} style={{ backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '6px 12px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                                Descargar Word
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>No se encontraron registros.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
-                <td style={{ padding: '12px', textAlign: 'right' }}>
-                  <button
-                    onClick={() => handleDownloadWord(item.id || item._id, item.datos_extraidos)}
-                    style={{ backgroundColor: '#16a34a', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <Download size={14} /> Word
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
-
-            {/* TAB: USUARIOS (Solo Admin) */}
+            {/* SECCIÓN 4: USUARIOS (ADMIN) */}
             {activeTab === 'users' && esAdmin && (
-              <div className="fade-in">
-                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', marginBottom: '16px' }}>Gestión de Usuarios</h3>
+              <div>
+                <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Gestión de Usuarios</h3>
                 <form onSubmit={handleCrearUsuario} style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
                   <input
                     type="text"
@@ -1148,7 +1034,7 @@ export default function App() {
                     value={nuevoUsuario.username}
                     onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, username: e.target.value })}
                     required
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                    style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px' }}
                   />
                   <input
                     type="password"
@@ -1156,42 +1042,41 @@ export default function App() {
                     value={nuevoUsuario.password}
                     onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })}
                     required
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                    style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px' }}
                   />
-                  <select
-                    value={nuevoUsuario.role}
-                    onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, role: e.target.value, es_admin: e.target.value === 'admin' })}
-                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                  >
-                    <option value="operador">Operador</option>
-                    <option value="admin">Administrador</option>
-                  </select>
-                  <button type="submit" style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Plus size={16} /> Crear
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+                    <input
+                      type="checkbox"
+                      checked={nuevoUsuario.es_admin}
+                      onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, es_admin: e.target.checked })}
+                    />
+                    Es Administrador
+                  </label>
+                  <button type="submit" style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                    Crear Usuario
                   </button>
                 </form>
 
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>
+                      <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
                         <th style={{ padding: '12px' }}>Usuario</th>
                         <th style={{ padding: '12px' }}>Rol</th>
-                        <th style={{ padding: '12px', textAlign: 'right' }}>Acción</th>
+                        <th style={{ padding: '12px' }}>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {usuariosLista.map((u) => (
-                        <tr key={u.id || u._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '12px', fontWeight: '600', color: '#0f172a' }}>{u.username}</td>
-                          <td style={{ padding: '12px', color: '#64748b' }}>{u.role || (u.es_admin ? 'admin' : 'operador')}</td>
-                          <td style={{ padding: '12px', textAlign: 'right' }}>
-                            <button
-                              onClick={() => handleEliminarUsuario(u.id || u._id)}
-                              style={{ backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer' }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                        <tr key={u.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '12px' }}>{u.username}</td>
+                          <td style={{ padding: '12px' }}>{u.es_admin ? 'Administrador' : 'Operador'}</td>
+                          <td style={{ padding: '12px' }}>
+                            {u.username !== 'admin' && (
+                              <button onClick={() => handleEliminarUsuario(u.id)} style={{ backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>
+                                Eliminar
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1201,31 +1086,28 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB: PLANTILLAS (Solo Admin) */}
+            {/* SECCIÓN 5: PLANTILLAS (ADMIN) */}
             {activeTab === 'templates' && esAdmin && (
-              <div className="fade-in">
-                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', marginBottom: '16px' }}>Plantillas Notariales</h3>
-                <form onSubmit={handleSubirPlantilla} style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Plantilla Notarial</h3>
+                <form onSubmit={handleSubirPlantilla} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <input
                     type="file"
                     accept=".docx"
                     onChange={(e) => setArchivoPlantilla(e.target.files[0])}
                     required
-                    style={{ fontSize: '13px' }}
+                    style={{ fontSize: '14px' }}
                   />
-                  <button type="submit" style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Upload size={16} /> Subir Plantilla
+                  <button type="submit" style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                    Actualizar Plantilla .DOCX
                   </button>
                 </form>
+              </div>
+            )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {plantillas.map((p, i) => (
-                    <div key={i} style={{ backgroundColor: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '14px', fontWeight: '500', color: '#334155' }}>{p.nombre || p.filename}</span>
-                      <span style={{ fontSize: '12px', color: '#94a3b8' }}>{p.fecha_subida ? new Date(p.fecha_subida).toLocaleDateString() : ''}</span>
-                    </div>
-                  ))}
-                </div>
+            {error && (
+              <div style={{ marginTop: '20px', backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444', color: '#991b1b', padding: '12px', borderRadius: '8px', fontSize: '14px' }}>
+                {error}
               </div>
             )}
 
