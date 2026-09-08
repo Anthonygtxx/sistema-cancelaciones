@@ -7,14 +7,30 @@ from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Bod
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+import os
+from sqlalchemy import create_engine
 
 import models, services
 from database import engine, get_db, SessionLocal
 import auth
 
-# Si ya no quieres reiniciar la base de datos, mantén comentada esta línea:
-# models.Base.metadata.drop_all(bind=engine)
-models.Base.metadata.create_all(bind=engine)
+import os
+from sqlalchemy import create_engine
+
+import os
+
+# Lee la variable de entorno de Railway obligatoriamente
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    # Si estás en tu compu local (y no hay variable en Railway), usa tu localhost de respaldo:
+    DATABASE_URL = "postgresql+psycopg://postgres:NotPub168_26@localhost:5432/cancelaciones_db"
+
+# Asegurar que use el driver moderno psycopg
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+psycopg://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
@@ -42,12 +58,13 @@ origins = [
     "http://127.0.0.1:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://192.168.0.53:5173",  # <--- REEMPLAZA ESTA IP CON LA IP LOCAL REAL DE TU PC SERVIDOR
+    "http://192.168.0.53:5173",
+    "https://sistema-cancelaciones-production.up.railway.app",  # <--- URL Dominio Backend/Frontend Railway
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,  # Necesario para que viajen las cookies de sesión
     allow_methods=["*"],
     allow_headers=["*"],
