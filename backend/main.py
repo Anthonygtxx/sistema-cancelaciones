@@ -64,7 +64,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,  # Necesario para que viajen las cookies de sesión
     allow_methods=["*"],
     allow_headers=["*"],
