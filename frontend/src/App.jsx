@@ -1199,7 +1199,6 @@ export default function App() {
                       <option value="2">Semana 2</option>
                       <option value="3">Semana 3</option>
                       <option value="4">Semana 4</option>
-                      <option value="5">Semana 5</option>
                     </select>
                   )}
 
