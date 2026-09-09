@@ -5,7 +5,7 @@ import {
   Search, FileArchive, FolderPlus, Lock, Unlock, KeyRound, 
   LogOut, User, Loader2, ChevronDown, ChevronUp, Users, Settings, 
   Plus, Trash2, Edit, Save, FileCode, Check, Calendar, Clock, DollarSign,
-  Sun, Moon
+  Sun, Moon, ArrowUpDown, Filter
 } from 'lucide-react';
 
 // Configuración producción / Railway
@@ -63,16 +63,18 @@ export default function App() {
   const [batchResults, setBatchResults] = useState([]);
   const [openAccordion, setOpenAccordion] = useState({});
 
-  // ESTADOS - Historial
+  // ESTADOS - Historial & Filtros
   const [historial, setHistorial] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterPeriod, setFilterPeriod] = useState('all'); // 'all', 'day', 'week', 'month'
+  const [sortAscending, setSortAscending] = useState(true);
 
-  // ESTADOS - Panel de Administración de Usuarios
+  // ESTADOS - Panel de Administración
   const [usuariosLista, setUsuariosLista] = useState([]);
   const [nuevoUsuario, setNuevoUsuario] = useState({ username: '', password: '', role: 'operador', es_admin: false });
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
 
-  // ESTADOS - Panel de Plantillas / Configuración Notarial
+  // ESTADOS - Plantillas
   const [plantillas, setPlantillas] = useState([]);
   const [archivoPlantilla, setArchivoPlantilla] = useState(null);
 
@@ -151,7 +153,7 @@ export default function App() {
       const res = await api.get('/expedientes', {
         params: { usuario: currentUser.username }
       });
-      setHistorial(res.data);
+      setHistorial(res.data || []);
     } catch (err) {
       console.error('Error al cargar historial:', err);
     }
@@ -161,7 +163,7 @@ export default function App() {
     setLoadingUsuarios(true);
     try {
       const res = await api.get('/admin/usuarios');
-      setUsuariosLista(res.data);
+      setUsuariosLista(res.data || []);
     } catch (err) {
       console.error('Error al cargar usuarios:', err);
     } finally {
@@ -475,12 +477,39 @@ export default function App() {
 
   const esAdmin = currentUser?.es_admin || currentUser?.role === 'admin';
 
-  const filteredHistorial = historial.filter((item) => {
-    const query = searchQuery.toLowerCase();
-    const acreditado = (item.datos_extraidos?.acreditado || item.datos_extraidos?.nombre_acreditado || '').toLowerCase();
-    const numCredito = (item.datos_extraidos?.numero_credito || item.numero_credito || '').toLowerCase();
-    return acreditado.includes(query) || numCredito.includes(query);
-  });
+  // --- CÁLCULO DE CONTEO Y FILTRADO HISTORIAL ---
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const countDay = historial.filter((item) => new Date(item.created_at || item.fecha || Date.now()) >= startOfDay).length;
+  const countWeek = historial.filter((item) => new Date(item.created_at || item.fecha || Date.now()) >= startOfWeek).length;
+  const countMonth = historial.filter((item) => new Date(item.created_at || item.fecha || Date.now()) >= startOfMonth).length;
+
+  const filteredHistorial = historial
+    .filter((item) => {
+      const query = searchQuery.toLowerCase();
+      const acreditado = (item.datos_extraidos?.acreditado || item.datos_extraidos?.nombre_acreditado || '').toLowerCase();
+      const numCredito = (item.datos_extraidos?.numero_credito || item.numero_credito || '').toLowerCase();
+      const matchesQuery = acreditado.includes(query) || numCredito.includes(query);
+
+      const itemDate = new Date(item.created_at || item.fecha || Date.now());
+      let matchesPeriod = true;
+
+      if (filterPeriod === 'day') matchesPeriod = itemDate >= startOfDay;
+      if (filterPeriod === 'week') matchesPeriod = itemDate >= startOfWeek;
+      if (filterPeriod === 'month') matchesPeriod = itemDate >= startOfMonth;
+
+      return matchesQuery && matchesPeriod;
+    })
+    .sort((a, b) => {
+      const nameA = (a.datos_extraidos?.acreditado || a.datos_extraidos?.nombre_acreditado || '').toLowerCase();
+      const nameB = (b.datos_extraidos?.acreditado || b.datos_extraidos?.nombre_acreditado || '').toLowerCase();
+      return sortAscending ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    });
 
   // Estilos temáticos de alto contraste
   const theme = {
@@ -503,7 +532,7 @@ export default function App() {
       color: theme.textPrimary,
       minHeight: '100vh',
       margin: 0,
-      padding: 0,
+      padding: '24px 16px',
       boxSizing: 'border-box',
       transition: 'background-color 0.2s, color 0.2s'
     }}>
@@ -611,7 +640,7 @@ export default function App() {
           </div>
         </div>
       ) : (
-        <div className="fade-in" style={{ width: '100%', padding: '24px 32px', boxSizing: 'border-box' }}>
+        <div className="fade-in" style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
           
           {/* Encabezado Principal */}
           <header style={{ borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -797,24 +826,24 @@ export default function App() {
               {singleFiles.length > 0 && (
                 <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
                   <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: theme.textPrimary }}>Archivos seleccionados:</h4>
-                  <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px', color: theme.textSecondary, fontSize: '13px' }}>
-                    {singleFiles.map((file, idx) => (
-                      <li key={idx} style={{ marginBottom: '4px' }}>{file.name}</li>
+                  <ul style={{ margin: '0 0 16px 0', paddingLeft: '20px', color: theme.textSecondary, fontSize: '14px' }}>
+                    {singleFiles.map((f, i) => (
+                      <li key={i}>{f.name}</li>
                     ))}
                   </ul>
-
+                  
                   {loading ? (
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: theme.textSecondary }}>
-                        <span>Procesando archivo con IA...</span>
-                        <span>{progressSingle}%</span>
+                      <div style={{ height: '8px', backgroundColor: theme.subtleBg, borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
+                        <div style={{ width: `${progressSingle}%`, height: '100%', backgroundColor: theme.accent, transition: 'width 0.2s' }} />
                       </div>
-                      <div style={{ width: '100%', height: '8px', backgroundColor: theme.subtleBg, borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: `${progressSingle}%`, height: '100%', backgroundColor: theme.accent, transition: 'width 0.2s' }}></div>
-                      </div>
+                      <span style={{ fontSize: '12px', color: theme.textSecondary }}>Procesando... {progressSingle}%</span>
                     </div>
                   ) : (
-                    <button onClick={handleUploadSingle} style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }}>
+                    <button
+                      onClick={handleUploadSingle}
+                      style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
+                    >
                       Procesar Archivo
                     </button>
                   )}
@@ -822,38 +851,41 @@ export default function App() {
               )}
 
               {datos && (
-                <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '16px', padding: '24px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: theme.textPrimary }}>Datos Extraídos del Expediente</h3>
-                    <button onClick={() => handleDownloadWord(expedienteId, datos)} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }}>
+                <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '24px', marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Datos Extraídos del Expediente</h3>
+                    <button
+                      onClick={() => handleDownloadWord(expedienteId, datos)}
+                      style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
                       <Download size={16} /> Descargar Cancelación (.docx)
                     </button>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-                    {Object.entries(datos).map(([key, val]) => {
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                    {Object.keys(datos).map((key) => {
                       const isUnlocked = unlockedFields[key];
                       return (
-                        <div key={key} style={{ backgroundColor: theme.subtleBg, padding: '12px 16px', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
+                        <div key={key} style={{ backgroundColor: theme.subtleBg, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase' }}>
-                              {formatLabel(key)}
-                            </label>
-                            <button onClick={() => handleRequestUnlock(key)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: isUnlocked ? '#10b981' : theme.textSecondary }}>
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: theme.textSecondary }}>{formatLabel(key)}</label>
+                            <button
+                              onClick={() => handleRequestUnlock(key)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: isUnlocked ? '#10b981' : theme.textSecondary }}
+                            >
                               {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
                             </button>
                           </div>
                           <input
                             type="text"
-                            value={val || ''}
                             disabled={!isUnlocked}
+                            value={datos[key] || ''}
                             onChange={(e) => handleInputChange(key, e.target.value)}
                             style={{
                               width: '100%',
-                              padding: '8px 10px',
-                              border: `1px solid ${isUnlocked ? theme.accent : theme.border}`,
+                              padding: '8px',
                               borderRadius: '6px',
-                              fontSize: '14px',
+                              border: `1px solid ${theme.border}`,
                               backgroundColor: isUnlocked ? theme.inputBg : 'transparent',
                               color: theme.textPrimary,
                               boxSizing: 'border-box'
@@ -885,251 +917,379 @@ export default function App() {
               >
                 <FolderPlus size={40} color={theme.accent} style={{ margin: '0 auto 12px auto', display: 'block' }} />
                 <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: '700', color: theme.textPrimary }}>
-                  Carga Masiva de Expedientes
+                  Arrastra carpetas o múltiples archivos PDF aquí
                 </h3>
-                <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: theme.textSecondary }}>
-                  Arrastra carpetas o múltiples archivos PDF
-                </p>
-                <label style={{ display: 'inline-block', backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', color: theme.textPrimary }}>
-                  Seleccionar Carpeta / Archivos
+                <label style={{ display: 'inline-block', marginTop: '12px', backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}>
+                  Seleccionar Lote de Archivos
                   <input type="file" multiple accept=".pdf" onChange={handleBatchFileChange} style={{ display: 'none' }} />
                 </label>
               </div>
 
               {batchFiles.length > 0 && (
                 <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
-                  <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700', color: theme.textPrimary }}>Lote listo para procesar: {batchFiles.length} archivos</h4>
-                  
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '700' }}>Archivos a procesar ({batchFiles.length}):</h4>
                   {batchLoading ? (
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: theme.textSecondary }}>
-                        <span>Procesando lote de archivos...</span>
-                        <span>{progressBatch}%</span>
+                      <div style={{ height: '8px', backgroundColor: theme.subtleBg, borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
+                        <div style={{ width: `${progressBatch}%`, height: '100%', backgroundColor: theme.accent, transition: 'width 0.2s' }} />
                       </div>
-                      <div style={{ width: '100%', height: '8px', backgroundColor: theme.subtleBg, borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ width: `${progressBatch}%`, height: '100%', backgroundColor: theme.accent, transition: 'width 0.2s' }}></div>
-                      </div>
+                      <span style={{ fontSize: '12px', color: theme.textSecondary }}>Procesando Lote... {progressBatch}%</span>
                     </div>
                   ) : (
-                    <button onClick={handleUploadBatch} style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }}>
-                      Iniciar Procesamiento Masivo
+                    <button
+                      onClick={handleUploadBatch}
+                      style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      Procesar Lote Completo
                     </button>
                   )}
                 </div>
               )}
 
               {batchResults.length > 0 && (
-                <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '16px', padding: '24px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: theme.textPrimary }}>Resultados del Procesamiento</h3>
-                    <button onClick={handleDownloadZip} style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }}>
-                      <FileArchive size={16} /> Descargar Todos (.ZIP)
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Resultados del Lote</h3>
+                    <button
+                      onClick={handleDownloadZip}
+                      style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                      <Download size={16} /> Descargar Todos (.ZIP)
                     </button>
                   </div>
 
-                  {batchResults.map((resItem, idx) => {
-                    const isOpen = openAccordion[idx];
-                    return (
-                      <div key={idx} style={{ border: `1px solid ${theme.border}`, borderRadius: '10px', marginBottom: '12px', overflow: 'hidden' }}>
-                        <div 
-                          onClick={() => toggleAccordion(idx)} 
-                          style={{ backgroundColor: theme.subtleBg, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                        >
-                          <span style={{ fontWeight: '600', fontSize: '14px', color: theme.textPrimary }}>
-                            {resItem.datos_extraidos?.acreditado ? `Expediente: ${resItem.datos_extraidos.acreditado}` : `Expediente #${idx + 1}`}
-                          </span>
-                          {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </div>
+                  {batchResults.map((resItem, idx) => (
+                    <div key={idx} style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', marginBottom: '12px', overflow: 'hidden' }}>
+                      <div 
+                        onClick={() => toggleAccordion(idx)}
+                        style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', backgroundColor: theme.subtleBg }}
+                      >
+                        <span style={{ fontWeight: '600', fontSize: '15px' }}>
+                          {resItem.datos_extraidos?.acreditado || `Expediente ${idx + 1}`}
+                        </span>
+                        {openAccordion[idx] ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                      </div>
 
-                        {isOpen && (
-                          <div style={{ padding: '18px', backgroundColor: theme.cardBg }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-                              {Object.entries(resItem.datos_extraidos || {}).map(([bKey, bVal]) => (
-                                <div key={bKey} style={{ backgroundColor: theme.subtleBg, padding: '10px 14px', borderRadius: '8px' }}>
-                                  <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase', marginBottom: '4px' }}>
-                                    {formatLabel(bKey)}
-                                  </label>
+                      {openAccordion[idx] && (
+                        <div style={{ padding: '20px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                            {Object.keys(resItem.datos_extraidos || {}).map((key) => {
+                              const fieldKey = `${idx}_${key}`;
+                              const isUnlocked = unlockedFields[fieldKey];
+                              return (
+                                <div key={key} style={{ backgroundColor: theme.subtleBg, padding: '12px', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                    <label style={{ fontSize: '12px', fontWeight: '600', color: theme.textSecondary }}>{formatLabel(key)}</label>
+                                    <button
+                                      onClick={() => handleRequestUnlock(fieldKey)}
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: isUnlocked ? '#10b981' : theme.textSecondary }}
+                                    >
+                                      {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
+                                    </button>
+                                  </div>
                                   <input
                                     type="text"
-                                    value={bVal || ''}
-                                    onChange={(e) => handleBatchInputChange(idx, bKey, e.target.value)}
-                                    style={{ width: '100%', border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '6px', fontSize: '13px', backgroundColor: theme.inputBg, color: theme.textPrimary, boxSizing: 'border-box' }}
+                                    disabled={!isUnlocked}
+                                    value={resItem.datos_extraidos[key] || ''}
+                                    onChange={(e) => handleBatchInputChange(idx, key, e.target.value)}
+                                    style={{
+                                      width: '100%',
+                                      padding: '8px',
+                                      borderRadius: '6px',
+                                      border: `1px solid ${theme.border}`,
+                                      backgroundColor: isUnlocked ? theme.inputBg : 'transparent',
+                                      color: theme.textPrimary,
+                                      boxSizing: 'border-box'
+                                    }}
                                   />
                                 </div>
-                              ))}
-                            </div>
-                            <button onClick={() => handleDownloadWord(resItem.expediente_id, resItem.datos_extraidos)} style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>
-                              Descargar Word
-                            </button>
+                              );
+                            })}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           )}
 
-          {/* TAB 3: HISTORIAL */}
+          {/* TAB 3: HISTORIAL CON FILTROS Y MÉTRICAS */}
           {activeTab === 'history' && (
-            <div className="fade-in" style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '16px', padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: theme.textPrimary }}>Historial de Expedientes</h3>
-                <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${theme.border}`, borderRadius: '10px', padding: '0 12px', backgroundColor: theme.inputBg }}>
-                  <Search size={16} color={theme.textSecondary} />
-                  <input
-                    type="text"
-                    placeholder="Buscar por acreditado o crédito..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ border: 'none', padding: '8px 10px', fontSize: '13px', backgroundColor: 'transparent', color: theme.textPrimary, outline: 'none' }}
-                  />
+            <div className="fade-in">
+              {/* Tarjetas de Métricas de Archivos Generados */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, padding: '20px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ backgroundColor: '#eff6ff', padding: '12px', borderRadius: '10px', color: theme.accent }}>
+                    <Calendar size={24} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', color: theme.textSecondary, fontWeight: '600' }}>Archivos Hoy</div>
+                    <div style={{ fontSize: '22px', fontWeight: '800', color: theme.textPrimary }}>{countDay}</div>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, padding: '20px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '10px', color: '#10b981' }}>
+                    <Calendar size={24} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', color: theme.textSecondary, fontWeight: '600' }}>Esta Semana</div>
+                    <div style={{ fontSize: '22px', fontWeight: '800', color: theme.textPrimary }}>{countWeek}</div>
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, padding: '20px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ backgroundColor: '#fef3c7', padding: '12px', borderRadius: '10px', color: '#d97706' }}>
+                    <Calendar size={24} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', color: theme.textSecondary, fontWeight: '600' }}>Este Mes</div>
+                    <div style={{ fontSize: '22px', fontWeight: '800', color: theme.textPrimary }}>{countMonth}</div>
+                  </div>
                 </div>
               </div>
 
-              {filteredHistorial.length === 0 ? (
-                <p style={{ color: theme.textSecondary, fontSize: '14px', textAlign: 'center', padding: '40px 0' }}>No se encontraron expedientes registrados.</p>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ borderBottom: `2px solid ${theme.border}`, color: theme.textSecondary }}>
-                        <th style={{ padding: '12px' }}>Acreditado</th>
-                        <th style={{ padding: '12px' }}>No. Crédito</th>
-                        <th style={{ padding: '12px' }}>Fecha</th>
-                        <th style={{ padding: '12px', textAlign: 'right' }}>Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredHistorial.map((item, index) => (
-                        <tr key={index} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                          <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '600' }}>
-                            {item.datos_extraidos?.acreditado || item.datos_extraidos?.nombre_acreditado || 'N/D'}
-                          </td>
-                          <td style={{ padding: '12px', color: theme.textSecondary }}>
-                            {item.datos_extraidos?.numero_credito || item.numero_credito || 'N/D'}
-                          </td>
-                          <td style={{ padding: '12px', color: theme.textSecondary }}>
-                            {item.fecha_creacion ? new Date(item.fecha_creacion).toLocaleDateString() : 'N/D'}
-                          </td>
-                          <td style={{ padding: '12px', textAlign: 'right' }}>
-                            <button onClick={() => handleDownloadWord(item.id || item.expediente_id, item.datos_extraidos)} style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, color: theme.textPrimary, padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                              Descargar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB 4: USUARIOS (ADMIN) */}
-          {activeTab === 'users' && esAdmin && (
-            <div className="fade-in" style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '16px', padding: '24px' }}>
-              <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: '700', color: theme.textPrimary }}>Administración de Usuarios</h3>
-
-              <form onSubmit={handleCrearUsuario} style={{ display: 'flex', gap: '12px', marginBottom: '28px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: theme.textSecondary, marginBottom: '4px' }}>Usuario</label>
+              {/* Barra de Controles: Búsqueda, Filtros de Período y Ordenamiento */}
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${theme.border}`, borderRadius: '10px', padding: '0 12px', backgroundColor: theme.inputBg, minWidth: '280px', flex: 1 }}>
+                  <Search size={18} color={theme.textSecondary} />
                   <input
                     type="text"
-                    value={nuevoUsuario.username}
-                    onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, username: e.target.value })}
-                    required
-                    style={{ border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '8px 12px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textPrimary }}
+                    placeholder="Buscar por acreditado o nº de crédito..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ width: '100%', padding: '10px', border: 'none', outline: 'none', backgroundColor: 'transparent', color: theme.textPrimary, fontSize: '14px' }}
                   />
                 </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: theme.textSecondary, marginBottom: '4px' }}>Contraseña</label>
-                  <input
-                    type="password"
-                    value={nuevoUsuario.password}
-                    onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })}
-                    required
-                    style={{ border: `1px solid ${theme.border}`, borderRadius: '8px', padding: '8px 12px', fontSize: '14px', backgroundColor: theme.inputBg, color: theme.textPrimary }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingBottom: '10px' }}>
-                  <input
-                    type="checkbox"
-                    id="es_admin"
-                    checked={nuevoUsuario.es_admin}
-                    onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, es_admin: e.target.checked })}
-                  />
-                  <label htmlFor="es_admin" style={{ fontSize: '13px', color: theme.textPrimary, fontWeight: '600', cursor: 'pointer' }}>¿Es Admin?</label>
-                </div>
-                <button type="submit" style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '9px 18px', borderRadius: '8px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }}>
-                  Crear Usuario
-                </button>
-              </form>
 
-              {loadingUsuarios ? (
-                <p style={{ color: theme.textSecondary }}>Cargando usuarios...</p>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
-                    <thead>
-                      <tr style={{ borderBottom: `2px solid ${theme.border}`, color: theme.textSecondary }}>
-                        <th style={{ padding: '12px' }}>Usuario</th>
-                        <th style={{ padding: '12px' }}>Rol</th>
-                        <th style={{ padding: '12px', textAlign: 'right' }}>Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {usuariosLista.map((u) => (
-                        <tr key={u.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                          <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '600' }}>{u.username}</td>
-                          <td style={{ padding: '12px', color: theme.textSecondary }}>{u.es_admin || u.role === 'admin' ? 'Administrador' : 'Operador'}</td>
-                          <td style={{ padding: '12px', textAlign: 'right' }}>
-                            <button onClick={() => handleEliminarUsuario(u.id)} style={{ backgroundColor: '#fee2e2', border: 'none', color: '#dc2626', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                              Eliminar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', backgroundColor: theme.subtleBg, padding: '4px', borderRadius: '10px', border: `1px solid ${theme.border}` }}>
+                    <button
+                      onClick={() => setFilterPeriod('all')}
+                      style={{ padding: '6px 12px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', backgroundColor: filterPeriod === 'all' ? theme.accent : 'transparent', color: filterPeriod === 'all' ? '#fff' : theme.textSecondary }}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      onClick={() => setFilterPeriod('day')}
+                      style={{ padding: '6px 12px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', backgroundColor: filterPeriod === 'day' ? theme.accent : 'transparent', color: filterPeriod === 'day' ? '#fff' : theme.textSecondary }}
+                    >
+                      Hoy
+                    </button>
+                    <button
+                      onClick={() => setFilterPeriod('week')}
+                      style={{ padding: '6px 12px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', backgroundColor: filterPeriod === 'week' ? theme.accent : 'transparent', color: filterPeriod === 'week' ? '#fff' : theme.textSecondary }}
+                    >
+                      Semana
+                    </button>
+                    <button
+                      onClick={() => setFilterPeriod('month')}
+                      style={{ padding: '6px 12px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', backgroundColor: filterPeriod === 'month' ? theme.accent : 'transparent', color: filterPeriod === 'month' ? '#fff' : theme.textSecondary }}
+                    >
+                      Mes
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setSortAscending(!sortAscending)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: theme.textPrimary }}
+                  >
+                    <ArrowUpDown size={14} />
+                    {sortAscending ? 'A-Z' : 'Z-A'}
+                  </button>
                 </div>
-              )}
+              </div>
+
+              {/* Tabla de Historial */}
+              <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: theme.subtleBg, borderBottom: `1px solid ${theme.border}` }}>
+                      <th style={{ padding: '14px 16px', color: theme.textSecondary, fontWeight: '600' }}>Acreditado</th>
+                      <th style={{ padding: '14px 16px', color: theme.textSecondary, fontWeight: '600' }}>Nº Crédito</th>
+                      <th style={{ padding: '14px 16px', color: theme.textSecondary, fontWeight: '600' }}>Fecha</th>
+                      <th style={{ padding: '14px 16px', color: theme.textSecondary, fontWeight: '600' }}>Hora</th>
+                      <th style={{ padding: '14px 16px', color: theme.textSecondary, fontWeight: '600', textAlign: 'right' }}>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHistorial.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" style={{ padding: '32px', textAlign: 'center', color: theme.textSecondary }}>
+                          No se encontraron expedientes en el historial.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredHistorial.map((item, idx) => {
+                        const dateObj = new Date(item.created_at || item.fecha || Date.now());
+                        const fechaFormat = dateObj.toLocaleDateString();
+                        const horaFormat = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                        return (
+                          <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                            <td style={{ padding: '14px 16px', fontWeight: '600' }}>
+                              {item.datos_extraidos?.acreditado || item.datos_extraidos?.nombre_acreditado || 'N/A'}
+                            </td>
+                            <td style={{ padding: '14px 16px', color: theme.textSecondary }}>
+                              {item.datos_extraidos?.numero_credito || item.numero_credito || 'N/A'}
+                            </td>
+                            <td style={{ padding: '14px 16px', color: theme.textSecondary }}>{fechaFormat}</td>
+                            <td style={{ padding: '14px 16px', color: theme.textSecondary }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <Clock size={14} /> {horaFormat}
+                              </span>
+                            </td>
+                            <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                              <button
+                                onClick={() => handleDownloadWord(item.id || item.expediente_id, item.datos_extraidos)}
+                                style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, color: theme.textPrimary, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}
+                              >
+                                Descargar (.docx)
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
-          {/* TAB 5: CONFIGURACIÓN NOTARIAL (ADMIN) */}
-          {activeTab === 'templates' && esAdmin && (
-            <div className="fade-in" style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '16px', padding: '24px' }}>
-              <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: '700', color: theme.textPrimary }}>Configuración Notarial / Plantillas</h3>
+          {/* TAB 4: USUARIOS */}
+          {activeTab === 'users' && esAdmin && (
+            <div className="fade-in">
+              <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '24px', marginBottom: '24px' }}>
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700' }}>Crear Nuevo Usuario</h3>
+                <form onSubmit={handleCrearUsuario} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', alignItems: 'end' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Nombre de Usuario</label>
+                    <input
+                      type="text"
+                      required
+                      value={nuevoUsuario.username}
+                      onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, username: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg, color: theme.textPrimary, boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Contraseña</label>
+                    <input
+                      type="password"
+                      required
+                      value={nuevoUsuario.password}
+                      onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg, color: theme.textPrimary, boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingBottom: '10px' }}>
+                    <input
+                      type="checkbox"
+                      id="es_admin"
+                      checked={nuevoUsuario.es_admin}
+                      onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, es_admin: e.target.checked })}
+                    />
+                    <label htmlFor="es_admin" style={{ fontSize: '14px', fontWeight: '600' }}>¿Es Administrador?</label>
+                  </div>
+                  <button type="submit" style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                    Guardar Usuario
+                  </button>
+                </form>
+              </div>
 
-              <form onSubmit={handleSubirPlantilla} style={{ marginBottom: '28px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '8px' }}>
-                  Subir o reemplazar plantilla de Word (.docx):
-                </label>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: theme.subtleBg, borderBottom: `1px solid ${theme.border}` }}>
+                      <th style={{ padding: '14px 16px', color: theme.textSecondary }}>Usuario</th>
+                      <th style={{ padding: '14px 16px', color: theme.textSecondary }}>Rol</th>
+                      <th style={{ padding: '14px 16px', color: theme.textSecondary, textAlign: 'right' }}>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuariosLista.map((u) => (
+                      <tr key={u.id || u.username} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                        <td style={{ padding: '14px 16px', fontWeight: '600' }}>{u.username}</td>
+                        <td style={{ padding: '14px 16px' }}>{u.es_admin || u.role === 'admin' ? 'Administrador' : 'Operador'}</td>
+                        <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                          <button
+                            onClick={() => handleEliminarUsuario(u.id)}
+                            style={{ backgroundColor: '#fef2f2', border: '1px solid #fecdd3', color: '#dc2626', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: CONFIGURACIÓN NOTARIAL / PLANTILLAS */}
+          {activeTab === 'templates' && esAdmin && (
+            <div className="fade-in">
+              <div style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '12px', padding: '24px' }}>
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700' }}>Subir Nueva Plantilla de Cancelación (.docx)</h3>
+                <form onSubmit={handleSubirPlantilla} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                   <input
                     type="file"
                     accept=".docx"
-                    onChange={(e) => setArchivoPlantilla(e.target.files[0] || null)}
-                    style={{ fontSize: '14px', color: theme.textPrimary }}
+                    onChange={(e) => setArchivoPlantilla(e.target.files[0])}
+                    style={{ fontSize: '14px' }}
                   />
-                  <button type="submit" disabled={!archivoPlantilla} style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: '600', fontSize: '13px', cursor: archivoPlantilla ? 'pointer' : 'not-allowed', opacity: archivoPlantilla ? 1 : 0.6 }}>
+                  <button
+                    type="submit"
+                    disabled={!archivoPlantilla}
+                    style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', opacity: archivoPlantilla ? 1 : 0.5 }}
+                  >
                     Subir Plantilla
                   </button>
-                </div>
-              </form>
+                </form>
+              </div>
+            </div>
+          )}
 
-              <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: '700', color: theme.textPrimary }}>Plantillas Disponibles</h4>
-              {plantillas.length === 0 ? (
-                <p style={{ color: theme.textSecondary, fontSize: '14px' }}>No hay plantillas registradas actualmente.</p>
-              ) : (
-                <ul style={{ paddingLeft: '20px', color: theme.textPrimary, fontSize: '14px' }}>
-                  {plantillas.map((p, idx) => (
-                    <li key={idx} style={{ marginBottom: '6px' }}>{p.nombre || p.filename || `Plantilla ${idx + 1}`}</li>
-                  ))}
-                </ul>
-              )}
+          {/* MODAL CERRAR SESIÓN */}
+          {showLogoutModal && (
+            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+              <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '12px', maxWidth: '400px', width: '100%', border: `1px solid ${theme.border}` }}>
+                <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: '700' }}>Confirmar Salida</h3>
+                <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: theme.textSecondary }}>¿Estás seguro de que deseas cerrar sesión?</p>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setShowLogoutModal(false)} style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', color: theme.textPrimary }}>Cancelar</button>
+                  <button onClick={handleConfirmLogout} style={{ backgroundColor: '#dc2626', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>Cerrar Sesión</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL DESBLOQUEAR CAMPO */}
+          {passwordModalOpen && (
+            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+              <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '12px', maxWidth: '400px', width: '100%', border: `1px solid ${theme.border}` }}>
+                <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: '700' }}>Autorización Requerida</h3>
+                <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: theme.textSecondary }}>Ingresa tu contraseña para habilitar la edición de este campo:</p>
+                {authError && <div style={{ color: '#ef4444', fontSize: '12px', marginBottom: '12px' }}>{authError}</div>}
+                <form onSubmit={handleConfirmUnlock}>
+                  <input
+                    type="password"
+                    required
+                    value={inputPassword}
+                    onChange={(e) => setInputPassword(e.target.value)}
+                    placeholder="Contraseña..."
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg, color: theme.textPrimary, marginBottom: '20px', boxSizing: 'border-box' }}
+                  />
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                    <button type="button" onClick={() => setPasswordModalOpen(false)} style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', color: theme.textPrimary }}>Cancelar</button>
+                    <button type="submit" style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>Desbloquear</button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
 
