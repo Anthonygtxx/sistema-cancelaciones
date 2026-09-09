@@ -374,59 +374,77 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
 
     doc = Document(ruta_plantilla)
     
-    folio_limpio = str(datos.get("folio_real", ""))
-    if folio_limpio and folio_limpio != "NO_ENCONTRADO":
-        folio_limpio = limpiar_ceros_izquierda(folio_limpio)
+    # --- 1. PROCESAMIENTO DE FOLIO REAL ---
+    folio_raw = str(datos.get("folio_real", "")).strip()
+    if folio_raw and folio_raw != "NO_ENCONTRADO":
+        folio_limpio = limpiar_ceros_izquierda(folio_raw)
     else:
         folio_limpio = ""
 
-    credito_texto = datos.get("numero_credito_letras")
-    if not credito_texto or credito_texto == "NO_ENCONTRADO":
-        credito_raw = datos.get("numero_credito", "")
-        credito_texto = "" if credito_raw == "NO_ENCONTRADO" else credito_a_letras(credito_raw)
+    # --- 2. PROCESAMIENTO DE NÚMERO DE CRÉDITO ---
+    credito_raw = str(datos.get("numero_credito", "")).strip()
+    if credito_raw and credito_raw != "NO_ENCONTRADO":
+        # Si ya contiene texto en letras respetamos, si es solo número le aplicamos formato
+        if '"' in credito_raw or '(' in credito_raw:
+            credito_texto = credito_raw
+        else:
+            credito_texto = credito_a_letras(credito_raw)
+    else:
+        credito_texto = ""
 
-    monto_texto = datos.get("monto_credito_letras")
-    if not monto_texto or monto_texto == "NO_ENCONTRADO":
-        monto_raw = datos.get("monto_credito", "")
-        if monto_raw and monto_raw != "NO_ENCONTRADO":
+    # --- 3. PROCESAMIENTO DE MONTO DE CRÉDITO ---
+    monto_raw = str(datos.get("monto_credito", "")).strip()
+    if monto_raw and monto_raw != "NO_ENCONTRADO":
+        # Si la cadena ya viene con la representación en letras (modificación manual), la dejamos intacta
+        if "PESOS" in monto_raw.upper() or "M.N." in monto_raw.upper():
+            monto_texto = monto_raw
+        else:
+            # Si el usuario modificó solo la cifra numérica, formateamos y generamos las letras
             try:
-                num = float(str(monto_raw).replace('$', '').replace(',', '').strip())
+                num = float(monto_raw.replace('$', '').replace(',', '').strip())
                 monto_fmt = f"${num:,.2f}"
                 monto_texto = f"{monto_fmt} ({numero_a_letras(num)})"
             except Exception:
-                monto_texto = str(monto_raw)
-        else:
-            monto_texto = ""
+                monto_texto = monto_raw
+    else:
+        monto_texto = ""
+
+    # --- 4. MAPEO UNIFICADO DE REEMPLAZOS ---
+    # Se obtienen directamente los valores actualizados del diccionario datos
+    def obtener_valor(clave):
+        val = str(datos.get(clave, "")).strip()
+        return "" if val == "NO_ENCONTRADO" else val
 
     mapa_reemplazos = {
-        "{{ numero_carta }}": "" if datos.get("numero_carta") == "NO_ENCONTRADO" else str(datos.get("numero_carta", "")),
-        "{{numero_carta}}": "" if datos.get("numero_carta") == "NO_ENCONTRADO" else str(datos.get("numero_carta", "")),
+        "{{ numero_carta }}": obtener_valor("numero_carta"),
+        "{{numero_carta}}": obtener_valor("numero_carta"),
         
         "{{ numero_credito }}": credito_texto,
         "{{numero_credito}}": credito_texto,
 
-        "{{ nombre_acreditado }}": "" if datos.get("nombre_acreditado") == "NO_ENCONTRADO" else str(datos.get("nombre_acreditado", "")),
-        "{{nombre_acreditado}}": "" if datos.get("nombre_acreditado") == "NO_ENCONTRADO" else str(datos.get("nombre_acreditado", "")),
+        "{{ nombre_acreditado }}": obtener_valor("nombre_acreditado"),
+        "{{nombre_acreditado}}": obtener_valor("nombre_acreditado"),
 
         "{{ monto_credito }}": monto_texto,
         "{{monto_credito}}": monto_texto,
 
-        "{{ entidad_financiera }}": "" if datos.get("entidad_financiera") == "NO_ENCONTRADO" else str(datos.get("entidad_financiera", "")),
-        "{{entidad_financiera}}": "" if datos.get("entidad_financiera") == "NO_ENCONTRADO" else str(datos.get("entidad_financiera", "")),
+        "{{ entidad_financiera }}": obtener_valor("entidad_financiera"),
+        "{{entidad_financiera}}": obtener_valor("entidad_financiera"),
 
-        "{{ fecha_liquidacion }}": "" if datos.get("fecha_liquidacion") == "NO_ENCONTRADO" else str(datos.get("fecha_liquidacion", "")),
-        "{{fecha_liquidacion}}": "" if datos.get("fecha_liquidacion") == "NO_ENCONTRADO" else str(datos.get("fecha_liquidacion", "")),
+        "{{ fecha_liquidacion }}": obtener_valor("fecha_liquidacion"),
+        "{{fecha_liquidacion}}": obtener_valor("fecha_liquidacion"),
 
         "{{ folio_real }}": folio_limpio,
         "{{folio_real}}": folio_limpio,
 
-        "{{ oficina_registral }}": "" if datos.get("oficina_registral") == "NO_ENCONTRADO" else str(datos.get("oficina_registral", "")),
-        "{{oficina_registral}}": "" if datos.get("oficina_registral") == "NO_ENCONTRADO" else str(datos.get("oficina_registral", "")),
+        "{{ oficina_registral }}": obtener_valor("oficina_registral"),
+        "{{oficina_registral}}": obtener_valor("oficina_registral"),
 
-        "{{ datos_inmueble }}": "" if datos.get("datos_inmueble") == "NO_ENCONTRADO" else str(datos.get("datos_inmueble", "")),
-        "{{datos_inmueble}}": "" if datos.get("datos_inmueble") == "NO_ENCONTRADO" else str(datos.get("datos_inmueble", "")),
+        "{{ datos_inmueble }}": obtener_valor("datos_inmueble"),
+        "{{datos_inmueble}}": obtener_valor("datos_inmueble"),
     }
 
+    # --- 5. REEMPLAZO EN PÁRRAFOS Y TABLAS ---
     for p in doc.paragraphs:
         reemplazar_texto_en_parrafo(p, mapa_reemplazos)
 
@@ -439,7 +457,6 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
     os.makedirs(os.path.dirname(ruta_salida), exist_ok=True)
     doc.save(ruta_salida)
     return True
-
 
 # --- EJEMPLO DE USO / PROCESAMIENTO ---
 def procesar_cancelacion(ruta_pdf_entrada, ruta_salida_docx, carpeta_raiz="EJEMPLOS DE 20 MODELOS CH - INFONAVIT (IA)"):
