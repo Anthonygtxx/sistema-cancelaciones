@@ -206,46 +206,6 @@ export default function App() {
     }
   };
 
-//APLICAR CAMBIOS A LOS DATOS MODIFICADOS
-
-  const guardarYDescargarWord = async (expedienteId, datosModificados) => {
-  try {
-    const API_URL = "https://sistema-cancelaciones-production.up.railway.app"; // O tu URL local/producción
-
-    // Paso 1: Enviar cambios al nuevo endpoint de actualización
-    const resGuardar = await fetch(`${API_URL}/api/expedientes/${expedienteId}/actualizar`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(datosModificados)
-    });
-
-    if (!resGuardar.ok) throw new Error("Error al guardar los datos modificados.");
-
-    // Paso 2: Generar y descargar el archivo Word actualizado
-    const resWord = await fetch(`${API_URL}/api/expedientes/${expedienteId}/generar-word`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(datosModificados)
-    });
-
-    if (!resWord.ok) throw new Error("Error al generar el archivo Word.");
-
-    const blob = await resWord.blob();
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `Cancelacion_${datosModificados.numero_credito || expedienteId}.docx`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-
-    alert("¡Datos guardados y Word generado exitosamente!");
-  } catch (error) {
-    console.error("Error:", error);
-    alert("Ocurrió un error al procesar la solicitud.");
-  }
-};
-
   const handleSubirPlantilla = async (e) => {
     e.preventDefault();
     if (!archivoPlantilla) return;
@@ -915,13 +875,6 @@ export default function App() {
                     >
                       <Download size={14} /> Descargar Word
                     </button>
-                    <button 
-  onClick={() => guardarYDescargarWord(expedienteId, datosExtraidos)}
-  className="btn-guardar"
->
-  💾 Guardar Cambios y Descargar Word
-</button>
-                      
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '500px', overflowY: 'auto', paddingRight: '4px' }}>
@@ -1107,12 +1060,6 @@ export default function App() {
                               >
                                 <Download size={12} /> DOCX
                               </button>
-                                                            <button 
-  onClick={() => guardarYDescargarWord(expedienteId, datosExtraidos)}
-  className="btn-guardar"
->
-  💾 Guardar Cambios y Descargar Word
-</button>
                               {isOpen ? <ChevronUp size={18} color={theme.textSecondary} /> : <ChevronDown size={18} color={theme.textSecondary} />}
                             </div>
                           </div>
