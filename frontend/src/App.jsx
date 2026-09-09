@@ -915,6 +915,13 @@ export default function App() {
                     >
                       <Download size={14} /> Descargar Word
                     </button>
+                    <button 
+  onClick={() => guardarYDescargarWord(expedienteId, datosExtraidos)}
+  className="btn-guardar"
+>
+  💾 Guardar Cambios y Descargar Word
+</button>
+                      
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '500px', overflowY: 'auto', paddingRight: '4px' }}>
@@ -1100,6 +1107,12 @@ export default function App() {
                               >
                                 <Download size={12} /> DOCX
                               </button>
+                                                            <button 
+  onClick={() => guardarYDescargarWord(expedienteId, datosExtraidos)}
+  className="btn-guardar"
+>
+  💾 Guardar Cambios y Descargar Word
+</button>
                               {isOpen ? <ChevronUp size={18} color={theme.textSecondary} /> : <ChevronDown size={18} color={theme.textSecondary} />}
                             </div>
                           </div>
@@ -1300,13 +1313,12 @@ export default function App() {
                             <td style={{ padding: '12px', color: theme.textSecondary }}>{numCred}</td>
                             <td style={{ padding: '12px', color: theme.textSecondary }}>{fechaStr}</td>
                             <td style={{ padding: '12px', textAlign: 'right' }}>
-  
-                              <button 
-  onClick={() => guardarYDescargarWord(expediente.id, datosEditados)}
-  className="btn-guardar"
->
-  💾 Guardar Cambios y Descargar Word
-</button>
+                              <button
+                                onClick={() => handleDownloadWord(item.id || item.expediente_id, dExtra)}
+                                style={{ backgroundColor: theme.subtleBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              >
+                                <Download size={12} /> Descargar DOCX
+                              </button>
                             </td>
                           </tr>
                         );
