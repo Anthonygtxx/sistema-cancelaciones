@@ -291,7 +291,38 @@ def descargar_zip(expediente_ids: List[str] = Body(...), db: Session = Depends(g
     )
 
 
-# --- GENERACIÓN Y EDICIÓN DE WORD CORREGIDO ---
+# --- NUEVO ENDPOINT: GUARDAR / ACTUALIZAR DATOS EDITADOS ---
+@app.put("/api/expedientes/{expediente_id}/actualizar")
+def actualizar_datos_expediente(
+    expediente_id: str,
+    datos_actualizados: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    expediente = db.query(models.Expediente).filter(models.Expediente.id == expediente_id).first()
+    if not expediente:
+        raise HTTPException(status_code=404, detail="Expediente no encontrado")
+
+    # Mapeo y fusión de datos
+    datos_existentes = dict(expediente.datos_extraidos or {})
+    datos_existentes.update(datos_actualizados)
+
+    if "numero_credito" in datos_actualizados and datos_actualizados["numero_credito"]:
+        expediente.numero_credito = datos_actualizados["numero_credito"]
+
+    expediente.datos_extraidos = datos_existentes
+    flag_modified(expediente, "datos_extraidos")
+
+    db.commit()
+    db.refresh(expediente)
+
+    return {
+        "status": "exito",
+        "mensaje": "Datos actualizados correctamente en BD",
+        "datos_extraidos": expediente.datos_extraidos
+    }
+
+
+# --- GENERACIÓN DE WORD ---
 @app.post("/api/expedientes/{expediente_id}/generar-word")
 def generar_word(
     expediente_id: str, 
@@ -306,14 +337,12 @@ def generar_word(
     ruta_plantilla = "templates/plantilla_manera2.docx"
     os.makedirs("uploads/generados", exist_ok=True)
     
-    # 1. Recuperar los datos guardados originalmente
-    datos_actuales = dict(expediente.datos_extraidos) if expediente.datos_extraidos else {}
-    
-    # 2. Si vienen modificaciones del frontend, actualizar los campos
+    # 1. Usar datos guardados o combinarlos con los recibidos en el body
+    datos_actuales = dict(expediente.datos_extraidos or {})
     if datos_modificados:
         datos_actuales.update(datos_modificados)
     
-    # 3. Mapeo y equivalencias de claves
+    # 2. Mapeo explícito
     datos_plantilla = {
         "oficina_registral": datos_actuales.get("oficina_registral") or datos_actuales.get("oficina") or "",
         "numero_carta": datos_actuales.get("numero_carta") or datos_actuales.get("carta") or "",
@@ -328,18 +357,18 @@ def generar_word(
     
     datos_actuales.update(datos_plantilla)
     
-    # 4. Actualizar base de datos y marcar el campo JSONB como modificado
+    # 3. Guardar en base de datos
     expediente.datos_extraidos = datos_actuales
     num_credito = datos_actuales.get("numero_credito", expediente.numero_credito)
     expediente.numero_credito = num_credito
     flag_modified(expediente, "datos_extraidos")
 
-    # 5. Generar archivo Word
+    # 4. Generar archivo Word
     ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
     exito = services.generar_word_cancelacion(ruta_plantilla, datos_actuales, ruta_salida)
     
     if not exito:
-        raise HTTPException(status_code=500, detail="Error al reescribir los datos en la plantilla Word")
+        raise HTTPException(status_code=500, detail="Error al reescribir la plantilla Word")
     
     expediente.ruta_word_generado = ruta_salida
     db.commit()
@@ -352,7 +381,7 @@ def generar_word(
     )
 
 
-# --- ENDPOINTS DE ADMINISTRACIÓN (EXCLUSIVO ADMIN) ---
+# --- ENDPOINTS DE ADMINISTRACIÓN ---
 
 @app.get("/api/admin/usuarios")
 def obtener_usuarios(db: Session = Depends(get_db)):
