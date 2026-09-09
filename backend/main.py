@@ -7,6 +7,7 @@ from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Bod
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import create_engine
 
 import models, services
@@ -21,7 +22,6 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
-import auth  # O de donde importes hash_password
 
 @app.on_event("startup")
 def crear_usuario_admin_defecto():
@@ -55,14 +55,14 @@ origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://192.168.0.53:5173",
-    "https://sistema-cancelaciones.netlify.app",  # <-- Reemplaza por tu enlace real
-    "https://sistema-cancelaciones-production.up.railway.app",  # URL Dominio Backend/Frontend Railway
+    "https://sistema-cancelaciones.netlify.app",
+    "https://sistema-cancelaciones-production.up.railway.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,  # Necesario para cookies de sesión
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -291,6 +291,7 @@ def descargar_zip(expediente_ids: List[str] = Body(...), db: Session = Depends(g
     )
 
 
+# --- GENERACIÓN Y EDICIÓN DE WORD CORREGIDO ---
 @app.post("/api/expedientes/{expediente_id}/generar-word")
 def generar_word(
     expediente_id: str, 
@@ -305,16 +306,44 @@ def generar_word(
     ruta_plantilla = "templates/plantilla_manera2.docx"
     os.makedirs("uploads/generados", exist_ok=True)
     
-    datos_finales = datos_modificados if datos_modificados else expediente.datos_extraidos
-    expediente.datos_extraidos = datos_finales
-    num_credito = datos_finales.get("numero_credito", expediente.numero_credito)
-    expediente.numero_credito = num_credito
+    # 1. Recuperar los datos guardados originalmente
+    datos_actuales = dict(expediente.datos_extraidos) if expediente.datos_extraidos else {}
     
+    # 2. Si vienen modificaciones del frontend, actualizar los campos
+    if datos_modificados:
+        datos_actuales.update(datos_modificados)
+    
+    # 3. Mapeo y equivalencias de claves
+    datos_plantilla = {
+        "oficina_registral": datos_actuales.get("oficina_registral") or datos_actuales.get("oficina") or "",
+        "numero_carta": datos_actuales.get("numero_carta") or datos_actuales.get("carta") or "",
+        "monto_credito": datos_actuales.get("monto_credito") or datos_actuales.get("monto") or "",
+        "entidad_financiera": datos_actuales.get("entidad_financiera") or datos_actuales.get("banco") or "",
+        "numero_credito": datos_actuales.get("numero_credito") or expediente.numero_credito or "",
+        "nombre_acreditado": datos_actuales.get("nombre_acreditado") or datos_actuales.get("acreditado") or datos_actuales.get("cliente") or "",
+        "fecha_liquidacion": datos_actuales.get("fecha_liquidacion") or datos_actuales.get("fecha") or "",
+        "folio_real": datos_actuales.get("folio_real") or datos_actuales.get("antecedente") or "",
+        "datos_inmueble": datos_actuales.get("datos_inmueble") or datos_actuales.get("inmueble") or ""
+    }
+    
+    datos_actuales.update(datos_plantilla)
+    
+    # 4. Actualizar base de datos y marcar el campo JSONB como modificado
+    expediente.datos_extraidos = datos_actuales
+    num_credito = datos_actuales.get("numero_credito", expediente.numero_credito)
+    expediente.numero_credito = num_credito
+    flag_modified(expediente, "datos_extraidos")
+
+    # 5. Generar archivo Word
     ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
-    services.generar_word_cancelacion(ruta_plantilla, datos_finales, ruta_salida)
+    exito = services.generar_word_cancelacion(ruta_plantilla, datos_actuales, ruta_salida)
+    
+    if not exito:
+        raise HTTPException(status_code=500, detail="Error al reescribir los datos en la plantilla Word")
     
     expediente.ruta_word_generado = ruta_salida
     db.commit()
+    db.refresh(expediente)
     
     return FileResponse(
         path=ruta_salida,
