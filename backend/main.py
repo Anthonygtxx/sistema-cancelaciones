@@ -23,6 +23,25 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
 
+# --- FUNCIÓN DE LIMPIEZA Y FILTRADO DE CAMPOS REDUNDANTES ---
+def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallback: str = "") -> Dict[str, Any]:
+    """
+    Filtra y normaliza los datos extraídos para devolver ÚNICAMENTE
+    las 9 llaves oficiales requeridas por la plantilla Word.
+    """
+    return {
+        "oficina_registral": datos_origen.get("oficina_registral") or datos_origen.get("oficina") or "",
+        "numero_carta": datos_origen.get("numero_carta") or datos_origen.get("carta") or "",
+        "monto_credito": datos_origen.get("monto_credito") or datos_origen.get("monto") or "",
+        "entidad_financiera": datos_origen.get("entidad_financiera") or datos_origen.get("banco") or "",
+        "numero_credito": datos_origen.get("numero_credito") or num_credito_fallback or "",
+        "nombre_acreditado": datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or "",
+        "fecha_liquidacion": datos_origen.get("fecha_liquidacion") or datos_origen.get("fecha") or "",
+        "folio_real": datos_origen.get("folio_real") or datos_origen.get("antecedente") or "",
+        "datos_inmueble": datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""
+    }
+
+
 @app.on_event("startup")
 def crear_usuario_admin_defecto():
     db = SessionLocal()
@@ -94,15 +113,15 @@ def obtener_historial(
         
         resultado = []
         for exp in expedientes:
-            datos = exp.datos_extraidos or {}
+            datos_raw = exp.datos_extraidos or {}
+            # Garantizar que al consultar el historial también se limpie el objeto JSON devuelto
+            datos = limpiar_datos_para_plantilla(datos_raw, exp.numero_credito)
             
-            # Separar fecha y hora
             fecha_solo = exp.fecha_creacion.strftime("%d-%m-%Y") if exp.fecha_creacion else "N/A"
             hora_sola = exp.fecha_creacion.strftime("%H:%M") if exp.fecha_creacion else "N/A"
             
-            # Extraer variables con respaldos comunes
-            acreditado = datos.get("acreditado") or datos.get("nombre_acreditado") or datos.get("cliente") or "N/A"
-            monto = datos.get("monto") or datos.get("monto_credito") or datos.get("monto_total") or ""
+            acreditado = datos.get("nombre_acreditado") or "N/A"
+            monto = datos.get("monto_credito") or ""
 
             resultado.append({
                 "id": str(exp.id),
@@ -125,6 +144,7 @@ def obtener_historial(
         return resultado
     
     return []
+
 
 # --- PROCESAMIENTO INDIVIDUAL ---
 @app.post("/api/expedientes/procesar")
@@ -151,11 +171,14 @@ async def procesar_documento(
 
         datos_combinados = services.combinar_datos_pareja(datos_extraidos_lista)
         num_credito = datos_combinados.get("numero_credito", "SIN_CREDITO")
+        
+        # Filtrar campos redundantes antes de guardar
+        datos_limpios = limpiar_datos_para_plantilla(datos_combinados, num_credito)
 
         nuevo_expediente = models.Expediente(
             usuario_propietario=propietario_final,
             numero_credito=num_credito,
-            datos_extraidos=datos_combinados,
+            datos_extraidos=datos_limpios,
             ruta_pdf_constancia=";".join(rutas_guardadas)
         )
         db.add(nuevo_expediente)
@@ -166,14 +189,14 @@ async def procesar_documento(
             "status": "exito",
             "id": str(nuevo_expediente.id),
             "expediente_id": str(nuevo_expediente.id),
-            "datos_extraidos": datos_combinados
+            "datos_extraidos": datos_limpios
         }
     except Exception as e:
         print(f"ERROR EN /procesar: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- PROCESAMIENTO MASIVO CORREGIDO Y CON LOGS ---
+# --- PROCESAMIENTO MASIVO CORREGIDO ---
 @app.post("/api/expedientes/procesar-masivo")
 async def procesar_masivo(
     files: List[UploadFile] = File(...),
@@ -200,7 +223,6 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            # Extracción a través de services.py
             datos = services.extraer_datos_pdf(ruta_guardado)
             
             num_credito = datos.get("numero_credito")
@@ -216,23 +238,10 @@ async def procesar_masivo(
         resultados = []
         for num_credito, grupo in agrupados_por_credito.items():
             lista_datos = [item[1] for item in grupo]
-            datos_finales = services.combinar_datos_pareja(lista_datos)
-            datos_finales["numero_credito"] = num_credito
-
-            # Mapeo explícito para asegurar compatibilidad con la plantilla
-            datos_plantilla = {
-                "oficina_registral": datos_finales.get("oficina_registral") or datos_finales.get("oficina") or "",
-                "numero_carta": datos_finales.get("numero_carta") or datos_finales.get("carta") or "",
-                "monto_credito": datos_finales.get("monto_credito") or datos_finales.get("monto") or "",
-                "entidad_financiera": datos_finales.get("entidad_financiera") or datos_finales.get("banco") or "",
-                "numero_credito": num_credito,
-                "nombre_acreditado": datos_finales.get("nombre_acreditado") or datos_finales.get("acreditado") or datos_finales.get("cliente") or "",
-                "fecha_liquidacion": datos_finales.get("fecha_liquidacion") or datos_finales.get("fecha") or "",
-                "folio_real": datos_finales.get("folio_real") or datos_finales.get("antecedente") or "",
-                "datos_inmueble": datos_finales.get("datos_inmueble") or datos_finales.get("inmueble") or ""
-            }
-
-            datos_finales.update(datos_plantilla)
+            datos_raw = services.combinar_datos_pareja(lista_datos)
+            
+            # Limpiar llaves redundantes: SÓLO conservar el mapeo estructurado
+            datos_finales = limpiar_datos_para_plantilla(datos_raw, num_credito)
 
             print(f"\n--- Expediente Procesado: Crédito {num_credito} ---")
             print(f"  * Archivos consolidados: {len(grupo)}")
@@ -291,7 +300,7 @@ def descargar_zip(expediente_ids: List[str] = Body(...), db: Session = Depends(g
     )
 
 
-# --- NUEVO ENDPOINT: GUARDAR / ACTUALIZAR DATOS EDITADOS ---
+# --- GUARDAR / ACTUALIZAR DATOS EDITADOS ---
 @app.put("/api/expedientes/{expediente_id}/actualizar")
 def actualizar_datos_expediente(
     expediente_id: str,
@@ -302,14 +311,15 @@ def actualizar_datos_expediente(
     if not expediente:
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
 
-    # Mapeo y fusión de datos
     datos_existentes = dict(expediente.datos_extraidos or {})
     datos_existentes.update(datos_actualizados)
 
-    if "numero_credito" in datos_actualizados and datos_actualizados["numero_credito"]:
-        expediente.numero_credito = datos_actualizados["numero_credito"]
+    # Filtrar nuevamente para evitar que al actualizar entren llaves externas
+    num_credito = datos_actualizados.get("numero_credito") or expediente.numero_credito
+    datos_limpios = limpiar_datos_para_plantilla(datos_existentes, num_credito)
 
-    expediente.datos_extraidos = datos_existentes
+    expediente.numero_credito = num_credito
+    expediente.datos_extraidos = datos_limpios
     flag_modified(expediente, "datos_extraidos")
 
     db.commit()
@@ -337,35 +347,20 @@ def generar_word(
     ruta_plantilla = "templates/plantilla_manera2.docx"
     os.makedirs("uploads/generados", exist_ok=True)
     
-    # 1. Usar datos guardados o combinarlos con los recibidos en el body
     datos_actuales = dict(expediente.datos_extraidos or {})
     if datos_modificados:
         datos_actuales.update(datos_modificados)
     
-    # 2. Mapeo explícito
-    datos_plantilla = {
-        "oficina_registral": datos_actuales.get("oficina_registral") or datos_actuales.get("oficina") or "",
-        "numero_carta": datos_actuales.get("numero_carta") or datos_actuales.get("carta") or "",
-        "monto_credito": datos_actuales.get("monto_credito") or datos_actuales.get("monto") or "",
-        "entidad_financiera": datos_actuales.get("entidad_financiera") or datos_actuales.get("banco") or "",
-        "numero_credito": datos_actuales.get("numero_credito") or expediente.numero_credito or "",
-        "nombre_acreditado": datos_actuales.get("nombre_acreditado") or datos_actuales.get("acreditado") or datos_actuales.get("cliente") or "",
-        "fecha_liquidacion": datos_actuales.get("fecha_liquidacion") or datos_actuales.get("fecha") or "",
-        "folio_real": datos_actuales.get("folio_real") or datos_actuales.get("antecedente") or "",
-        "datos_inmueble": datos_actuales.get("datos_inmueble") or datos_actuales.get("inmueble") or ""
-    }
+    # Limpieza estricta del objeto JSON
+    num_credito = datos_actuales.get("numero_credito") or expediente.numero_credito
+    datos_finales = limpiar_datos_para_plantilla(datos_actuales, num_credito)
     
-    datos_actuales.update(datos_plantilla)
-    
-    # 3. Guardar en base de datos
-    expediente.datos_extraidos = datos_actuales
-    num_credito = datos_actuales.get("numero_credito", expediente.numero_credito)
+    expediente.datos_extraidos = datos_finales
     expediente.numero_credito = num_credito
     flag_modified(expediente, "datos_extraidos")
 
-    # 4. Generar archivo Word
     ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
-    exito = services.generar_word_cancelacion(ruta_plantilla, datos_actuales, ruta_salida)
+    exito = services.generar_word_cancelacion(ruta_plantilla, datos_finales, ruta_salida)
     
     if not exito:
         raise HTTPException(status_code=500, detail="Error al reescribir la plantilla Word")
