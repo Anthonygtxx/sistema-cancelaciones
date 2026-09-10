@@ -1277,7 +1277,7 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB: USUARIOS (SOLO ADMIN) */}
+{/* TAB: USUARIOS (SOLO ADMIN) */}
           {activeTab === 'users' && esAdmin && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
               {/* Formulario Crear Usuario */}
@@ -1345,21 +1345,29 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {usuariosLista.map((u) => (
-                        <tr key={u.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
-                          <td style={{ padding: '10px', fontWeight: '600', color: theme.textPrimary }}>{u.username}</td>
-                          <td style={{ padding: '10px', color: theme.textSecondary }}>{u.es_admin || u.role === 'admin' ? 'Administrador' : 'Operador'}</td>
-                          <td style={{ padding: '10px', textAlign: 'right' }}>
-                            <button
-                              onClick={() => handleEliminarUsuario(u.id)}
-                              style={{ backgroundColor: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', padding: '6px' }}
-                              title="Eliminar usuario"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {usuariosLista.map((u) => {
+                        const esUsuarioAdmin = u.es_admin || u.role === 'admin' || u.username === 'admin';
+                        return (
+                          <tr key={u.id} style={{ borderBottom: `1px solid ${theme.border}` }}>
+                            <td style={{ padding: '10px', fontWeight: '600', color: theme.textPrimary }}>{u.username}</td>
+                            <td style={{ padding: '10px', color: theme.textSecondary }}>{esUsuarioAdmin ? 'Administrador' : 'Operador'}</td>
+                            <td style={{ padding: '10px', textAlign: 'right' }}>
+                              {!esUsuarioAdmin ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleEliminarUsuario(e, u.id)}
+                                  style={{ backgroundColor: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', padding: '6px' }}
+                                  title="Eliminar usuario"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              ) : (
+                                <span style={{ fontSize: '11px', color: theme.textSecondary, fontStyle: 'italic' }}>Protegido</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
