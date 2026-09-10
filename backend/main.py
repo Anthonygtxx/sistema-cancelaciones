@@ -23,22 +23,37 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
 
-# --- FUNCIÓN DE LIMPIEZA Y FILTRADO DE CAMPOS REDUNDANTES ---
 def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallback: str = "") -> Dict[str, Any]:
     """
-    Filtra y normaliza los datos extraídos para devolver ÚNICAMENTE
-    las 9 llaves oficiales requeridas por la plantilla Word.
+    Suministra tanto las claves principales como los alias cortos que el Frontend
+    requiere para habilitar todos los campos de la interfaz.
     """
+    acreditado = datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or ""
+    monto = datos_origen.get("monto_credito") or datos_origen.get("monto") or ""
+    num_credito = datos_origen.get("numero_credito") or num_credito_fallback or ""
+    oficina = datos_origen.get("oficina_registral") or datos_origen.get("oficina") or ""
+    carta = datos_origen.get("numero_carta") or datos_origen.get("carta") or ""
+    entidad = datos_origen.get("entidad_financiera") or datos_origen.get("banco") or ""
+    fecha = datos_origen.get("fecha_liquidacion") or datos_origen.get("fecha") or ""
+    folio = datos_origen.get("folio_real") or datos_origen.get("antecedente") or ""
+    inmueble = datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""
+
     return {
-        "oficina_registral": datos_origen.get("oficina_registral") or datos_origen.get("oficina") or "",
-        "numero_carta": datos_origen.get("numero_carta") or datos_origen.get("carta") or "",
-        "monto_credito": datos_origen.get("monto_credito") or datos_origen.get("monto") or "",
-        "entidad_financiera": datos_origen.get("entidad_financiera") or datos_origen.get("banco") or "",
-        "numero_credito": datos_origen.get("numero_credito") or num_credito_fallback or "",
-        "nombre_acreditado": datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or "",
-        "fecha_liquidacion": datos_origen.get("fecha_liquidacion") or datos_origen.get("fecha") or "",
-        "folio_real": datos_origen.get("folio_real") or datos_origen.get("antecedente") or "",
-        "datos_inmueble": datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""
+        # Campos estándar / largos
+        "nombre_acreditado": acreditado,
+        "monto_credito": monto,
+        "numero_credito": num_credito,
+        "oficina_registral": oficina,
+        "numero_carta": carta,
+        "entidad_financiera": entidad,
+        "fecha_liquidacion": fecha,
+        "folio_real": folio,
+        "datos_inmueble": inmueble,
+
+        # Alias cortos requeridos por el Frontend para desbloquear inputs
+        "acreditado": acreditado,
+        "monto": monto,
+        "Numero Credito": num_credito
     }
 
 
