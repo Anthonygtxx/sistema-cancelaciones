@@ -293,13 +293,24 @@ def extraer_datos_pdf(ruta_pdf):
         if val.lower() not in ['sreales', 'real', 'registral', 'electronico', 'numero']:
             datos["folio_real"] = limpiar_ceros_izquierda(val)
 
-    # 6. NOMBRE DEL ACREDITADO
-    match_acreditado = re.search(r'(?:Acreditado\(a\)|Acreditado|Titular|Cliente|A\s+favor\s+de)[:\s]+([A-ZÁÉÍÓÚÑ\s]{6,60})(?=\s+(?:y/o|con|S\.A\.|RFC|CURP|Crédito|Fecha|\d))', texto_completo, re.IGNORECASE)
-    if not match_acreditado:
-        match_acreditado = re.search(r'(?:Acreditado|Titular)[:\s]*\n+([A-ZÁÉÍÓÚÑ\s]{6,60})', texto_completo, re.IGNORECASE)
-    if match_acreditado:
-        nombre = match_acreditado.group(1).strip()
-        datos["nombre_acreditado"] = " ".join(nombre.split())
+    # 6. NOMBRE DEL ACREDITADO (Optimizado para evitar textos de títulos o encabezados)
+    patrones_acreditado = [
+        r'(?:trabajador|acreditado|deudor)\s+((?:J\.\s*)?[A-ZÁÉÍÓÚÑ\s]{8,50}?)(?=\s+para|\s+gravando|\s+con|\s+cumpli|\s+ha|\.|\,)',
+        r'a\s+favor\s+del?\s+((?:J\.\s*)?[A-ZÁÉÍÓÚÑ\s]{8,50}?)(?=\s+para|\s+gravando|\s+con|\.|\,)',
+        r'(?:Acreditado\(a\)|Acreditado|Titular|Cliente)[:\s]+([A-ZÁÉÍÓÚÑ\s]{8,50})(?=\s+(?:y/o|con|S\.A\.|RFC|CURP|Crédito|Fecha|\d))',
+        r'(?:Acreditado|Titular)[:\s]*\n+([A-ZÁÉÍÓÚÑ\s]{8,50})'
+    ]
+
+    palabras_invalidas = ["TRAMITE", "LIBERACION", "CANCELACION", "INMUEBLE", "CREDITO", "INFONAVIT"]
+
+    for patron in patrones_acreditado:
+        coincidencia = re.search(patron, texto_completo, re.IGNORECASE)
+        if coincidencia:
+            nombre = coincidencia.group(1).strip()
+            nombre_limpio = " ".join(nombre.split())
+            if not any(palabra in nombre_limpio.upper() for palabra in palabras_invalidas) and len(nombre_limpio) > 5:
+                datos["nombre_acreditado"] = nombre_limpio
+                break
 
     # 7. FECHA DE LIQUIDACIÓN / PAGO
     match_fecha_pago = re.search(r'(?:saldo\s+deudor.*?:?|a\s+partir\s+de|liquidad[oa]\s+el|pagad[oa]\s+el|fecha\s+de\s+pago)[:\s]*(\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})', texto_completo, re.IGNORECASE)
@@ -410,7 +421,6 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         monto_texto = ""
 
     # --- 4. MAPEO UNIFICADO DE REEMPLAZOS ---
-    # Se obtienen directamente los valores actualizados del diccionario datos
     def obtener_valor(clave):
         val = str(datos.get(clave, "")).strip()
         return "" if val == "NO_ENCONTRADO" else val
