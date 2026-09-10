@@ -362,17 +362,15 @@ def combinar_datos_pareja(datos_lista):
 
 def reemplazar_texto_en_parrafo(parrafo, mapa_reemplazos):
     """
-    Reemplaza texto en un párrafo preservando el formato original (negritas, subrayado, etc.)
-    incluso si Word dividió la variable {{ ... }} en múltiples runs.
+    Reemplaza variables en un párrafo garantizando que el texto insertado
+    herede el estilo del run original pero removiendo subrayados/resaltados no deseados.
     """
     texto_parrafo = parrafo.text
     
-    # Comprobar si alguna llave de reemplazo está en el párrafo
-    hay_coincidencia = any(key in texto_parrafo for key in mapa_reemplazos.keys())
-    if not hay_coincidencia:
+    if not any(key in texto_parrafo for key in mapa_reemplazos.keys()):
         return
 
-    # Paso 1: Reconstruir el texto si la variable {{ ... }} quedó fragmentada en varios runs
+    # Paso 1: Unificar la variable {{ ... }} si Word la fragmentó en varios runs
     for key in mapa_reemplazos.keys():
         if key in parrafo.text and not any(key in r.text for r in parrafo.runs):
             for idx, run in enumerate(parrafo.runs):
@@ -380,15 +378,20 @@ def reemplazar_texto_en_parrafo(parrafo, mapa_reemplazos):
                     j = idx + 1
                     while j < len(parrafo.runs) and "}}" not in parrafo.runs[j-1].text:
                         run.text += parrafo.runs[j].text
-                        parrafo.runs[j].text = ""  # Vaciar los runs excedentes
+                        parrafo.runs[j].text = ""  # Vaciar runs excedentes
                         j += 1
 
-    # Paso 2: Reemplazar el texto manteniendo intactas las propiedades visuales del Run
+    # Paso 2: Reemplazar el texto y limpiar estilos indeseados del run
     for key, value in mapa_reemplazos.items():
         val_str = str(value)
         for run in parrafo.runs:
             if key in run.text:
+                # Reemplaza la etiqueta por el valor extraído
                 run.text = run.text.replace(key, val_str)
+                
+                # Quita el subrayado y resaltado si venía de la plantilla
+                run.font.underline = False
+                run.font.highlight_color = None
 
 
 def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
