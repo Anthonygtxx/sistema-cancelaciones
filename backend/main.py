@@ -23,10 +23,85 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
 
+def numero_a_letras(monto: Any) -> str:
+    """Convierte un valor numérico o texto a su representación formal en letras en MXN."""
+    if not monto:
+        return ""
+    try:
+        # Extraer solo dígitos y el punto decimal
+        monto_str = re.sub(r"[^\d.]", "", str(monto))
+        val = float(monto_str)
+        
+        enteros = int(val)
+        centavos = int(round((val - enteros) * 100))
+        
+        unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"]
+        decenas = ["", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"]
+        dieces = ["DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISEIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"]
+        centenas = ["", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS", "OCHOCIENTOS", "NOVECIENTOS"]
+
+        def _convertir_grupo(n: int) -> str:
+            if n == 0:
+                return ""
+            if n == 100:
+                return "CIEN"
+            
+            c = n // 100
+            d = (n % 100) // 10
+            u = n % 10
+            
+            res = []
+            if c > 0:
+                res.append(centenas[c])
+            
+            if d == 1:
+                res.append(dieces[u])
+            else:
+                if d == 2 and u > 0:
+                    res.append(f"VEINTI{unidades[u].lower()}".upper())
+                else:
+                    if d > 0:
+                        res.append(decenas[d])
+                    if u > 0:
+                        if d > 0:
+                            res.append("Y")
+                        res.append(unidades[u])
+            return " ".join(res)
+
+        if enteros == 0:
+            texto_enteros = "CERO PESOS"
+        else:
+            partes = []
+            millones = enteros // 1_000_000
+            miles = (enteros % 1_000_000) // 1_000
+            unidades_restantes = enteros % 1_000
+
+            if millones > 0:
+                if millones == 1:
+                    partes.append("UN MILLON")
+                else:
+                    partes.append(f"{_convertir_grupo(millones)} MILLONES")
+            
+            if miles > 0:
+                if miles == 1:
+                    partes.append("MIL")
+                else:
+                    partes.append(f"{_convertir_grupo(miles)} MIL")
+            
+            if unidades_restantes > 0:
+                partes.append(_convertir_grupo(unidades_restantes))
+            
+            texto_enteros = " ".join(partes) + " PESOS"
+
+        return f"{texto_enteros} {centavos:02d}/100 M.N."
+    except Exception:
+        return str(monto)
+
+
 def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallback: str = "") -> Dict[str, Any]:
     """
-    Suministra tanto las claves principales como los alias cortos que el Frontend
-    requiere para habilitar todos los campos de la interfaz.
+    Filtra y devuelve ÚNICAMENTE los 9 campos oficiales requeridos.
+    Elimina llaves duplicadas/cortas e incluye la conversión de monto a letras.
     """
     acreditado = datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or ""
     monto = datos_origen.get("monto_credito") or datos_origen.get("monto") or ""
@@ -38,22 +113,19 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
     folio = datos_origen.get("folio_real") or datos_origen.get("antecedente") or ""
     inmueble = datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""
 
+    monto_letras = numero_a_letras(monto)
+
     return {
-        # Campos estándar / largos
         "nombre_acreditado": acreditado,
         "monto_credito": monto,
+        "monto_letras": monto_letras,
         "numero_credito": num_credito,
         "oficina_registral": oficina,
         "numero_carta": carta,
         "entidad_financiera": entidad,
         "fecha_liquidacion": fecha,
         "folio_real": folio,
-        "datos_inmueble": inmueble,
-
-        # Alias cortos requeridos por el Frontend para desbloquear inputs
-        "acreditado": acreditado,
-        "monto": monto,
-        "Numero Credito": num_credito
+        "datos_inmueble": inmueble
     }
 
 
@@ -109,7 +181,7 @@ def home():
     return {"status": "OK", "mensaje": "Servidor backend conectado"}
 
 
-# --- HISTORIAL ADAPTADO CON CAMPOS EXPUESTOS ---
+# --- HISTORIAL ADAPTADO ---
 @app.get("/api/expedientes")
 def obtener_historial(
     usuario: Optional[str] = Query(None),
@@ -129,7 +201,6 @@ def obtener_historial(
         resultado = []
         for exp in expedientes:
             datos_raw = exp.datos_extraidos or {}
-            # Garantizar que al consultar el historial también se limpie el objeto JSON devuelto
             datos = limpiar_datos_para_plantilla(datos_raw, exp.numero_credito)
             
             fecha_solo = exp.fecha_creacion.strftime("%d-%m-%Y") if exp.fecha_creacion else "N/A"
@@ -187,7 +258,6 @@ async def procesar_documento(
         datos_combinados = services.combinar_datos_pareja(datos_extraidos_lista)
         num_credito = datos_combinados.get("numero_credito", "SIN_CREDITO")
         
-        # Filtrar campos redundantes antes de guardar
         datos_limpios = limpiar_datos_para_plantilla(datos_combinados, num_credito)
 
         nuevo_expediente = models.Expediente(
@@ -211,7 +281,7 @@ async def procesar_documento(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- PROCESAMIENTO MASIVO CORREGIDO ---
+# --- PROCESAMIENTO MASIVO ---
 @app.post("/api/expedientes/procesar-masivo")
 async def procesar_masivo(
     files: List[UploadFile] = File(...),
@@ -255,7 +325,6 @@ async def procesar_masivo(
             lista_datos = [item[1] for item in grupo]
             datos_raw = services.combinar_datos_pareja(lista_datos)
             
-            # Limpiar llaves redundantes: SÓLO conservar el mapeo estructurado
             datos_finales = limpiar_datos_para_plantilla(datos_raw, num_credito)
 
             print(f"\n--- Expediente Procesado: Crédito {num_credito} ---")
@@ -264,6 +333,7 @@ async def procesar_masivo(
             print(f"  * Entidad: {datos_finales.get('entidad_financiera')}")
             print(f"  * Número de Carta: {datos_finales.get('numero_carta')}")
             print(f"  * Monto: {datos_finales.get('monto_credito')}")
+            print(f"  * Monto Letras: {datos_finales.get('monto_letras')}")
 
             ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
             services.generar_word_cancelacion(ruta_plantilla, datos_finales, ruta_salida)
@@ -329,7 +399,6 @@ def actualizar_datos_expediente(
     datos_existentes = dict(expediente.datos_extraidos or {})
     datos_existentes.update(datos_actualizados)
 
-    # Filtrar nuevamente para evitar que al actualizar entren llaves externas
     num_credito = datos_actualizados.get("numero_credito") or expediente.numero_credito
     datos_limpios = limpiar_datos_para_plantilla(datos_existentes, num_credito)
 
@@ -366,7 +435,6 @@ def generar_word(
     if datos_modificados:
         datos_actuales.update(datos_modificados)
     
-    # Limpieza estricta del objeto JSON
     num_credito = datos_actuales.get("numero_credito") or expediente.numero_credito
     datos_finales = limpiar_datos_para_plantilla(datos_actuales, num_credito)
     
