@@ -197,10 +197,12 @@ export default function App() {
   };
 
   const handleEliminarUsuario = async (param1, param2) => {
+  // Evitar conflictos si React envía el evento como primer argumento
   if (param1 && param1.preventDefault) {
     param1.preventDefault();
   }
 
+  // Asegurar obtener el ID correcto sin importar el orden de parámetros
   const usuarioId = typeof param1 === 'string' ? param1 : param2;
 
   if (!usuarioId || typeof usuarioId !== 'string') {
@@ -212,22 +214,31 @@ export default function App() {
     return;
   }
 
+  // Obtener token guardado en la sesión
+  const token = localStorage.getItem('token');
+
+  if (!token) {
+    alert('Sesión no válida o expirada. Por favor, vuelve a iniciar sesión.');
+    return;
+  }
+
   try {
     const response = await fetch(
       `https://sistema-cancelaciones-production.up.railway.app/api/admin/usuarios/${usuarioId}`,
       {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include' // <--- ESENCIAL PARA ENVIAR LAS COOKIES DE SESIÓN
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
       }
     );
 
     const data = await response.json();
 
     if (response.status === 401) {
-      alert('Sesión no válida o expirada. Por favor, vuelve a iniciar sesión.');
+      alert('Sesión no válida o expirada. Por favor, inicia sesión nuevamente.');
+      // Opcional: redirigir a login o cerrar sesión
       return;
     }
 
@@ -237,7 +248,8 @@ export default function App() {
     }
 
     alert('Usuario eliminado correctamente');
-
+    
+    // Si tienes una función para recargar la lista de usuarios, llámala aquí:
     if (typeof fetchUsuarios === 'function') {
       fetchUsuarios();
     }
