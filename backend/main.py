@@ -501,41 +501,30 @@ def crear_usuario_admin(
 
 
 @app.delete("/api/admin/usuarios/{usuario_id}")
-def eliminar_usuario(
-    usuario_id: str, 
-    db: Session = Depends(get_db),
-    # Si tienes auth.get_current_user para validar el token Bearer:
-    usuario_actual: models.Usuario = Depends(auth.get_current_user)
-):
-    # 1. Validar que el usuario que realiza la petición sea Administrador
-    if not usuario_actual.es_admin:
-        raise HTTPException(
-            status_code=403, 
-            detail="No tienes permisos de administrador para realizar esta acción"
-        )
+def eliminar_usuario(usuario_id: str, request: Request, db: Session = Depends(get_db)):
+    # 1. Obtener la sesión mediante la cookie 'session_id'
+    session_id = request.cookies.get("session_id")
+    if not session_id or session_id not in auth.SESSIONS:
+        raise HTTPException(status_code=401, detail="Sesión no válida o expirada")
 
-    # 2. Buscar al usuario a eliminar
+    usuario_actual = auth.SESSIONS[session_id]
+
+    # 2. Verificar que quien realiza la acción sea Administrador
+    if not usuario_actual.get("es_admin"):
+        raise HTTPException(status_code=403, detail="No tienes permisos de administrador")
+
+    # 3. Buscar al usuario a eliminar
     usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-    # 3. Proteger a los administradores de ser eliminados
+    # 4. Proteger a los administradores de ser eliminados
     if usuario.es_admin or usuario.username.lower() == "admin":
-        raise HTTPException(
-            status_code=400, 
-            detail="No se puede eliminar a un usuario con rol de Administrador"
-        )
-    
-    try:
-        db.delete(usuario)
-        db.commit()
-        return {"status": "exito", "mensaje": f"Usuario {usuario.username} eliminado correctamente"}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500, 
-            detail="Error al eliminar usuario. Es posible que tenga registros asociados en el historial."
-        )
+        raise HTTPException(status_code=400, detail="No se puede eliminar a un administrador")
+
+    db.delete(usuario)
+    db.commit()
+    return {"status": "exito", "mensaje": "Usuario eliminado correctamente"}
 
 @app.post("/api/admin/plantilla")
 async def actualizar_plantilla(file: UploadFile = File(...)):

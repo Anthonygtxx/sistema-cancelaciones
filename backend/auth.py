@@ -97,13 +97,13 @@ def login(data: LoginRequest, response: Response, db: Session = Depends(get_db))
         "role": rol_nombre
     }
 
-    # Setea la Cookie en el navegador
+   # Setea la Cookie en el navegador permitiendo peticiones cross-site (Netlify -> Railway)
     response.set_cookie(
         key="session_id",
         value=session_id,
         httponly=True,       # Protege la cookie contra JS malicioso (XSS)
-        samesite="lax",      # Previene CSRF
-        secure=False         # True si usas HTTPS en el servidor
+        samesite="none",     # Requerido para peticiones entre Netlify y Railway
+        secure=True          # Requerido para poder usar SameSite=None sobre HTTPS
     )
 
     return {
