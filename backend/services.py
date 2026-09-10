@@ -293,7 +293,7 @@ def extraer_datos_pdf(ruta_pdf):
         if val.lower() not in ['sreales', 'real', 'registral', 'electronico', 'numero']:
             datos["folio_real"] = limpiar_ceros_izquierda(val)
 
-    # 6. NOMBRE DEL ACREDITADO (Optimizado para evitar textos de títulos o encabezados)
+    # 6. NOMBRE DEL ACREDITADO
     patrones_acreditado = [
         r'(?:trabajador|acreditado|deudor)\s+((?:J\.\s*)?[A-ZÁÉÍÓÚÑ\s]{8,50}?)(?=\s+para|\s+gravando|\s+con|\s+cumpli|\s+ha|\.|\,)',
         r'a\s+favor\s+del?\s+((?:J\.\s*)?[A-ZÁÉÍÓÚÑ\s]{8,50}?)(?=\s+para|\s+gravando|\s+con|\.|\,)',
@@ -361,21 +361,34 @@ def combinar_datos_pareja(datos_lista):
 
 
 def reemplazar_texto_en_parrafo(parrafo, mapa_reemplazos):
+    """
+    Reemplaza texto en un párrafo preservando el formato original (negritas, subrayado, etc.)
+    incluso si Word dividió la variable {{ ... }} en múltiples runs.
+    """
     texto_parrafo = parrafo.text
-    necesita_reemplazo = any(key in texto_parrafo for key in mapa_reemplazos.keys())
+    
+    # Comprobar si alguna llave de reemplazo está en el párrafo
+    hay_coincidencia = any(key in texto_parrafo for key in mapa_reemplazos.keys())
+    if not hay_coincidencia:
+        return
 
-    if necesita_reemplazo:
-        for key, value in mapa_reemplazos.items():
-            if key in texto_parrafo:
-                texto_parrafo = texto_parrafo.replace(key, str(value))
-        
-        # Limpia los runs existentes y asigna el texto completo
-        # Esto evita que python-docx rompa las variables {{ ... }} entre diferentes runs
-        for i in range(len(parrafo.runs) - 1, 0, -1):
-            p = parrafo.runs[i]._r
-            p.getparent().remove(p)
-        if parrafo.runs:
-            parrafo.runs[0].text = texto_parrafo
+    # Paso 1: Reconstruir el texto si la variable {{ ... }} quedó fragmentada en varios runs
+    for key in mapa_reemplazos.keys():
+        if key in parrafo.text and not any(key in r.text for r in parrafo.runs):
+            for idx, run in enumerate(parrafo.runs):
+                if "{{" in run.text:
+                    j = idx + 1
+                    while j < len(parrafo.runs) and "}}" not in parrafo.runs[j-1].text:
+                        run.text += parrafo.runs[j].text
+                        parrafo.runs[j].text = ""  # Vaciar los runs excedentes
+                        j += 1
+
+    # Paso 2: Reemplazar el texto manteniendo intactas las propiedades visuales del Run
+    for key, value in mapa_reemplazos.items():
+        val_str = str(value)
+        for run in parrafo.runs:
+            if key in run.text:
+                run.text = run.text.replace(key, val_str)
 
 
 def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
@@ -387,30 +400,21 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
     
     # --- 1. PROCESAMIENTO DE FOLIO REAL ---
     folio_raw = str(datos.get("folio_real", "")).strip()
-    if folio_raw and folio_raw != "NO_ENCONTRADO":
-        folio_limpio = limpiar_ceros_izquierda(folio_raw)
-    else:
-        folio_limpio = ""
+    folio_limpio = limpiar_ceros_izquierda(folio_raw) if folio_raw and folio_raw != "NO_ENCONTRADO" else ""
 
     # --- 2. PROCESAMIENTO DE NÚMERO DE CRÉDITO ---
     credito_raw = str(datos.get("numero_credito", "")).strip()
     if credito_raw and credito_raw != "NO_ENCONTRADO":
-        # Si ya contiene texto en letras respetamos, si es solo número le aplicamos formato
-        if '"' in credito_raw or '(' in credito_raw:
-            credito_texto = credito_raw
-        else:
-            credito_texto = credito_a_letras(credito_raw)
+        credito_texto = credito_raw if ('"' in credito_raw or '(' in credito_raw) else credito_a_letras(credito_raw)
     else:
         credito_texto = ""
 
     # --- 3. PROCESAMIENTO DE MONTO DE CRÉDITO ---
     monto_raw = str(datos.get("monto_credito", "")).strip()
     if monto_raw and monto_raw != "NO_ENCONTRADO":
-        # Si la cadena ya viene con la representación en letras (modificación manual), la dejamos intacta
         if "PESOS" in monto_raw.upper() or "M.N." in monto_raw.upper():
             monto_texto = monto_raw
         else:
-            # Si el usuario modificó solo la cifra numérica, formateamos y generamos las letras
             try:
                 num = float(monto_raw.replace('$', '').replace(',', '').strip())
                 monto_fmt = f"${num:,.2f}"
