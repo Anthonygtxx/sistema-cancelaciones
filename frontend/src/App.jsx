@@ -8,6 +8,20 @@ import {
   Sun, Moon, ArrowUpDown, Filter
 } from 'lucide-react';
 
+import { useEffect } from 'react';
+
+export default function App() {
+  // Forzar el cambio de título directamente en el navegador de forma agresiva
+  useEffect(() => {
+    const cambiarTitulo = () => {
+      document.title = "Sistema de Cancelaciones";
+    };
+    cambiarTitulo();
+    // Lo refuerza por si algún componente secundario lo pisa
+    setTimeout(cambiarTitulo, 500);
+  }, []);
+}
+
 // Configuración producción / Railway
 axios.defaults.withCredentials = true;
 
