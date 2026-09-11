@@ -11,7 +11,6 @@ import {
 // Configuración producción / Railway
 axios.defaults.withCredentials = true;
 
-
 const api = axios.create({
   baseURL: 'https://sistema-cancelaciones-production.up.railway.app/api'
 });
