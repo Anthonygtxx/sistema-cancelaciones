@@ -1,16 +1,4 @@
 import React, { useState, useEffect } from 'react';
-export default function App() {
-  // Forzar el cambio de título directamente en el navegador de forma agresiva
-  useEffect(() => {
-    const cambiarTitulo = () => {
-      document.title = "Sistema de Cancelaciones";
-    };
-    cambiarTitulo();
-    // Lo refuerza por si algún componente secundario lo pisa
-    setTimeout(cambiarTitulo, 500);
-  }, []);
-}
-
 import axios from 'axios';
 import { 
   Upload, FileText, Download, CheckCircle, AlertCircle, History, 
