@@ -163,6 +163,7 @@ origins = [
     "http://192.168.0.53:5173",
     "https://sistema-cancelaciones.netlify.app",
     "https://sistema-cancelaciones-production.up.railway.app",
+    "https://sistema-cancelaciones.vercel.app",
 ]
 
 app.add_middleware(
