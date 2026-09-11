@@ -1,15 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { 
-  Upload, FileText, Download, CheckCircle, AlertCircle, History, 
-  Search, FileArchive, FolderPlus, Lock, Unlock, 
-  LogOut, User, Loader2, ChevronDown, ChevronUp, Users, Settings, 
-  Plus, Trash2, Edit, Save, FileCode, Check, Calendar, Clock, DollarSign,
-  Sun, Moon, ArrowUpDown, Filter
-} from 'lucide-react';
-
-import { useEffect } from 'react';
-
 export default function App() {
   // Forzar el cambio de título directamente en el navegador de forma agresiva
   useEffect(() => {
@@ -21,6 +10,15 @@ export default function App() {
     setTimeout(cambiarTitulo, 500);
   }, []);
 }
+
+import axios from 'axios';
+import { 
+  Upload, FileText, Download, CheckCircle, AlertCircle, History, 
+  Search, FileArchive, FolderPlus, Lock, Unlock, 
+  LogOut, User, Loader2, ChevronDown, ChevronUp, Users, Settings, 
+  Plus, Trash2, Edit, Save, FileCode, Check, Calendar, Clock, DollarSign,
+  Sun, Moon, ArrowUpDown, Filter
+} from 'lucide-react';
 
 // Configuración producción / Railway
 axios.defaults.withCredentials = true;
