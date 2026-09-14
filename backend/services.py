@@ -226,9 +226,10 @@ def extraer_datos_pdf(ruta_pdf):
             datos["fecha_expedicion"] = match_fecha_exp.group(1).strip()
             break
 
-    # 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSM)
-    match_vsm = re.search(r'([\d\.]+\s*VSM)', texto_completo, re.IGNORECASE)
+# 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSM)
+    match_vsm = re.search(r'([\d\.]+)\s*VSM', texto_completo, re.IGNORECASE)
     if match_vsm:
+        # Se remueve " VSM" para almacenar únicamente el valor numérico
         datos["credito_a_salario"] = match_vsm.group(1).strip()
 
     match_monto = re.search(r'(?:crédito\s+hasta\s+por\s+la\s+cantidad\s+de|monto\s+del?\s+crédito|suerte\s+principal|importe|monto)[:\s]*\$?\s*([\d,]+\.\d{2})', texto_limpio, re.IGNORECASE)
@@ -248,7 +249,8 @@ def extraer_datos_pdf(ruta_pdf):
             
             if datos["credito_a_salario"] == "NO_ENCONTRADO":
                 veces_salario = num / SALARIO_MINIMO_MENSUAL_DF
-                datos["credito_a_salario"] = f"{veces_salario:.2f} VSM"
+                # Retorna únicamente el número con formato decimal
+                datos["credito_a_salario"] = f"{veces_salario:.2f}"
         except Exception:
             datos["monto_credito"] = monto_raw
             datos["monto_credito_letras"] = monto_raw
