@@ -3,8 +3,10 @@ import fitz  # PyMuPDF
 import re
 from docx import Document
 
+# Constante para calcular Veces Salario Mínimo Mensual en DF/CDMX
+SALARIO_MINIMO_MENSUAL_DF = 3713.40
+
 def limpiar_ceros_izquierda(val):
-    """Elimina los ceros a la izquierda de cadenas numéricas manteniendo al menos un dígito."""
     val = str(val).strip()
     if val.isdigit():
         return str(int(val))
@@ -12,7 +14,6 @@ def limpiar_ceros_izquierda(val):
     return val_limpia if val_limpia else "0"
 
 def credito_a_letras(numero_str):
-    """Convierte una cadena de dígitos en su deletreo letra por letra."""
     mapa_digitos = {
         '0': 'cero', '1': 'uno', '2': 'dos', '3': 'tres', '4': 'cuatro',
         '5': 'cinco', '6': 'seis', '7': 'siete', '8': 'ocho', '9': 'nueve'
@@ -23,7 +24,7 @@ def credito_a_letras(numero_str):
     return str(numero_str)
 
 def numero_a_letras(numero):
-    """Convierte un número flotante/entero a su representación en texto para moneda M.N."""
+    """Convierte un monto a letras con centavos escritos en texto completo."""
     unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"]
     decenas = ["", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"]
     dieces = ["DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISÉIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"]
@@ -76,10 +77,14 @@ def numero_a_letras(numero):
 
         texto_enteros = " ".join(partes) + " PESOS"
 
-    return f"{texto_enteros} {centavos:02d}/100 M.N."
+    if centavos > 0:
+        texto_centavos = f"CON {convert_group(centavos).strip()} CENTAVOS"
+    else:
+        texto_centavos = "CON CERO CENTAVOS"
+
+    return f"{texto_enteros} {texto_centavos}, MONEDA NACIONAL"
 
 def extraer_oficina_registral(texto):
-    """Extrae la oficina registral (ej. TOLUCA)."""
     match = re.search(r'OFICINA\s+DE\s+["“\']?([^"”\'\n\r]+?)["”\']?\s+INMUEBLES', texto, re.IGNORECASE)
     if not match:
         match = re.search(r'OFICINA\s+REGISTRAL\s*:\s*([A-ZÁÉÍÓÚÑ\s]+)', texto, re.IGNORECASE)
@@ -90,7 +95,6 @@ def extraer_oficina_registral(texto):
     return "NO_ENCONTRADO"
 
 def armar_ubicacion_inmueble(texto_completo):
-    """Extrae los datos del inmueble respetando el orden solicitado."""
     match_seccion = re.search(r'DATOS DE IDENTIFICACIÓN[:\s]*(.*?)(?=DATOS DE REGISTRO|INFORMACIÓN COMPLEMENTARIA|VOLANTE|ENTRADA|$)', texto_completo, re.IGNORECASE | re.DOTALL)
     texto_busqueda = match_seccion.group(1) if match_seccion else texto_completo
 
@@ -117,13 +121,11 @@ def armar_ubicacion_inmueble(texto_completo):
     ]
 
     componentes_encontrados = []
-    
     for clave, patron in patrones_ordenados:
         coincidencia = re.search(patron, texto_busqueda, re.IGNORECASE)
         if coincidencia:
             valor = coincidencia.group(1).strip()
             valor_limpio = re.sub(r'^(CALLE|LOTE|MANZANA|COLONIA|ESTADO)\b', '', valor, flags=re.IGNORECASE).strip()
-            
             if valor_limpio and valor_limpio.lower() not in ['ninguna', 'ninguno', 'no_encontrado', 'no consta', 'null', 'super']:
                 etiqueta = clave.replace('_', ' ').title()
                 componentes_encontrados.append(f"{etiqueta}: {valor_limpio}")
@@ -133,13 +135,9 @@ def armar_ubicacion_inmueble(texto_completo):
     return "NO_ENCONTRADO"
 
 def determinar_genero_y_estado_civil(texto_completo, nombre_acreditado=""):
-    """
-    Analiza el texto del documento para determinar género y estado civil del acreditado.
-    """
     texto_upper = texto_completo.upper()
     nombre_upper = nombre_acreditado.upper()
     
-    # 1. Determinar Género
     if re.search(r'\bLA\s+ACREDITADA\b|\bSEÑORA\b|\bA\s+FAVOR\s+DE\s+LA\b|\bCIUDADANA\b', texto_upper):
         genero = "FEMENINO"
     elif re.search(r'\bEL\s+ACREDITADO\b|\bSEÑOR\b|\bA\s+FAVOR\s+DEL\b|\bCIUDADANO\b', texto_upper):
@@ -151,7 +149,6 @@ def determinar_genero_y_estado_civil(texto_completo, nombre_acreditado=""):
         else:
             genero = "MASCULINO"
 
-    # 2. Determinar Estado Civil
     if re.search(r'\bCASAD[AO]\b|\bSOCIEDAD\s+CONYUGAL\b|\bSEPARACION\s+DE\s+BIENES\b|\bESTADO\s+CIVIL\s*:\s*CASAD', texto_upper):
         estado_civil = "CASADO"
     elif re.search(r'\bSOLTER[AO]\b|\bESTADO\s+CIVIL\s*:\s*SOLTER', texto_upper):
@@ -161,52 +158,16 @@ def determinar_genero_y_estado_civil(texto_completo, nombre_acreditado=""):
 
     return genero, estado_civil
 
-def seleccionar_plantilla(datos, carpeta_raiz="EJEMPLOS DE 20 MODELOS CH - INFONAVIT (IA)"):
-    """
-    Selecciona la ruta del archivo .docx analizando el tipo de contrato,
-    la ubicación, la presencia de coacreditados, género y estado civil.
-    """
-    texto = datos.get("texto_raw", "").upper()
-    oficina = datos.get("oficina_registral", "").upper()
-    inmueble = datos.get("datos_inmueble", "").upper()
-    
-    es_coacreditado = "COACREDITADO" in texto or "COACREDITADA" in texto
-    
-    if es_coacreditado:
-        subcarpeta = "COACREDITADOS"
-    else:
-        tipo_contrato = "MUTUO" if "MUTUO" in texto else "APERTURA"
-        if "MÉXICO" in inmueble or "MEXICO" in inmueble or "TOLUCA" in oficina or "METEPEC" in oficina or "ECATEPEC" in oficina:
-            ubicacion = "EDOMEX"
-        else:
-            ubicacion = "CDMX"
-            
-        subcarpeta = f"{tipo_contrato} - {ubicacion}"
-
-    genero = datos.get("genero", "MASCULINO")
-    estado_civil = datos.get("estado_civil", "SOLTERO")
-
-    if genero == "FEMENINO":
-        nombre_plantilla = "MUJER CASADA.docx" if estado_civil == "CASADO" else "MUJER SOLTERA.docx"
-    else:
-        nombre_plantilla = "HOMBRE CASADO.docx" if estado_civil == "CASADO" else "HOMBRE SOLTERO.docx"
-
-    ruta_calculada = os.path.join(carpeta_raiz, subcarpeta, nombre_plantilla)
-    
-    # Fallback si el modelo de subcarpetas no existe localmente
-    if not os.path.exists(ruta_calculada):
-        return os.path.join("templates", "plantilla_manera2.docx")
-        
-    return ruta_calculada
-
 def extraer_datos_pdf(ruta_pdf):
     datos = {
         "numero_carta": "NO_ENCONTRADO",
+        "fecha_expedicion": "NO_ENCONTRADO",
         "numero_credito": "NO_ENCONTRADO",
         "numero_credito_letras": "NO_ENCONTRADO",
         "nombre_acreditado": "NO_ENCONTRADO",
         "monto_credito": "NO_ENCONTRADO",
         "monto_credito_letras": "NO_ENCONTRADO",
+        "credito_a_salario": "NO_ENCONTRADO",
         "entidad_financiera": "NO_ENCONTRADO",
         "fecha_liquidacion": "NO_ENCONTRADO",
         "folio_real": "NO_ENCONTRADO",
@@ -245,7 +206,7 @@ def extraer_datos_pdf(ruta_pdf):
         datos["numero_credito"] = raw_credito
         datos["numero_credito_letras"] = credito_a_letras(raw_credito)
 
-    # 2. NÚMERO DE CARTA
+    # 2. NÚMERO DE CARTA Y FECHA DE EXPEDICIÓN (Carta de Instrucción)
     match_carta = re.search(r'Número\s+de\s+carta[:\s#]*([A-Z0-9\-\/]{5,20})', texto_limpio, re.IGNORECASE)
     if not match_carta:
         match_carta = re.search(r'(?:Carta\s*(?:de\s*Instrucción)?|Oficio|Instrucción|Ref)[:\s\.\°\#-]*([A-Z0-9\-\/]{5,20})', texto_limpio, re.IGNORECASE)
@@ -254,7 +215,12 @@ def extraer_datos_pdf(ruta_pdf):
         if val.lower() not in ['de', 'del', 'para', 'con', 'que', 'por', 'ext']:
             datos["numero_carta"] = val
 
-    # 3. MONTO DEL CRÉDITO
+    # Extraer Fecha de Expedición de la carta
+    match_fecha_exp = re.search(r'(?:Fecha\s+de\s+expedición|Expedid[oa]\s+el|México,\s*D\.?F\.?,\s*a|Ciudad\s+de\s+México,\s*a)[:\s]*(\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})', texto_completo, re.IGNORECASE)
+    if match_fecha_exp:
+        datos["fecha_expedicion"] = match_fecha_exp.group(1).strip()
+
+    # 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSMMDF)
     match_monto = re.search(r'(?:crédito\s+hasta\s+por\s+la\s+cantidad\s+de|monto\s+del?\s+crédito|suerte\s+principal|importe|monto)[:\s]*\$?\s*([\d,]+\.\d{2})', texto_limpio, re.IGNORECASE)
     monto_raw = None
     if match_monto:
@@ -270,6 +236,10 @@ def extraer_datos_pdf(ruta_pdf):
             monto_fmt = f"${num:,.2f}"
             datos["monto_credito"] = monto_fmt
             datos["monto_credito_letras"] = numero_a_letras(num)
+            
+            # Cálculo de equivalente a Salario Mínimo Mensual DF
+            veces_salario = num / SALARIO_MINIMO_MENSUAL_DF
+            datos["credito_a_salario"] = f"{veces_salario:.2f} VSM"
         except Exception:
             datos["monto_credito"] = monto_raw
             datos["monto_credito_letras"] = monto_raw
@@ -338,11 +308,13 @@ def extraer_datos_pdf(ruta_pdf):
 def combinar_datos_pareja(datos_lista):
     datos_finales = {
         "numero_carta": "NO_ENCONTRADO",
+        "fecha_expedicion": "NO_ENCONTRADO",
         "numero_credito": "NO_ENCONTRADO",
         "numero_credito_letras": "NO_ENCONTRADO",
         "nombre_acreditado": "NO_ENCONTRADO",
         "monto_credito": "NO_ENCONTRADO",
         "monto_credito_letras": "NO_ENCONTRADO",
+        "credito_a_salario": "NO_ENCONTRADO",
         "entidad_financiera": "NO_ENCONTRADO",
         "fecha_liquidacion": "NO_ENCONTRADO",
         "folio_real": "NO_ENCONTRADO",
@@ -361,16 +333,10 @@ def combinar_datos_pareja(datos_lista):
 
 
 def reemplazar_texto_en_parrafo(parrafo, mapa_reemplazos):
-    """
-    Reemplaza variables en un párrafo garantizando que el texto insertado
-    herede el estilo del run original pero removiendo subrayados/resaltados no deseados.
-    """
     texto_parrafo = parrafo.text
-    
     if not any(key in texto_parrafo for key in mapa_reemplazos.keys()):
         return
 
-    # Paso 1: Unificar la variable {{ ... }} o { ... } si Word la fragmentó en varios runs
     for key in mapa_reemplazos.keys():
         if key in parrafo.text and not any(key in r.text for r in parrafo.runs):
             for idx, run in enumerate(parrafo.runs):
@@ -378,10 +344,9 @@ def reemplazar_texto_en_parrafo(parrafo, mapa_reemplazos):
                     j = idx + 1
                     while j < len(parrafo.runs) and "}" not in parrafo.runs[j-1].text:
                         run.text += parrafo.runs[j].text
-                        parrafo.runs[j].text = ""  # Vaciar runs excedentes
+                        parrafo.runs[j].text = ""
                         j += 1
 
-    # Paso 2: Reemplazar el texto y limpiar estilos indeseados del run
     for key, value in mapa_reemplazos.items():
         val_str = str(value)
         for run in parrafo.runs:
@@ -392,7 +357,6 @@ def reemplazar_texto_en_parrafo(parrafo, mapa_reemplazos):
 
 
 def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
-    # Fallback si la plantilla no existe
     if not os.path.exists(ruta_plantilla):
         ruta_plantilla_alt = os.path.join("templates", "plantilla_manera2.docx")
         if os.path.exists(ruta_plantilla_alt):
@@ -403,38 +367,41 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
 
     doc = Document(ruta_plantilla)
     
-    # --- 1. PROCESAMIENTO DE FOLIO REAL ---
     folio_raw = str(datos.get("folio_real", "")).strip()
     folio_limpio = limpiar_ceros_izquierda(folio_raw) if folio_raw and folio_raw != "NO_ENCONTRADO" else ""
 
-    # --- 2. PROCESAMIENTO DE NÚMERO DE CRÉDITO ---
     credito_raw = str(datos.get("numero_credito", "")).strip()
     if credito_raw and credito_raw != "NO_ENCONTRADO":
         credito_texto = credito_raw if ('"' in credito_raw or '(' in credito_raw) else credito_a_letras(credito_raw)
     else:
         credito_texto = ""
 
-    # --- 3. PROCESAMIENTO DE MONTO DE CRÉDITO Y MONTO EN LETRAS ---
     monto_raw = str(datos.get("monto_credito", "")).strip()
     monto_letras = str(datos.get("monto_letras", "")).strip()
     
-    if monto_raw and monto_raw != "NO_ENCONTRADO":
-        monto_texto = monto_raw
-    else:
-        monto_texto = ""
+    monto_texto = monto_raw if monto_raw and monto_raw != "NO_ENCONTRADO" else ""
 
     if not monto_letras or monto_letras == "NO_ENCONTRADO":
         monto_letras = numero_a_letras(monto_raw)
 
-    # --- 4. MAPEO UNIFICADO DE REEMPLAZOS (CORCHETES DOBLES Y SIMPLES) ---
     def obtener_valor(clave):
         val = str(datos.get(clave, "")).strip()
         return "" if val == "NO_ENCONTRADO" else val
 
+    # Mapeo completo de variables en la plantilla Word
     mapa_reemplazos = {
         "{{ numero_carta }}": obtener_valor("numero_carta"),
         "{{numero_carta}}": obtener_valor("numero_carta"),
         "{numero_carta}": obtener_valor("numero_carta"),
+
+        "{{ fecha_expedicion }}": obtener_valor("fecha_expedicion"),
+        "{{fecha_expedicion}}": obtener_valor("fecha_expedicion"),
+        "{fecha_expedicion}": obtener_valor("fecha_expedicion"),
+
+        "{{ crédito_a_salario }}": obtener_valor("credito_a_salario"),
+        "{{credito_a_salario}}": obtener_valor("credito_a_salario"),
+        "{{ crédito_a_salario }}": obtener_valor("credito_a_salario"),
+        "{credito_a_salario}": obtener_valor("credito_a_salario"),
         
         "{{ numero_credito }}": credito_texto,
         "{{numero_credito}}": credito_texto,
@@ -473,7 +440,6 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         "{datos_inmueble}": obtener_valor("datos_inmueble"),
     }
 
-    # --- 5. REEMPLAZO EN PÁRRAFOS Y TABLAS ---
     for p in doc.paragraphs:
         reemplazar_texto_en_parrafo(p, mapa_reemplazos)
 
@@ -489,43 +455,3 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         
     doc.save(ruta_salida)
     return True
-
-
-def procesar_cancelacion(ruta_pdf_entrada, ruta_salida_docx, carpeta_raiz="EJEMPLOS DE 20 MODELOS CH - INFONAVIT (IA)"):
-    """
-    Función principal para procesar un PDF, detectar género/estado civil,
-    seleccionar la plantilla y generar el Word de cancelación.
-    """
-    datos = extraer_datos_pdf(ruta_pdf_entrada)
-
-    ruta_plantilla = seleccionar_plantilla(
-        datos=datos,
-        carpeta_raiz=carpeta_raiz
-    )
-
-    print(f"Acreditado: {datos.get('nombre_acreditado')}")
-    print(f"Género detectado: {datos.get('genero')}")
-    print(f"Estado Civil detectado: {datos.get('estado_civil')}")
-    print(f"Plantilla seleccionada: {ruta_plantilla}")
-
-    exito = generar_word_cancelacion(ruta_plantilla, datos, ruta_salida_docx)
-    if exito:
-        print(f"Documento generado exitosamente en: {ruta_salida_docx}")
-    else:
-        print("Error al generar el documento.")
-
-
-if __name__ == "__main__":
-    # Sustituye con la ruta real a tu PDF de entrada
-    pdf_de_prueba = "ejemplo.pdf"
-    word_de_salida = "salida/cancelacion_final.docx"
-
-    # Verificación de existencia del PDF antes de procesar
-    if os.path.exists(pdf_de_prueba):
-        procesar_cancelacion(
-            ruta_pdf_entrada=pdf_de_prueba,
-            ruta_salida_docx=word_de_salida
-        )
-    else:
-        print(f"No se encontró el archivo PDF en la ruta: {pdf_de_prueba}")
-        print("Por favor ajusta la variable 'pdf_de_prueba' en el bloque principal con el nombre/ruta correcto.")

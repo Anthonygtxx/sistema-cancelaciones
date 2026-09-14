@@ -24,11 +24,10 @@ app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
 
 def numero_a_letras(monto: Any) -> str:
-    """Convierte un valor numérico o texto a su representación formal en letras en MXN."""
+    """Convierte un valor numérico o texto a su representación formal en letras en MXN con centavos explícitos."""
     if not monto:
         return ""
     try:
-        # Extraer solo dígitos y el punto decimal
         monto_str = re.sub(r"[^\d.]", "", str(monto))
         val = float(monto_str)
         
@@ -37,7 +36,7 @@ def numero_a_letras(monto: Any) -> str:
         
         unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"]
         decenas = ["", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"]
-        dieces = ["DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISEIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"]
+        dieces = ["DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISÉIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"]
         centenas = ["", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS", "OCHOCIENTOS", "NOVECIENTOS"]
 
         def _convertir_grupo(n: int) -> str:
@@ -78,7 +77,7 @@ def numero_a_letras(monto: Any) -> str:
 
             if millones > 0:
                 if millones == 1:
-                    partes.append("UN MILLON")
+                    partes.append("UN MILLÓN")
                 else:
                     partes.append(f"{_convertir_grupo(millones)} MILLONES")
             
@@ -93,15 +92,20 @@ def numero_a_letras(monto: Any) -> str:
             
             texto_enteros = " ".join(partes) + " PESOS"
 
-        return f"{texto_enteros} {centavos:02d}/100 M.N."
+        if centavos > 0:
+            texto_centavos = f"CON {_convertir_grupo(centavos)} CENTAVOS"
+        else:
+            texto_centavos = "CON CERO CENTAVOS"
+
+        return f"{texto_enteros} {texto_centavos}, MONEDA NACIONAL"
     except Exception:
         return str(monto)
 
 
 def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallback: str = "") -> Dict[str, Any]:
     """
-    Filtra y devuelve ÚNICAMENTE los 9 campos oficiales requeridos.
-    Elimina llaves duplicadas/cortas e incluye la conversión de monto a letras.
+    Filtra y devuelve los campos requeridos para la plantilla de Word,
+    incluyendo los campos de fecha_expedicion y credito_a_salario.
     """
     acreditado = datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or ""
     monto = datos_origen.get("monto_credito") or datos_origen.get("monto") or ""
@@ -112,6 +116,8 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
     fecha = datos_origen.get("fecha_liquidacion") or datos_origen.get("fecha") or ""
     folio = datos_origen.get("folio_real") or datos_origen.get("antecedente") or ""
     inmueble = datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""
+    fecha_exp = datos_origen.get("fecha_expedicion") or ""
+    credito_salario = datos_origen.get("credito_a_salario") or datos_origen.get("crédito_a_salario") or ""
 
     monto_letras = numero_a_letras(monto)
 
@@ -125,7 +131,10 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
         "entidad_financiera": entidad,
         "fecha_liquidacion": fecha,
         "folio_real": folio,
-        "datos_inmueble": inmueble
+        "datos_inmueble": inmueble,
+        "fecha_expedicion": fecha_exp,
+        "credito_a_salario": credito_salario,
+        "crédito_a_salario": credito_salario
     }
 
 
