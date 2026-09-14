@@ -173,9 +173,8 @@ def extraer_datos_pdf(ruta_pdf):
         "folio_real": "NO_ENCONTRADO",
         "oficina_registral": "NO_ENCONTRADO",
         "datos_inmueble": "NO_ENCONTRADO",
-        "genero": "MASCULINO",
-        "estado_civil": "SOLTERO",
-        "texto_raw": ""
+        "genero": "NO_ENCONTRADO",
+        "estado_civil": "NO_ENCONTRADO",
     }
 
     try:

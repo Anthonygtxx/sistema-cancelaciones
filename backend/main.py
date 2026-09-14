@@ -134,7 +134,6 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
         "datos_inmueble": inmueble,
         "fecha_expedicion": fecha_exp,
         "credito_a_salario": credito_salario,
-        "crédito_a_salario": credito_salario
     }
 
 
