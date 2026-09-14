@@ -1072,20 +1072,33 @@ setTimeout(async () => {
     {/* Encabezado del Panel */}
     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
       <h3 className="text-lg font-semibold text-slate-800 dark:text-white flex items-center gap-2">
-        <Eye className="w-5 h-5 text-indigo-500" /> Vista Previa del Documento
+        <Eye className="w-5 h-5 text-indigo-500" /> Vista Previa
       </h3>
-      <div className="flex items-center gap-2">
-        {/* Barra de herramientas opcional (puedes agregar botones de zoom aquí) */}
-        <button
-          onClick={() => setMostrarVistaPrevia(false)}
-          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-          title="Cerrar vista previa"
-        >
-          ✕
-        </button>
-      </div>
+      <button
+        onClick={() => setMostrarVistaPrevia(false)}
+        className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+        title="Cerrar vista previa"
+      >
+        ✕
+      </button>
     </div>
 
+    {/* Visor del Documento */}
+    <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-slate-100 dark:bg-slate-950 flex justify-center">
+      {cargandoPreview ? (
+        <div className="flex flex-col items-center justify-center self-center h-full gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+        </div>
+      ) : (
+        <div 
+          ref={previewContainerRef} 
+          className="w-full bg-white shadow-md rounded-lg p-2 text-slate-900 min-h-full overflow-x-hidden [&_.docx-wrapper]:!bg-transparent [&_.docx-wrapper]:!p-0 [&_.docx-wrapper>section]:!w-full [&_.docx-wrapper>section]:!box-border [&_.docx-wrapper>section]:!shadow-none [&_.docx-wrapper>section]:!p-4"
+        />
+      )}
+    </div>
+
+  </div>
+)}
     {/* Cuerpo del Visor con Scroll Interno y Fondo de Documento */}
     <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
       {cargandoPreview ? (
@@ -1630,5 +1643,3 @@ setTimeout(async () => {
       )}
     </div>
   )};
-  </div>
-  )}
