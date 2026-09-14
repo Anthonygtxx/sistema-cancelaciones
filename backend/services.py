@@ -206,7 +206,7 @@ def extraer_datos_pdf(ruta_pdf):
         datos["numero_credito"] = raw_credito
         datos["numero_credito_letras"] = credito_a_letras(raw_credito)
 
-    # 2. NÚMERO DE CARTA Y FECHA DE EXPEDICIÓN (Carta de Instrucción)
+    # 2. NÚMERO DE CARTA Y FECHA DE EXPEDICIÓN
     match_carta = re.search(r'Número\s+de\s+carta[:\s#]*([A-Z0-9\-\/]{5,20})', texto_limpio, re.IGNORECASE)
     if not match_carta:
         match_carta = re.search(r'(?:Carta\s*(?:de\s*Instrucción)?|Oficio|Instrucción|Ref)[:\s\.\°\#-]*([A-Z0-9\-\/]{5,20})', texto_limpio, re.IGNORECASE)
@@ -215,12 +215,22 @@ def extraer_datos_pdf(ruta_pdf):
         if val.lower() not in ['de', 'del', 'para', 'con', 'que', 'por', 'ext']:
             datos["numero_carta"] = val
 
-    # Extraer Fecha de Expedición de la carta
-    match_fecha_exp = re.search(r'(?:Fecha\s+de\s+expedición|Expedid[oa]\s+el|México,\s*D\.?F\.?,\s*a|Ciudad\s+de\s+México,\s*a)[:\s]*(\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})', texto_completo, re.IGNORECASE)
-    if match_fecha_exp:
-        datos["fecha_expedicion"] = match_fecha_exp.group(1).strip()
+    # Extraer Fecha de Expedición (incluye fechas de encabezado e instrumentos)
+    patrones_fecha_exp = [
+        r'(?:Fecha\s+de\s+expedici[óo]n|Expedid[oa]\s+el|M[ée]xico,?\s*(?:D\.?F\.?|CDMX)?,?\s*a|Ciudad\s+de\s+M[ée]xico,?\s*a|A)\s*[:\s]*(\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})',
+        r'(\d{1,2}\s+de\s+(?:Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\s+de\s+\d{4})'
+    ]
+    for patron in patrones_fecha_exp:
+        match_fecha_exp = re.search(patron, texto_completo, re.IGNORECASE)
+        if match_fecha_exp:
+            datos["fecha_expedicion"] = match_fecha_exp.group(1).strip()
+            break
 
-    # 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSMMDF)
+    # 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSM)
+    match_vsm = re.search(r'([\d\.]+\s*VSM)', texto_completo, re.IGNORECASE)
+    if match_vsm:
+        datos["credito_a_salario"] = match_vsm.group(1).strip()
+
     match_monto = re.search(r'(?:crédito\s+hasta\s+por\s+la\s+cantidad\s+de|monto\s+del?\s+crédito|suerte\s+principal|importe|monto)[:\s]*\$?\s*([\d,]+\.\d{2})', texto_limpio, re.IGNORECASE)
     monto_raw = None
     if match_monto:
@@ -233,13 +243,12 @@ def extraer_datos_pdf(ruta_pdf):
     if monto_raw:
         try:
             num = float(str(monto_raw).replace('$', '').replace(',', '').strip())
-            monto_fmt = f"${num:,.2f}"
-            datos["monto_credito"] = monto_fmt
+            datos["monto_credito"] = f"${num:,.2f}"
             datos["monto_credito_letras"] = numero_a_letras(num)
             
-            # Cálculo de equivalente a Salario Mínimo Mensual DF
-            veces_salario = num / SALARIO_MINIMO_MENSUAL_DF
-            datos["credito_a_salario"] = f"{veces_salario:.2f} VSM"
+            if datos["credito_a_salario"] == "NO_ENCONTRADO":
+                veces_salario = num / SALARIO_MINIMO_MENSUAL_DF
+                datos["credito_a_salario"] = f"{veces_salario:.2f} VSM"
         except Exception:
             datos["monto_credito"] = monto_raw
             datos["monto_credito_letras"] = monto_raw
@@ -377,12 +386,15 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         credito_texto = ""
 
     monto_raw = str(datos.get("monto_credito", "")).strip()
-    monto_letras = str(datos.get("monto_letras", "")).strip()
+    monto_letras = str(datos.get("monto_credito_letras", "")).strip()
     
-    monto_texto = monto_raw if monto_raw and monto_raw != "NO_ENCONTRADO" else ""
-
-    if not monto_letras or monto_letras == "NO_ENCONTRADO":
-        monto_letras = numero_a_letras(monto_raw)
+    # Combinar monto en números y letras si existen
+    if monto_raw and monto_raw != "NO_ENCONTRADO":
+        if not monto_letras or monto_letras == "NO_ENCONTRADO":
+            monto_letras = numero_a_letras(monto_raw)
+        monto_texto = f"{monto_raw} ({monto_letras})"
+    else:
+        monto_texto = ""
 
     def obtener_valor(clave):
         val = str(datos.get(clave, "")).strip()
@@ -400,7 +412,6 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
 
         "{{ crédito_a_salario }}": obtener_valor("credito_a_salario"),
         "{{credito_a_salario}}": obtener_valor("credito_a_salario"),
-        "{{ crédito_a_salario }}": obtener_valor("credito_a_salario"),
         "{credito_a_salario}": obtener_valor("credito_a_salario"),
         
         "{{ numero_credito }}": credito_texto,
