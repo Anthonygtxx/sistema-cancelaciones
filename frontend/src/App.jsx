@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  Upload, FileText, Download, CheckCircle, AlertCircle, History, 
-  Search, FileArchive, FolderPlus, Lock, Unlock, 
-  LogOut, User, Loader2, ChevronDown, ChevronUp, Users, Settings, 
+import {
+  Upload, FileText, Download, CheckCircle, AlertCircle, History,
+  Search, FileArchive, FolderPlus, Lock, Unlock,
+  LogOut, User, Loader2, ChevronDown, ChevronUp, Users, Settings,
   Plus, Trash2, Edit, Save, FileCode, Check, Calendar, Clock, DollarSign,
-  Sun, Moon, ArrowUpDown, Filter, Eye, Download, CheckCircle, Upload, FileText, Loader2, Lock, Unlock
+  Sun, Moon, ArrowUpDown, Filter, Eye
 } from 'lucide-react';
 
 // Configuración producción / Railway
