@@ -1065,55 +1065,26 @@ setTimeout(async () => {
       </div>
     )}
 
-{/* --- MODAL DE VISTA PREVIA (PANTALLA COMPLETA) --- */}
+{/* --- COLUMNA 3: PANEL DE VISTA PREVIA --- */}
 {mostrarVistaPrevia && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 md:p-8 overflow-hidden animate-fadeIn">
-    <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
-      
-      {/* Encabezado del Modal */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
-            <Eye className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-              Vista Previa del Documento
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Visualización previa de la plantilla Word generada
-            </p>
-          </div>
-        </div>
-
+  <div className="flex-1 min-w-0 h-full flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+    
+    {/* Encabezado del Panel */}
+    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+      <h3 className="text-lg font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+        <Eye className="w-5 h-5 text-indigo-500" /> Vista Previa del Documento
+      </h3>
+      <div className="flex items-center gap-2">
         <button
           onClick={() => setMostrarVistaPrevia(false)}
-          className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors font-medium text-sm flex items-center gap-1"
+          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
           title="Cerrar vista previa"
         >
-          ✕ Cerrar
+          ✕
         </button>
       </div>
-
-      {/* Cuerpo del Modal con Scroll */}
-      <div className="flex-1 overflow-y-auto p-6 bg-slate-100 dark:bg-slate-950 flex justify-center">
-        {cargandoPreview ? (
-          <div className="flex flex-col items-center justify-center self-center h-full gap-3 text-slate-500">
-            <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-            <p className="font-medium text-slate-700 dark:text-slate-300">Generando vista previa...</p>
-            <p className="text-xs text-slate-400">Procesando la plantilla Word</p>
-          </div>
-        ) : (
-          <div 
-            ref={previewContainerRef} 
-            className="w-full max-w-[850px] bg-white shadow-xl rounded-md p-2 text-slate-900 min-h-full"
-          />
-        )}
-      </div>
-
     </div>
-  </div>
-)}
+
     {/* Cuerpo del Visor con Scroll Interno y Ajuste Responsivo */}
     <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-slate-100 dark:bg-slate-950 flex justify-center">
       {cargandoPreview ? (
