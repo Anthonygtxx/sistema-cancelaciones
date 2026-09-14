@@ -1065,61 +1065,223 @@ setTimeout(async () => {
       </div>
     )}
 
-{/* --- SECCIÓN DE VISTA PREVIA (ABAJO DE TODO) --- */}
-{mostrarVistaPrevia && (
-  <div className="w-full mt-8 flex flex-col items-center">
-    
-    {/* Inyección de Estilos para Hojas Separadas (Sin archivo CSS externo) */}
-    <style>{`
-      .docx-custom-preview .docx-wrapper {
-        background-color: transparent !important;
-        padding: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        gap: 28px !important; /* Espacio visible entre cada hoja */
-      }
+{/* TAB: CASO INDIVIDUAL */}
+{activeTab === 'single' && (
+  <div style={{ 
+    display: 'grid', 
+    gridTemplateColumns: datos ? (mostrarVistaPrevia ? '1fr 1fr 1.2fr' : '1fr 1fr') : '1fr', 
+    gap: '24px',
+    transition: 'all 0.3s ease'
+  }}>
+    {/* COLUMNA 1: FORMULARIO DE CARGA DE ARCHIVOS */}
+    <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
+      <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Upload size={20} color={theme.accent} /> Cargar Expediente Individual
+      </h2>
 
-      .docx-custom-preview .docx-wrapper > section {
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-        border-radius: 6px !important;
-        margin-bottom: 0 !important;
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        width: 100% !important;
-        max-width: 816px !important; /* Ancho real de hoja Carta */
-        min-height: 1056px !important; /* Alto real de hoja Carta */
-        padding: 48px !important;
-        box-sizing: border-box !important;
-      }
-    `}</style>
-
-    {/* Visor de Documento con Botón Flotante */}
-    <div className="relative w-full max-w-5xl bg-slate-200 dark:bg-slate-900 rounded-2xl shadow-xl p-4 sm:p-8 border border-slate-300 dark:border-slate-800">
-      
-      {/* Botón Flotante para Cerrar (Esquina Superior Derecha) */}
-      <button
-        onClick={() => setMostrarVistaPrevia(false)}
-        className="absolute top-4 right-4 z-20 bg-white/90 dark:bg-slate-800/90 hover:bg-red-500 hover:text-white text-slate-600 dark:text-slate-300 w-9 h-9 rounded-full shadow-md transition-all duration-200 backdrop-blur-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center font-bold text-sm"
-        title="Cerrar vista previa"
+      <div 
+        onDragOver={handleDragOver}
+        onDrop={handleDropSingle}
+        style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '32px 20px', textAlign: 'center', marginBottom: '20px', cursor: 'pointer' }}
       >
-        ✕
-      </button>
-
-      {cargandoPreview ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
-          <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-          <p className="text-sm font-medium">Cargando documento...</p>
-        </div>
-      ) : (
-        /* Contenedor de las Hojas */
-        <div 
-          ref={previewContainerRef} 
-          className="w-full flex flex-col items-center gap-6 overflow-x-auto docx-custom-preview"
+        <FileText size={40} color={theme.accent} style={{ margin: '0 auto 12px auto' }} />
+        <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>
+          Arrastra aquí tus archivos PDF
+        </p>
+        <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: theme.textSecondary }}>o selecciona manualmente desde tu equipo</p>
+        <input
+          type="file"
+          multiple
+          accept=".pdf"
+          onChange={handleSingleFileChange}
+          style={{ display: 'none' }}
+          id="single-file-input"
         />
+        <label htmlFor="single-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
+          Buscar Archivos
+        </label>
+      </div>
+
+      {singleFiles.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textSecondary }}>
+            Archivos Seleccionados ({singleFiles.length}):
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '150px', overflowY: 'auto' }}>
+            {singleFiles.map((f, i) => (
+              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '6px', fontSize: '13px', color: theme.textPrimary }}>
+                <FileText size={14} color={theme.textSecondary} />
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
+
+      {loading && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px', color: theme.textSecondary }}>
+            <span>Procesando documentos...</span>
+            <span>{progressSingle}%</span>
+          </div>
+          <div style={{ width: '100%', backgroundColor: theme.subtleBg, height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: `${progressSingle}%`, backgroundColor: theme.accent, height: '100%', transition: 'width 0.2s' }} />
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={handleUploadSingle}
+        disabled={singleFiles.length === 0 || loading}
+        style={{
+          width: '100%',
+          backgroundColor: singleFiles.length === 0 || loading ? theme.subtleBg : theme.accent,
+          color: singleFiles.length === 0 || loading ? theme.textSecondary : '#fff',
+          border: 'none',
+          padding: '12px',
+          borderRadius: '10px',
+          fontWeight: '600',
+          fontSize: '14px',
+          cursor: singleFiles.length === 0 || loading ? 'not-allowed' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
+        }}
+      >
+        {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <CheckCircle size={16} />}
+        Procesar Expediente
+      </button>
     </div>
 
+    {/* COLUMNA 2: DATOS EXTRAÍDOS Y EDITABLES */}
+    {datos && (
+      <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle size={20} color="#10b981" /> Datos Extraídos
+          </h2>
+          
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {/* BOTÓN DE VISTA PREVIA */}
+            <button
+              onClick={handleGenerarVistaPrevia}
+              disabled={cargandoPreview}
+              style={{ 
+                backgroundColor: theme.subtleBg, 
+                color: theme.textPrimary, 
+                border: `1px solid ${theme.border}`, 
+                padding: '8px 12px', 
+                borderRadius: '8px', 
+                fontWeight: '600', 
+                fontSize: '13px', 
+                cursor: cargandoPreview ? 'wait' : 'pointer', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px' 
+              }}
+            >
+              {cargandoPreview ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Eye size={14} color={theme.accent} />} 
+              {mostrarVistaPrevia ? 'Actualizar Previa' : 'Vista Previa'}
+            </button>
+
+            {/* BOTÓN DESCARGAR WORD */}
+            <button
+              onClick={() => handleDownloadWord(expedienteId, datos)}
+              style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', fontWeight: '600', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Download size={14} /> Descargar Word
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '500px', overflowY: 'auto', paddingRight: '4px' }}>
+          {Object.entries(datos).map(([key, val]) => {
+            const isUnlocked = unlockedFields[`single_${key}`];
+            return (
+              <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '600', color: theme.textSecondary }}>
+                  {formatLabel(key)}
+                </label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={val || ''}
+                    disabled={!isUnlocked}
+                    onChange={(e) => handleInputChange(key, e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: isUnlocked ? theme.inputBg : theme.subtleBg,
+                      color: theme.textPrimary,
+                      fontSize: '13px',
+                      opacity: isUnlocked ? 1 : 0.8
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleToggleUnlock(`single_${key}`)}
+                    style={{
+                      padding: '10px',
+                      borderRadius: '8px',
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: isUnlocked ? '#fef3c7' : theme.subtleBg,
+                      color: isUnlocked ? '#d97706' : theme.textSecondary,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {isUnlocked ? <Unlock size={16} /> : <Lock size={16} />}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
+    {/* COLUMNA 3: VISOR DE VISTA PREVIA DEL WORD */}
+    {datos && mostrarVistaPrevia && (
+      <div style={{ 
+        backgroundColor: theme.cardBg, 
+        padding: '24px', 
+        borderRadius: '16px', 
+        border: `1px solid ${theme.border}`,
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Eye size={20} color={theme.accent} /> Vista Previa
+          </h2>
+          <button 
+            onClick={() => setMostrarVistaPrevia(false)}
+            style={{ background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+          >
+            Cerrar ✕
+          </button>
+        </div>
+
+        {/* CONTENEDOR DONDE DOCX-PREVIEW DIBUJA LA HOJA */}
+        <div 
+          ref={previewContainerRef}
+          style={{ 
+            width: '100%', 
+            height: '520px', 
+            overflowY: 'auto', 
+            borderRadius: '8px', 
+            border: `1px solid ${theme.border}`,
+            backgroundColor: '#ffffff',
+            padding: '10px'
+          }}
+        />
+      </div>
+    )}
   </div>
 )}
 
