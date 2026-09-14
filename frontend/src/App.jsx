@@ -1075,6 +1075,7 @@ setTimeout(async () => {
         <Eye className="w-5 h-5 text-indigo-500" /> Vista Previa del Documento
       </h3>
       <div className="flex items-center gap-2">
+        {/* Barra de herramientas opcional (puedes agregar botones de zoom aquí) */}
         <button
           onClick={() => setMostrarVistaPrevia(false)}
           className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -1085,8 +1086,8 @@ setTimeout(async () => {
       </div>
     </div>
 
-    {/* Cuerpo del Visor con Scroll Interno y Ajuste Responsivo */}
-    <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-slate-100 dark:bg-slate-950 flex justify-center">
+    {/* Cuerpo del Visor con Scroll Interno y Fondo de Documento */}
+    <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
       {cargandoPreview ? (
         // Estado de Carga centrado
         <div className="flex flex-col items-center justify-center self-center h-full gap-3 text-slate-500">
@@ -1095,10 +1096,10 @@ setTimeout(async () => {
           <p className="text-sm">Esto puede tardar unos segundos</p>
         </div>
       ) : (
-        // Contenedor del documento renderizado adaptado al ancho disponible
+        // Contenedor del documento renderizado (efecto hoja de papel)
         <div 
           ref={previewContainerRef} 
-          className="w-full bg-white shadow-lg rounded-lg border border-slate-200 text-slate-900 overflow-x-hidden [&_.docx-wrapper]:!bg-transparent [&_.docx-wrapper]:!p-0 [&_.docx-wrapper>section]:!w-full [&_.docx-wrapper>section]:!box-border [&_.docx-wrapper>section]:!min-h-0 [&_.docx-wrapper>section]:!shadow-none [&_.docx-wrapper>section]:!p-6"
+          className="w-full max-w-[816px] (Ancho A4 a 96dpi) bg-white shadow-lg p-6 md:p-12 min-h-[1056px] (Alto A4 a 96dpi) rounded-lg border border-slate-200 text-slate-900 overflow-x-auto print:shadow-none"
         />
       )}
     </div>
@@ -1628,5 +1629,6 @@ setTimeout(async () => {
         </div>
       )}
     </div>
-  );
-}
+  )};
+  </div>
+  )}
