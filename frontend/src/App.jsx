@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { renderAsync } from 'docx-preview';
 import {
   Upload, FileText, Download, CheckCircle, AlertCircle, History,
   Search, FileArchive, FolderPlus, Lock, Unlock,
