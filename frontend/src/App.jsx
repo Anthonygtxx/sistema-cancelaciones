@@ -164,50 +164,36 @@ export default function App() {
     }
   };
 
-  const handleGenerarVistaPrevia = async () => {
+const handleGenerarVistaPrevia = async () => {
   if (!expedienteId || !datos) return;
-  
+
   setCargandoPreview(true);
-  setMostrarVistaPrevia(true);
+  setMostrarVistaPrevia(true); // Abre el modal inmediatamente en estado de carga
 
   try {
-    // 1. Petición de datos binarios a Railway mediante Axios
     const response = await api.post(
-      `/expedientes/${expedienteId}/generar-word`, 
+      `/expedientes/${expedienteId}/generar-word`,
       {
         plantilla: 'plantilla_manera2.docx',
         datos: datos
       },
-      { 
-        responseType: 'arraybuffer' 
-      }
+      { responseType: 'arraybuffer' }
     );
 
     const arrayBuffer = response.data;
+    setCargandoPreview(false); // Quita el loader para montar el div del ref
 
-    // 2. Apagamos el estado de carga para que React monte el div contenedor (previewContainerRef)
-    setCargandoPreview(false);
-
-    // 3. Esperamos 50ms a que el DOM monte la referencia y dibujamos con docx-preview
-    // Dentro de handleGenerarVistaPrevia en src/App.jsx:
-setTimeout(async () => {
-  if (previewContainerRef.current) {
-    previewContainerRef.current.innerHTML = "";
-    
-    // Opciones para adaptar el renderizado al contenedor
-    await renderAsync(arrayBuffer, previewContainerRef.current, null, {
-      className: "docx-container",
-      inWrapper: true,
-      ignoreWidth: false,
-      ignoreHeight: false,
-      breakPages: true
-    });
-  }
-}, 50);
+    // Le damos un ciclo de render al DOM para montar el ref
+    setTimeout(async () => {
+      if (previewContainerRef.current) {
+        previewContainerRef.current.innerHTML = "";
+        await renderAsync(arrayBuffer, previewContainerRef.current);
+      }
+    }, 50);
 
   } catch (error) {
     console.error("Error al renderizar vista previa:", error);
-    setCargandoPreview(false); // Desactivar loader en caso de error en la API
+    setCargandoPreview(false);
   }
 };
 
