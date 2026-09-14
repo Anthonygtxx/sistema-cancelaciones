@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { renderAsync } from 'docx-preview';
 import {
@@ -32,6 +32,10 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  const previewContainerRef = useRef(null);
+  const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
+  const [cargandoPreview, setCargandoPreview] = useState(false);
   
   const [loginUser, setLoginUser] = useState('');
   const [loginPassword, setLoginPassword] = useState('');

@@ -579,3 +579,4 @@ async def actualizar_plantilla(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
         
     return {"status": "exito", "mensaje": f"Plantilla '{file.filename}' subida correctamente"}
+
