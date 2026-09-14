@@ -175,7 +175,7 @@ export default function App() {
     const response = await api.post(
       `/expedientes/${expedienteId}/generar-word`, 
       {
-        plantilla: plantillaSeleccionada || 'plantilla_manera2.docx',
+        plantilla: 'plantilla_manera2.docx',
         datos: datos
       },
       { 
