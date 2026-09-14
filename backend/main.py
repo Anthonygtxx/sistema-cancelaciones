@@ -169,6 +169,7 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://sistema-cancelaciones.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -180,6 +181,22 @@ app.include_router(auth.router)
 @app.get("/")
 def home():
     return {"status": "OK", "mensaje": "Servidor backend conectado"}
+
+
+# --- GESTIÓN DE PLANTILLAS ---
+@app.get("/api/plantillas")
+def obtener_lista_plantillas():
+    """Retorna la lista de nombres de archivos .docx disponibles en el directorio templates/"""
+    templates_dir = "templates"
+    if not os.path.exists(templates_dir):
+        os.makedirs(templates_dir, exist_ok=True)
+        return {"plantillas": []}
+    
+    archivos = [
+        f for f in os.listdir(templates_dir) 
+        if f.endswith(".docx") and not f.startswith("~$")
+    ]
+    return {"plantillas": sorted(archivos)}
 
 
 # --- HISTORIAL ADAPTADO ---
@@ -287,6 +304,7 @@ async def procesar_documento(
 async def procesar_masivo(
     files: List[UploadFile] = File(...),
     usuario_propietario: Optional[str] = Form(None),
+    plantilla: Optional[str] = Form("plantilla_manera2.docx"),
     db: Session = Depends(get_db)
 ):
     try:
@@ -294,12 +312,18 @@ async def procesar_masivo(
 
         os.makedirs("uploads", exist_ok=True)
         os.makedirs("uploads/generados", exist_ok=True)
-        ruta_plantilla = "templates/plantilla_manera2.docx"
+        
+        # Selección dinámica de plantilla
+        nombre_plantilla = plantilla if plantilla else "plantilla_manera2.docx"
+        ruta_plantilla = os.path.join("templates", nombre_plantilla)
+        if not os.path.exists(ruta_plantilla):
+            ruta_plantilla = "templates/plantilla_manera2.docx"
 
         agrupados_por_credito = {}
 
         print(f"\n================ [PROCESAMIENTO MASIVO EN CURSO] ================")
         print(f"Total de archivos recibidos: {len(files)}")
+        print(f"Plantilla seleccionada: {ruta_plantilla}")
 
         for file in files:
             if not file.filename.lower().endswith('.pdf'):
@@ -328,14 +352,6 @@ async def procesar_masivo(
             
             datos_finales = limpiar_datos_para_plantilla(datos_raw, num_credito)
 
-            print(f"\n--- Expediente Procesado: Crédito {num_credito} ---")
-            print(f"  * Archivos consolidados: {len(grupo)}")
-            print(f"  * Acreditado: {datos_finales.get('nombre_acreditado')}")
-            print(f"  * Entidad: {datos_finales.get('entidad_financiera')}")
-            print(f"  * Número de Carta: {datos_finales.get('numero_carta')}")
-            print(f"  * Monto: {datos_finales.get('monto_credito')}")
-            print(f"  * Monto Letras: {datos_finales.get('monto_letras')}")
-
             ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
             services.generar_word_cancelacion(ruta_plantilla, datos_finales, ruta_salida)
 
@@ -360,7 +376,6 @@ async def procesar_masivo(
                 "ruta_word": ruta_salida
             })
 
-        print(f"\n=================================================================\n")
         return {"status": "exito", "procesados": len(resultados), "detalles": resultados}
     except Exception as e:
         print(f"ERROR EN /procesar-masivo: {e}")
@@ -421,19 +436,28 @@ def actualizar_datos_expediente(
 @app.post("/api/expedientes/{expediente_id}/generar-word")
 def generar_word(
     expediente_id: str, 
-    datos_modificados: Optional[Dict[str, Any]] = Body(None), 
+    datos_payload: Optional[Dict[str, Any]] = Body(None), 
     db: Session = Depends(get_db)
 ):
     expediente = db.query(models.Expediente).filter(models.Expediente.id == expediente_id).first()
     
     if not expediente:
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
-        
-    ruta_plantilla = "templates/plantilla_manera2.docx"
+    
+    # Extraer datos y plantilla seleccionada del body
+    datos_payload = datos_payload or {}
+    nombre_plantilla = datos_payload.get("plantilla", "plantilla_manera2.docx")
+    datos_modificados = datos_payload.get("datos", datos_payload)
+    
+    # Resolver ruta de plantilla
+    ruta_plantilla = os.path.join("templates", nombre_plantilla)
+    if not os.path.exists(ruta_plantilla):
+        ruta_plantilla = "templates/plantilla_manera2.docx"
+
     os.makedirs("uploads/generados", exist_ok=True)
     
     datos_actuales = dict(expediente.datos_extraidos or {})
-    if datos_modificados:
+    if isinstance(datos_modificados, dict):
         datos_actuales.update(datos_modificados)
     
     num_credito = datos_actuales.get("numero_credito") or expediente.numero_credito
@@ -505,22 +529,18 @@ def crear_usuario_admin(
 def eliminar_usuario(
     usuario_id: str, 
     db: Session = Depends(get_db),
-    # Si tienes auth.get_current_user para validar el token Bearer:
     usuario_actual: models.Usuario = Depends(auth.get_current_user)
 ):
-    # 1. Validar que el usuario que realiza la petición sea Administrador
     if not usuario_actual.es_admin:
         raise HTTPException(
             status_code=403, 
             detail="No tienes permisos de administrador para realizar esta acción"
         )
 
-    # 2. Buscar al usuario a eliminar
     usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-    # 3. Proteger a los administradores de ser eliminados
     if usuario.es_admin or usuario.username.lower() == "admin":
         raise HTTPException(
             status_code=400, 
@@ -538,15 +558,16 @@ def eliminar_usuario(
             detail="Error al eliminar usuario. Es posible que tenga registros asociados en el historial."
         )
 
+
 @app.post("/api/admin/plantilla")
 async def actualizar_plantilla(file: UploadFile = File(...)):
     if not file.filename.endswith(".docx"):
         raise HTTPException(status_code=400, detail="El archivo debe ser un documento .docx")
     
     os.makedirs("templates", exist_ok=True)
-    ruta_plantilla = "templates/plantilla_manera2.docx"
+    ruta_plantilla = os.path.join("templates", file.filename)
     
     with open(ruta_plantilla, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    return {"status": "exito", "mensaje": "Plantilla actualizada correctamente"}
+    return {"status": "exito", "mensaje": f"Plantilla '{file.filename}' subida correctamente"}

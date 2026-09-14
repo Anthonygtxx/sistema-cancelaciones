@@ -20,7 +20,7 @@ def credito_a_letras(numero_str):
     digitos = [mapa_digitos[d] for d in str(numero_str).strip() if d in mapa_digitos]
     if digitos:
         return f'"{numero_str}" ({" ".join(digitos)})'
-    return numero_str
+    return str(numero_str)
 
 def numero_a_letras(numero):
     """Convierte un número flotante/entero a su representación en texto para moneda M.N."""
@@ -54,7 +54,7 @@ def numero_a_letras(numero):
         return str(numero)
 
     if enteros == 0:
-        texto_enteros = "CERO"
+        texto_enteros = "CERO PESOS"
     else:
         millones = enteros // 1000000
         miles = (enteros % 1000000) // 1000
@@ -74,9 +74,9 @@ def numero_a_letras(numero):
         if cientos > 0:
             partes.append(convert_group(cientos).strip())
 
-        texto_enteros = " ".join(partes)
+        texto_enteros = " ".join(partes) + " PESOS"
 
-    return f"{texto_enteros} PESOS {centavos:02d}/100 M.N."
+    return f"{texto_enteros} {centavos:02d}/100 M.N."
 
 def extraer_oficina_registral(texto):
     """Extrae la oficina registral (ej. TOLUCA)."""
@@ -145,7 +145,6 @@ def determinar_genero_y_estado_civil(texto_completo, nombre_acreditado=""):
     elif re.search(r'\bEL\s+ACREDITADO\b|\bSEÑOR\b|\bA\s+FAVOR\s+DEL\b|\bCIUDADANO\b', texto_upper):
         genero = "MASCULINO"
     else:
-        # Fallback por terminación del primer nombre
         primer_nombre = nombre_upper.split()[0] if nombre_upper else ""
         if primer_nombre.endswith(('A', 'IA', 'IS')):
             genero = "FEMENINO"
@@ -158,29 +157,25 @@ def determinar_genero_y_estado_civil(texto_completo, nombre_acreditado=""):
     elif re.search(r'\bSOLTER[AO]\b|\bESTADO\s+CIVIL\s*:\s*SOLTER', texto_upper):
         estado_civil = "SOLTERO"
     else:
-        estado_civil = "SOLTERO" # Valor por defecto si no especifica la carta de instrucción
+        estado_civil = "SOLTERO"
 
     return genero, estado_civil
 
 def seleccionar_plantilla(datos, carpeta_raiz="EJEMPLOS DE 20 MODELOS CH - INFONAVIT (IA)"):
     """
     Selecciona la ruta del archivo .docx analizando el tipo de contrato,
-    la ubicación (CDMX/EDOMEX), la presencia de coacreditados, el género y estado civil.
+    la ubicación, la presencia de coacreditados, género y estado civil.
     """
     texto = datos.get("texto_raw", "").upper()
     oficina = datos.get("oficina_registral", "").upper()
     inmueble = datos.get("datos_inmueble", "").upper()
     
-    # 1. Determinar subcarpeta según el tipo de caso
     es_coacreditado = "COACREDITADO" in texto or "COACREDITADA" in texto
     
     if es_coacreditado:
         subcarpeta = "COACREDITADOS"
     else:
-        # Detecta si el documento indica Mutuo o Apertura
         tipo_contrato = "MUTUO" if "MUTUO" in texto else "APERTURA"
-            
-        # Detecta Estado (EDOMEX vs CDMX)
         if "MÉXICO" in inmueble or "MEXICO" in inmueble or "TOLUCA" in oficina or "METEPEC" in oficina or "ECATEPEC" in oficina:
             ubicacion = "EDOMEX"
         else:
@@ -188,7 +183,6 @@ def seleccionar_plantilla(datos, carpeta_raiz="EJEMPLOS DE 20 MODELOS CH - INFON
             
         subcarpeta = f"{tipo_contrato} - {ubicacion}"
 
-    # 2. Determinar nombre de la plantilla según Género y Estado Civil
     genero = datos.get("genero", "MASCULINO")
     estado_civil = datos.get("estado_civil", "SOLTERO")
 
@@ -197,7 +191,13 @@ def seleccionar_plantilla(datos, carpeta_raiz="EJEMPLOS DE 20 MODELOS CH - INFON
     else:
         nombre_plantilla = "HOMBRE CASADO.docx" if estado_civil == "CASADO" else "HOMBRE SOLTERO.docx"
 
-    return os.path.join(carpeta_raiz, subcarpeta, nombre_plantilla)
+    ruta_calculada = os.path.join(carpeta_raiz, subcarpeta, nombre_plantilla)
+    
+    # Fallback si el modelo de subcarpetas no existe localmente
+    if not os.path.exists(ruta_calculada):
+        return os.path.join("templates", "plantilla_manera2.docx")
+        
+    return ruta_calculada
 
 def extraer_datos_pdf(ruta_pdf):
     datos = {
@@ -269,7 +269,7 @@ def extraer_datos_pdf(ruta_pdf):
             num = float(str(monto_raw).replace('$', '').replace(',', '').strip())
             monto_fmt = f"${num:,.2f}"
             datos["monto_credito"] = monto_fmt
-            datos["monto_credito_letras"] = f"{monto_fmt} ({numero_a_letras(num)})"
+            datos["monto_credito_letras"] = numero_a_letras(num)
         except Exception:
             datos["monto_credito"] = monto_raw
             datos["monto_credito_letras"] = monto_raw
@@ -370,13 +370,13 @@ def reemplazar_texto_en_parrafo(parrafo, mapa_reemplazos):
     if not any(key in texto_parrafo for key in mapa_reemplazos.keys()):
         return
 
-    # Paso 1: Unificar la variable {{ ... }} si Word la fragmentó en varios runs
+    # Paso 1: Unificar la variable {{ ... }} o { ... } si Word la fragmentó en varios runs
     for key in mapa_reemplazos.keys():
         if key in parrafo.text and not any(key in r.text for r in parrafo.runs):
             for idx, run in enumerate(parrafo.runs):
-                if "{{" in run.text:
+                if "{" in run.text:
                     j = idx + 1
-                    while j < len(parrafo.runs) and "}}" not in parrafo.runs[j-1].text:
+                    while j < len(parrafo.runs) and "}" not in parrafo.runs[j-1].text:
                         run.text += parrafo.runs[j].text
                         parrafo.runs[j].text = ""  # Vaciar runs excedentes
                         j += 1
@@ -386,18 +386,20 @@ def reemplazar_texto_en_parrafo(parrafo, mapa_reemplazos):
         val_str = str(value)
         for run in parrafo.runs:
             if key in run.text:
-                # Reemplaza la etiqueta por el valor extraído
                 run.text = run.text.replace(key, val_str)
-                
-                # Quita el subrayado y resaltado si venía de la plantilla
                 run.font.underline = False
                 run.font.highlight_color = None
 
 
 def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
+    # Fallback si la plantilla no existe
     if not os.path.exists(ruta_plantilla):
-        print(f"ADVERTENCIA: No existe la plantilla {ruta_plantilla}")
-        return False
+        ruta_plantilla_alt = os.path.join("templates", "plantilla_manera2.docx")
+        if os.path.exists(ruta_plantilla_alt):
+            ruta_plantilla = ruta_plantilla_alt
+        else:
+            print(f"ADVERTENCIA: No se encontró la plantilla en {ruta_plantilla}")
+            return False
 
     doc = Document(ruta_plantilla)
     
@@ -412,22 +414,19 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
     else:
         credito_texto = ""
 
-    # --- 3. PROCESAMIENTO DE MONTO DE CRÉDITO ---
+    # --- 3. PROCESAMIENTO DE MONTO DE CRÉDITO Y MONTO EN LETRAS ---
     monto_raw = str(datos.get("monto_credito", "")).strip()
+    monto_letras = str(datos.get("monto_letras", "")).strip()
+    
     if monto_raw and monto_raw != "NO_ENCONTRADO":
-        if "PESOS" in monto_raw.upper() or "M.N." in monto_raw.upper():
-            monto_texto = monto_raw
-        else:
-            try:
-                num = float(monto_raw.replace('$', '').replace(',', '').strip())
-                monto_fmt = f"${num:,.2f}"
-                monto_texto = f"{monto_fmt} ({numero_a_letras(num)})"
-            except Exception:
-                monto_texto = monto_raw
+        monto_texto = monto_raw
     else:
         monto_texto = ""
 
-    # --- 4. MAPEO UNIFICADO DE REEMPLAZOS ---
+    if not monto_letras or monto_letras == "NO_ENCONTRADO":
+        monto_letras = numero_a_letras(monto_raw)
+
+    # --- 4. MAPEO UNIFICADO DE REEMPLAZOS (CORCHETES DOBLES Y SIMPLES) ---
     def obtener_valor(clave):
         val = str(datos.get(clave, "")).strip()
         return "" if val == "NO_ENCONTRADO" else val
@@ -435,30 +434,43 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
     mapa_reemplazos = {
         "{{ numero_carta }}": obtener_valor("numero_carta"),
         "{{numero_carta}}": obtener_valor("numero_carta"),
+        "{numero_carta}": obtener_valor("numero_carta"),
         
         "{{ numero_credito }}": credito_texto,
         "{{numero_credito}}": credito_texto,
+        "{numero_credito}": credito_texto,
 
         "{{ nombre_acreditado }}": obtener_valor("nombre_acreditado"),
         "{{nombre_acreditado}}": obtener_valor("nombre_acreditado"),
+        "{nombre_acreditado}": obtener_valor("nombre_acreditado"),
 
         "{{ monto_credito }}": monto_texto,
         "{{monto_credito}}": monto_texto,
+        "{monto_credito}": monto_texto,
+
+        "{{ monto_letras }}": monto_letras,
+        "{{monto_letras}}": monto_letras,
+        "{monto_letras}": monto_letras,
 
         "{{ entidad_financiera }}": obtener_valor("entidad_financiera"),
         "{{entidad_financiera}}": obtener_valor("entidad_financiera"),
+        "{entidad_financiera}": obtener_valor("entidad_financiera"),
 
         "{{ fecha_liquidacion }}": obtener_valor("fecha_liquidacion"),
         "{{fecha_liquidacion}}": obtener_valor("fecha_liquidacion"),
+        "{fecha_liquidacion}": obtener_valor("fecha_liquidacion"),
 
         "{{ folio_real }}": folio_limpio,
         "{{folio_real}}": folio_limpio,
+        "{folio_real}": folio_limpio,
 
         "{{ oficina_registral }}": obtener_valor("oficina_registral"),
         "{{oficina_registral}}": obtener_valor("oficina_registral"),
+        "{oficina_registral}": obtener_valor("oficina_registral"),
 
         "{{ datos_inmueble }}": obtener_valor("datos_inmueble"),
         "{{datos_inmueble}}": obtener_valor("datos_inmueble"),
+        "{datos_inmueble}": obtener_valor("datos_inmueble"),
     }
 
     # --- 5. REEMPLAZO EN PÁRRAFOS Y TABLAS ---
@@ -471,20 +483,21 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
                 for p in cell.paragraphs:
                     reemplazar_texto_en_parrafo(p, mapa_reemplazos)
 
-    os.makedirs(os.path.dirname(ruta_salida), exist_ok=True)
+    directorio_salida = os.path.dirname(ruta_salida)
+    if directorio_salida:
+        os.makedirs(directorio_salida, exist_ok=True)
+        
     doc.save(ruta_salida)
     return True
 
-# --- EJEMPLO DE USO / PROCESAMIENTO ---
+
 def procesar_cancelacion(ruta_pdf_entrada, ruta_salida_docx, carpeta_raiz="EJEMPLOS DE 20 MODELOS CH - INFONAVIT (IA)"):
     """
     Función principal para procesar un PDF, detectar género/estado civil,
     seleccionar la plantilla y generar el Word de cancelación.
     """
-    # 1. Extraer los datos del PDF
     datos = extraer_datos_pdf(ruta_pdf_entrada)
 
-    # 2. Seleccionar la plantilla adecuada según género, estado civil y tipo/ubicación
     ruta_plantilla = seleccionar_plantilla(
         datos=datos,
         carpeta_raiz=carpeta_raiz
@@ -495,9 +508,24 @@ def procesar_cancelacion(ruta_pdf_entrada, ruta_salida_docx, carpeta_raiz="EJEMP
     print(f"Estado Civil detectado: {datos.get('estado_civil')}")
     print(f"Plantilla seleccionada: {ruta_plantilla}")
 
-    # 3. Generar el documento final
     exito = generar_word_cancelacion(ruta_plantilla, datos, ruta_salida_docx)
     if exito:
         print(f"Documento generado exitosamente en: {ruta_salida_docx}")
     else:
         print("Error al generar el documento.")
+
+
+if __name__ == "__main__":
+    # Sustituye con la ruta real a tu PDF de entrada
+    pdf_de_prueba = "ejemplo.pdf"
+    word_de_salida = "salida/cancelacion_final.docx"
+
+    # Verificación de existencia del PDF antes de procesar
+    if os.path.exists(pdf_de_prueba):
+        procesar_cancelacion(
+            ruta_pdf_entrada=pdf_de_prueba,
+            ruta_salida_docx=word_de_salida
+        )
+    else:
+        print(f"No se encontró el archivo PDF en la ruta: {pdf_de_prueba}")
+        print("Por favor ajusta la variable 'pdf_de_prueba' en el bloque principal con el nombre/ruta correcto.")
