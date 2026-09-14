@@ -171,7 +171,7 @@ export default function App() {
   setMostrarVistaPrevia(true);
 
   try {
-    // Usamos tu instancia 'api' de axios
+    // 1. Petición de datos binarios a Railway mediante Axios
     const response = await api.post(
       `/expedientes/${expedienteId}/generar-word`, 
       {
@@ -179,22 +179,26 @@ export default function App() {
         datos: datos
       },
       { 
-        responseType: 'arraybuffer' // Imprescindible para manejar archivos binarios (.docx)
+        responseType: 'arraybuffer' 
       }
     );
 
-    // Con axios, los datos binarios vienen directo en response.data
     const arrayBuffer = response.data;
 
-    // Renderizamos con docx-preview
-    if (previewContainerRef.current) {
-      previewContainerRef.current.innerHTML = ""; // Limpiar vista anterior
-      await renderAsync(arrayBuffer, previewContainerRef.current);
-    }
+    // 2. Apagamos el estado de carga para que React monte el div contenedor (previewContainerRef)
+    setCargandoPreview(false);
+
+    // 3. Esperamos 50ms a que el DOM monte la referencia y dibujamos con docx-preview
+    setTimeout(async () => {
+      if (previewContainerRef.current) {
+        previewContainerRef.current.innerHTML = ""; // Limpiar vista anterior
+        await renderAsync(arrayBuffer, previewContainerRef.current);
+      }
+    }, 50);
+
   } catch (error) {
     console.error("Error al renderizar vista previa:", error);
-  } finally {
-    setCargandoPreview(false);
+    setCargandoPreview(false); // Desactivar loader en caso de error en la API
   }
 };
 
@@ -1052,43 +1056,44 @@ export default function App() {
       </div>
     )}
 
-    {/* COLUMNA 3: VISOR DE VISTA PREVIA DEL WORD */}
-    {datos && mostrarVistaPrevia && (
-      <div style={{ 
-        backgroundColor: theme.cardBg, 
-        padding: '24px', 
-        borderRadius: '16px', 
-        border: `1px solid ${theme.border}`,
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Eye size={20} color={theme.accent} /> Vista Previa
-          </h2>
-          <button 
-            onClick={() => setMostrarVistaPrevia(false)}
-            style={{ background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
-          >
-            Cerrar ✕
-          </button>
-        </div>
-
-        {/* CONTENEDOR DONDE DOCX-PREVIEW DIBUJA LA HOJA */}
-        <div 
-          ref={previewContainerRef}
-          style={{ 
-            width: '100%', 
-            height: '520px', 
-            overflowY: 'auto', 
-            borderRadius: '8px', 
-            border: `1px solid ${theme.border}`,
-            backgroundColor: '#ffffff',
-            padding: '10px'
-          }}
-        />
+{/* --- COLUMNA 3: PANEL DE VISTA PREVIA --- */}
+{mostrarVistaPrevia && (
+  <div className="flex-1 min-w-0 h-full flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+    
+    {/* Encabezado del Panel */}
+    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+      <h3 className="text-lg font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+        <Eye className="w-5 h-5 text-indigo-500" /> Vista Previa del Documento
+      </h3>
+      <div className="flex items-center gap-2">
+        {/* Barra de herramientas opcional (puedes agregar botones de zoom aquí) */}
+        <button
+          onClick={() => setMostrarVistaPrevia(false)}
+          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          title="Cerrar vista previa"
+        >
+          ✕
+        </button>
       </div>
-    )}
+    </div>
+
+    {/* Cuerpo del Visor con Scroll Interno y Fondo de Documento */}
+    <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
+      {cargandoPreview ? (
+        // Estado de Carga centrado
+        <div className="flex flex-col items-center justify-center self-center h-full gap-3 text-slate-500">
+          <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+          <p className="font-medium">Generando vista previa...</p>
+          <p className="text-sm">Esto puede tardar unos segundos</p>
+        </div>
+      ) : (
+        // Contenedor del documento renderizado (efecto hoja de papel)
+        <div 
+          ref={previewContainerRef} 
+          className="w-full max-w-[816px] (Ancho A4 a 96dpi) bg-white shadow-lg p-6 md:p-12 min-h-[1056px] (Alto A4 a 96dpi) rounded-lg border border-slate-200 text-slate-900 overflow-x-auto print:shadow-none"
+        />
+      )}
+    </div>
   </div>
 )}
 
