@@ -5,7 +5,7 @@ import {
   Search, FileArchive, FolderPlus, Lock, Unlock, 
   LogOut, User, Loader2, ChevronDown, ChevronUp, Users, Settings, 
   Plus, Trash2, Edit, Save, FileCode, Check, Calendar, Clock, DollarSign,
-  Sun, Moon, ArrowUpDown, Filter
+  Sun, Moon, ArrowUpDown, Filter, Eye, Download, CheckCircle, Upload, FileText, Loader2, Lock, Unlock
 } from 'lucide-react';
 
 // Configuración producción / Railway
@@ -158,6 +158,40 @@ export default function App() {
       console.error('Error al cargar historial:', err);
     }
   };
+
+  const handleGenerarVistaPrevia = async () => {
+  if (!expedienteId || !datos) return;
+  
+  setCargandoPreview(true);
+  setMostrarVistaPrevia(true);
+
+  try {
+    // Usamos tu instancia 'api' de axios
+    const response = await api.post(
+      `/expedientes/${expedienteId}/generar-word`, 
+      {
+        plantilla: plantillaSeleccionada || 'plantilla_manera2.docx',
+        datos: datos
+      },
+      { 
+        responseType: 'arraybuffer' // Imprescindible para manejar archivos binarios (.docx)
+      }
+    );
+
+    // Con axios, los datos binarios vienen directo en response.data
+    const arrayBuffer = response.data;
+
+    // Renderizamos con docx-preview
+    if (previewContainerRef.current) {
+      previewContainerRef.current.innerHTML = ""; // Limpiar vista anterior
+      await renderAsync(arrayBuffer, previewContainerRef.current);
+    }
+  } catch (error) {
+    console.error("Error al renderizar vista previa:", error);
+  } finally {
+    setCargandoPreview(false);
+  }
+};
 
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
@@ -833,154 +867,225 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB: CASO INDIVIDUAL */}
-          {activeTab === 'single' && (
-            <div style={{ display: 'grid', gridTemplateColumns: datos ? '1fr 1fr' : '1fr', gap: '24px' }}>
-              <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Upload size={20} color={theme.accent} /> Cargar Expediente Individual
-                </h2>
+    {/* TAB: CASO INDIVIDUAL */}
+{activeTab === 'single' && (
+  <div style={{ 
+    display: 'grid', 
+    gridTemplateColumns: datos ? (mostrarVistaPrevia ? '1fr 1fr 1.2fr' : '1fr 1fr') : '1fr', 
+    gap: '24px',
+    transition: 'all 0.3s ease'
+  }}>
+    {/* COLUMNA 1: FORMULARIO DE CARGA DE ARCHIVOS */}
+    <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
+      <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Upload size={20} color={theme.accent} /> Cargar Expediente Individual
+      </h2>
 
-                <div 
-                  onDragOver={handleDragOver}
-                  onDrop={handleDropSingle}
-                  style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '32px 20px', textAlign: 'center', marginBottom: '20px', cursor: 'pointer' }}
-                >
-                  <FileText size={40} color={theme.accent} style={{ margin: '0 auto 12px auto' }} />
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>
-                    Arrastra aquí tus archivos PDF
-                  </p>
-                  <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: theme.textSecondary }}>o selecciona manualmente desde tu equipo</p>
+      <div 
+        onDragOver={handleDragOver}
+        onDrop={handleDropSingle}
+        style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '32px 20px', textAlign: 'center', marginBottom: '20px', cursor: 'pointer' }}
+      >
+        <FileText size={40} color={theme.accent} style={{ margin: '0 auto 12px auto' }} />
+        <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>
+          Arrastra aquí tus archivos PDF
+        </p>
+        <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: theme.textSecondary }}>o selecciona manualmente desde tu equipo</p>
+        <input
+          type="file"
+          multiple
+          accept=".pdf"
+          onChange={handleSingleFileChange}
+          style={{ display: 'none' }}
+          id="single-file-input"
+        />
+        <label htmlFor="single-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
+          Buscar Archivos
+        </label>
+      </div>
+
+      {singleFiles.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textSecondary }}>
+            Archivos Seleccionados ({singleFiles.length}):
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '150px', overflowY: 'auto' }}>
+            {singleFiles.map((f, i) => (
+              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '6px', fontSize: '13px', color: theme.textPrimary }}>
+                <FileText size={14} color={theme.textSecondary} />
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px', color: theme.textSecondary }}>
+            <span>Procesando documentos...</span>
+            <span>{progressSingle}%</span>
+          </div>
+          <div style={{ width: '100%', backgroundColor: theme.subtleBg, height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: `${progressSingle}%`, backgroundColor: theme.accent, height: '100%', transition: 'width 0.2s' }} />
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={handleUploadSingle}
+        disabled={singleFiles.length === 0 || loading}
+        style={{
+          width: '100%',
+          backgroundColor: singleFiles.length === 0 || loading ? theme.subtleBg : theme.accent,
+          color: singleFiles.length === 0 || loading ? theme.textSecondary : '#fff',
+          border: 'none',
+          padding: '12px',
+          borderRadius: '10px',
+          fontWeight: '600',
+          fontSize: '14px',
+          cursor: singleFiles.length === 0 || loading ? 'not-allowed' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
+        }}
+      >
+        {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <CheckCircle size={16} />}
+        Procesar Expediente
+      </button>
+    </div>
+
+    {/* COLUMNA 2: DATOS EXTRAÍDOS Y EDITABLES */}
+    {datos && (
+      <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle size={20} color="#10b981" /> Datos Extraídos
+          </h2>
+          
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {/* BOTÓN DE VISTA PREVIA */}
+            <button
+              onClick={handleGenerarVistaPrevia}
+              disabled={cargandoPreview}
+              style={{ 
+                backgroundColor: theme.subtleBg, 
+                color: theme.textPrimary, 
+                border: `1px solid ${theme.border}`, 
+                padding: '8px 12px', 
+                borderRadius: '8px', 
+                fontWeight: '600', 
+                fontSize: '13px', 
+                cursor: cargandoPreview ? 'wait' : 'pointer', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px' 
+              }}
+            >
+              {cargandoPreview ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Eye size={14} color={theme.accent} />} 
+              {mostrarVistaPrevia ? 'Actualizar Previa' : 'Vista Previa'}
+            </button>
+
+            {/* BOTÓN DESCARGAR WORD */}
+            <button
+              onClick={() => handleDownloadWord(expedienteId, datos)}
+              style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', fontWeight: '600', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Download size={14} /> Descargar Word
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '500px', overflowY: 'auto', paddingRight: '4px' }}>
+          {Object.entries(datos).map(([key, val]) => {
+            const isUnlocked = unlockedFields[`single_${key}`];
+            return (
+              <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: '600', color: theme.textSecondary }}>
+                  {formatLabel(key)}
+                </label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input
-                    type="file"
-                    multiple
-                    accept=".pdf"
-                    onChange={handleSingleFileChange}
-                    style={{ display: 'none' }}
-                    id="single-file-input"
+                    type="text"
+                    value={val || ''}
+                    disabled={!isUnlocked}
+                    onChange={(e) => handleInputChange(key, e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: isUnlocked ? theme.inputBg : theme.subtleBg,
+                      color: theme.textPrimary,
+                      fontSize: '13px',
+                      opacity: isUnlocked ? 1 : 0.8
+                    }}
                   />
-                  <label htmlFor="single-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
-                    Buscar Archivos
-                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleUnlock(`single_${key}`)}
+                    style={{
+                      padding: '10px',
+                      borderRadius: '8px',
+                      border: `1px solid ${theme.border}`,
+                      backgroundColor: isUnlocked ? '#fef3c7' : theme.subtleBg,
+                      color: isUnlocked ? '#d97706' : theme.textSecondary,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {isUnlocked ? <Unlock size={16} /> : <Lock size={16} />}
+                  </button>
                 </div>
-
-                {singleFiles.length > 0 && (
-                  <div style={{ marginBottom: '20px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textSecondary }}>
-                      Archivos Seleccionados ({singleFiles.length}):
-                    </div>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '150px', overflowY: 'auto' }}>
-                      {singleFiles.map((f, i) => (
-                        <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '6px', fontSize: '13px', color: theme.textPrimary }}>
-                          <FileText size={14} color={theme.textSecondary} />
-                          <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {loading && (
-                  <div style={{ marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px', color: theme.textSecondary }}>
-                      <span>Procesando documentos...</span>
-                      <span>{progressSingle}%</span>
-                    </div>
-                    <div style={{ width: '100%', backgroundColor: theme.subtleBg, height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${progressSingle}%`, backgroundColor: theme.accent, height: '100%', transition: 'width 0.2s' }} />
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={handleUploadSingle}
-                  disabled={singleFiles.length === 0 || loading}
-                  style={{
-                    width: '100%',
-                    backgroundColor: singleFiles.length === 0 || loading ? theme.subtleBg : theme.accent,
-                    color: singleFiles.length === 0 || loading ? theme.textSecondary : '#fff',
-                    border: 'none',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    fontWeight: '600',
-                    fontSize: '14px',
-                    cursor: singleFiles.length === 0 || loading ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <CheckCircle size={16} />}
-                  Procesar Expediente
-                </button>
               </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
 
-              {datos && (
-                <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckCircle size={20} color="#10b981" /> Datos Extraídos
-                    </h2>
-                    <button
-                      onClick={() => handleDownloadWord(expedienteId, datos)}
-                      style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', fontWeight: '600', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <Download size={14} /> Descargar Word
-                    </button>
-                  </div>
+    {/* COLUMNA 3: VISOR DE VISTA PREVIA DEL WORD */}
+    {datos && mostrarVistaPrevia && (
+      <div style={{ 
+        backgroundColor: theme.cardBg, 
+        padding: '24px', 
+        borderRadius: '16px', 
+        border: `1px solid ${theme.border}`,
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Eye size={20} color={theme.accent} /> Vista Previa
+          </h2>
+          <button 
+            onClick={() => setMostrarVistaPrevia(false)}
+            style={{ background: 'none', border: 'none', color: theme.textSecondary, cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+          >
+            Cerrar ✕
+          </button>
+        </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '500px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {Object.entries(datos).map(([key, val]) => {
-                      const isUnlocked = unlockedFields[`single_${key}`];
-                      return (
-                        <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <label style={{ fontSize: '12px', fontWeight: '600', color: theme.textSecondary }}>
-                            {formatLabel(key)}
-                          </label>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <input
-                              type="text"
-                              value={val || ''}
-                              disabled={!isUnlocked}
-                              onChange={(e) => handleInputChange(key, e.target.value)}
-                              style={{
-                                flex: 1,
-                                padding: '10px 12px',
-                                borderRadius: '8px',
-                                border: `1px solid ${theme.border}`,
-                                backgroundColor: isUnlocked ? theme.inputBg : theme.subtleBg,
-                                color: theme.textPrimary,
-                                fontSize: '13px',
-                                opacity: isUnlocked ? 1 : 0.8
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleToggleUnlock(`single_${key}`)}
-                              style={{
-                                padding: '10px',
-                                borderRadius: '8px',
-                                border: `1px solid ${theme.border}`,
-                                backgroundColor: isUnlocked ? '#fef3c7' : theme.subtleBg,
-                                color: isUnlocked ? '#d97706' : theme.textSecondary,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              {isUnlocked ? <Unlock size={16} /> : <Lock size={16} />}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+        {/* CONTENEDOR DONDE DOCX-PREVIEW DIBUJA LA HOJA */}
+        <div 
+          ref={previewContainerRef}
+          style={{ 
+            width: '100%', 
+            height: '520px', 
+            overflowY: 'auto', 
+            borderRadius: '8px', 
+            border: `1px solid ${theme.border}`,
+            backgroundColor: '#ffffff',
+            padding: '10px'
+          }}
+        />
+      </div>
+    )}
+  </div>
+)}
 
           {/* TAB: CARGA MASIVA */}
           {activeTab === 'batch' && (
