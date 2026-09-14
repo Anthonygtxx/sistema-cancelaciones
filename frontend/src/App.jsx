@@ -189,12 +189,21 @@ export default function App() {
     setCargandoPreview(false);
 
     // 3. Esperamos 50ms a que el DOM monte la referencia y dibujamos con docx-preview
-    setTimeout(async () => {
-      if (previewContainerRef.current) {
-        previewContainerRef.current.innerHTML = ""; // Limpiar vista anterior
-        await renderAsync(arrayBuffer, previewContainerRef.current);
-      }
-    }, 50);
+    // Dentro de handleGenerarVistaPrevia en src/App.jsx:
+setTimeout(async () => {
+  if (previewContainerRef.current) {
+    previewContainerRef.current.innerHTML = "";
+    
+    // Opciones para adaptar el renderizado al contenedor
+    await renderAsync(arrayBuffer, previewContainerRef.current, null, {
+      className: "docx-container",
+      inWrapper: true,
+      ignoreWidth: false,
+      ignoreHeight: false,
+      breakPages: true
+    });
+  }
+}, 50);
 
   } catch (error) {
     console.error("Error al renderizar vista previa:", error);
@@ -1066,7 +1075,6 @@ export default function App() {
         <Eye className="w-5 h-5 text-indigo-500" /> Vista Previa del Documento
       </h3>
       <div className="flex items-center gap-2">
-        {/* Barra de herramientas opcional (puedes agregar botones de zoom aquí) */}
         <button
           onClick={() => setMostrarVistaPrevia(false)}
           className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -1077,8 +1085,8 @@ export default function App() {
       </div>
     </div>
 
-    {/* Cuerpo del Visor con Scroll Interno y Fondo de Documento */}
-    <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
+    {/* Cuerpo del Visor con Scroll Interno y Ajuste Responsivo */}
+    <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-slate-100 dark:bg-slate-950 flex justify-center">
       {cargandoPreview ? (
         // Estado de Carga centrado
         <div className="flex flex-col items-center justify-center self-center h-full gap-3 text-slate-500">
@@ -1087,10 +1095,10 @@ export default function App() {
           <p className="text-sm">Esto puede tardar unos segundos</p>
         </div>
       ) : (
-        // Contenedor del documento renderizado (efecto hoja de papel)
+        // Contenedor del documento renderizado adaptado al ancho disponible
         <div 
           ref={previewContainerRef} 
-          className="w-full max-w-[816px] (Ancho A4 a 96dpi) bg-white shadow-lg p-6 md:p-12 min-h-[1056px] (Alto A4 a 96dpi) rounded-lg border border-slate-200 text-slate-900 overflow-x-auto print:shadow-none"
+          className="w-full bg-white shadow-lg rounded-lg border border-slate-200 text-slate-900 overflow-x-hidden [&_.docx-wrapper]:!bg-transparent [&_.docx-wrapper]:!p-0 [&_.docx-wrapper>section]:!w-full [&_.docx-wrapper>section]:!box-border [&_.docx-wrapper>section]:!min-h-0 [&_.docx-wrapper>section]:!shadow-none [&_.docx-wrapper>section]:!p-6"
         />
       )}
     </div>
