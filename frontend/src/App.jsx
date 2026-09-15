@@ -166,27 +166,31 @@ export default function App() {
 
 const handleGenerarVistaPrevia = async () => {
   if (!expedienteId || !datos) return;
-
+  
   setCargandoPreview(true);
-  setMostrarVistaPrevia(true); // Abre el modal inmediatamente en estado de carga
+  setMostrarVistaPrevia(true);
 
   try {
     const response = await api.post(
-      `/expedientes/${expedienteId}/generar-word`,
+      `/expedientes/${expedienteId}/generar-word`, 
       {
         plantilla: 'plantilla_manera2.docx',
         datos: datos
       },
-      { responseType: 'arraybuffer' }
+      { 
+        responseType: 'arraybuffer' 
+      }
     );
 
     const arrayBuffer = response.data;
-    setCargandoPreview(false); // Quita el loader para montar el div del ref
 
-    // Le damos un ciclo de render al DOM para montar el ref
+    // Desactivar estado de carga para montar el contenedor del ref en el DOM
+    setCargandoPreview(false);
+
+    // Renderizar con docx-preview tras un breve retardo de montaje
     setTimeout(async () => {
       if (previewContainerRef.current) {
-        previewContainerRef.current.innerHTML = "";
+        previewContainerRef.current.innerHTML = ""; 
         await renderAsync(arrayBuffer, previewContainerRef.current);
       }
     }, 50);
@@ -1051,72 +1055,68 @@ const handleGenerarVistaPrevia = async () => {
       </div>
     )}
 
-{/* --- MODAL DE VISTA PREVIA --- */}
+{/* --- SECCIÓN DE VISTA PREVIA (ABAJO DE TODO CON HOJAS SEPARADAS) --- */}
 {mostrarVistaPrevia && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-    <div className="relative w-full max-w-4xl h-[90vh] bg-white dark:bg-slate-900 rounded-xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
+  <div className="w-full mt-8 flex flex-col items-center">
+    
+    {/* Inyección de Estilos Locales para Separación y Sombra de Páginas */}
+    <style>{`
+      .docx-custom-preview .docx-wrapper {
+        background-color: transparent !important;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 28px !important; /* Espacio vertical entre hojas */
+      }
+
+      .docx-custom-preview .docx-wrapper > section {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+        border-radius: 6px !important;
+        margin-bottom: 0 !important;
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        width: 100% !important;
+        max-width: 816px !important; /* Formato Carta / A4 */
+        min-height: 1056px !important;
+        padding: 48px !important;
+        box-sizing: border-box !important;
+      }
+    `}</style>
+
+    {/* Visor del Documento */}
+    <div className="relative w-full max-w-5xl bg-slate-200 dark:bg-slate-900 rounded-2xl shadow-xl p-4 sm:p-8 border border-slate-300 dark:border-slate-800">
       
-      {/* Encabezado del Modal */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-        <h3 className="text-lg font-semibold text-slate-800 dark:text-white flex items-center gap-2">
-          <Eye className="w-5 h-5 text-indigo-500" /> Vista Previa del Documento
-        </h3>
-        <button
-          onClick={() => setMostrarVistaPrevia(false)}
-          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-        >
-          ✕
-        </button>
-      </div>
+      {/* Botón Flotante para Cerrar con Limpieza Completa del DOM */}
+      <button
+        onClick={() => {
+          if (previewContainerRef.current) {
+            previewContainerRef.current.innerHTML = "";
+          }
+          setMostrarVistaPrevia(false);
+        }}
+        className="absolute top-4 right-4 z-20 bg-white/90 dark:bg-slate-800/90 hover:bg-red-500 hover:text-white text-slate-600 dark:text-slate-300 w-9 h-9 rounded-full shadow-md transition-all duration-200 backdrop-blur-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center font-bold text-sm"
+        title="Cerrar vista previa"
+      >
+        ✕
+      </button>
 
-      {/* Cuerpo del Modal con Scroll */}
-      <div className="flex-1 overflow-y-auto p-6 bg-slate-100 dark:bg-slate-950 flex justify-center">
-        {cargandoPreview ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-            <p>Generando vista previa...</p>
-          </div>
-        ) : (
-          <div 
-            ref={previewContainerRef} 
-            className="w-full max-w-3xl bg-white shadow-md p-4 min-h-full rounded text-slate-900 overflow-x-auto"
-          />
-        )}
-      </div>
-
-      {/* Pie del Modal */}
-      <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3">
-        <button
-          onClick={() => setMostrarVistaPrevia(false)}
-          className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-        >
-          Cerrar
-        </button>
-      </div>
-
-    </div>
-  </div>
-)}
-    {/* Cuerpo del Visor con Scroll Interno y Fondo de Documento */}
-    <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-100 dark:bg-slate-950 flex justify-center">
       {cargandoPreview ? (
-        // Estado de Carga centrado
-        <div className="flex flex-col items-center justify-center self-center h-full gap-3 text-slate-500">
+        <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
           <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-          <p className="font-medium">Generando vista previa...</p>
-          <p className="text-sm">Esto puede tardar unos segundos</p>
+          <p className="text-sm font-medium">Generando vista previa...</p>
         </div>
       ) : (
-        // Contenedor del documento renderizado (efecto hoja de papel)
+        /* Contenedor de las Hojas Separadas */
         <div 
           ref={previewContainerRef} 
-          className="w-full max-w-[816px] (Ancho A4 a 96dpi) bg-white shadow-lg p-6 md:p-12 min-h-[1056px] (Alto A4 a 96dpi) rounded-lg border border-slate-200 text-slate-900 overflow-x-auto print:shadow-none"
+          className="w-full flex flex-col items-center gap-6 overflow-x-auto docx-custom-preview"
         />
       )}
     </div>
+
   </div>
 )}
-
           {/* TAB: CARGA MASIVA */}
           {activeTab === 'batch' && (
             <div>
@@ -1641,4 +1641,5 @@ const handleGenerarVistaPrevia = async () => {
       )}
     </div>
   )};
-
+</div>
+)}
