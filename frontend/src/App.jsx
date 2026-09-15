@@ -214,7 +214,7 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [datos, mostrarVistaPrevia]);
 
-// Petición silenciosa para re-renderizar el visor sin parpadeos
+// Petición y renderizado suave sin parpadeo (Seamless Swap)
 const actualizarVistaPreviaTiempoReal = async () => {
   try {
     const response = await api.post(
@@ -227,8 +227,15 @@ const actualizarVistaPreviaTiempoReal = async () => {
     );
 
     if (previewContainerRef.current) {
-      previewContainerRef.current.innerHTML = "";
-      await renderAsync(response.data, previewContainerRef.current);
+      // 1. Crear un contenedor invisible fuera de la vista del usuario
+      const tempContainer = document.createElement('div');
+      tempContainer.className = "docx-container-scroll";
+
+      // 2. Renderizar el nuevo Word en el contenedor oculto
+      await renderAsync(response.data, tempContainer);
+
+      // 3. Reemplazar el contenido actual de golpe cuando ya esté listo todo el HTML
+      previewContainerRef.current.innerHTML = tempContainer.innerHTML;
     }
   } catch (error) {
     console.error("Error al actualizar la vista previa en tiempo real:", error);
