@@ -1710,21 +1710,6 @@ useEffect(() => {
                     </select>
                   )}
 
-                  {/* Filtro Dinámico: Semana */}
-                  {filterPeriod === 'week' && (
-                    <select
-                      value={selectedWeek}
-                      onChange={(e) => setSelectedWeek(e.target.value)}
-                      style={{ border: `1px solid ${theme.border}`, borderRadius: '8px', backgroundColor: theme.inputBg, color: theme.textPrimary, fontSize: '13px', padding: '8px', cursor: 'pointer' }}
-                    >
-                      <option value="all">Todas las semanas</option>
-                      <option value="1">Semana 1</option>
-                      <option value="2">Semana 2</option>
-                      <option value="3">Semana 3</option>
-                      <option value="4">Semana 4</option>
-                    </select>
-                  )}
-
                   {/* Filtro Dinámico: Día */}
                   {filterPeriod === 'day' && (
                     <select
@@ -1733,7 +1718,7 @@ useEffect(() => {
                       style={{ border: `1px solid ${theme.border}`, borderRadius: '8px', backgroundColor: theme.inputBg, color: theme.textPrimary, fontSize: '13px', padding: '8px', cursor: 'pointer' }}
                     >
                       <option value="all">Todos los días</option>
-                      {Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1).map((d) => (
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                         <option key={d} value={d}>Día {d}</option>
                       ))}
                     </select>
@@ -1751,69 +1736,71 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* BARRA DE CONTEO Y REPORTES */}
+              {/* BARRA DE CONTEO Y REPORTES (Disponible siempre) */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: theme.subtleBg, borderRadius: '8px', marginBottom: '16px', border: `1px solid ${theme.border}`, flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ fontSize: '13px', color: theme.textPrimary, fontWeight: '600' }}>
                   Total encontrados: <span style={{ color: theme.accent, fontSize: '15px', fontWeight: '700' }}>{filteredHistorial.length}</span> expedientes
                 </div>
 
-                {filteredHistorial.length > 0 && (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {/* Botón Descargar Reporte CSV/Excel Completo */}
-                    <button
-                      onClick={() => {
-                        const now = new Date();
-                        const fechaEmision = now.toLocaleDateString('es-MX') + ' ' + now.toLocaleTimeString('es-MX');
-                        const usuarioActual = user?.nombre || user?.username || user?.email || 'admin';
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {/* Botón Exportar CSV / Excel */}
+                  <button
+                    disabled={filteredHistorial.length === 0}
+                    onClick={() => {
+                      const now = new Date();
+                      const fechaEmision = now.toLocaleDateString('es-MX') + ' ' + now.toLocaleTimeString('es-MX');
+                      const usuarioActual = user?.nombre || user?.username || user?.email || 'admin';
+                      
+                      let csvContent = "\uFEFF"; // UTF-8 BOM para soporte de acentos en Excel
+                      csvContent += `REPORTE DE HISTORIAL DE EXPEDIENTES\n`;
+                      csvContent += `Generado por:,${usuarioActual}\n`;
+                      csvContent += `Fecha de Emisión:,${fechaEmision}\n`;
+                      csvContent += `Total de Registros:,${filteredHistorial.length}\n\n`;
+                      csvContent += `# ,Acreditado,No. Credito,Fecha\n`;
+
+                      filteredHistorial.forEach((item, index) => {
+                        const dExtra = item.datos_extraidos || {};
+                        const nom = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
+                        const num = dExtra.numero_credito || item.numero_credito || 'N/A';
+                        const rawF = item.created_at || item.createdAt || item.fecha || item.fecha_creacion;
                         
-                        let csvContent = "\uFEFF"; // UTF-8 BOM para soporte de acentos en Excel
-                        csvContent += `REPORTE DE HISTORIAL DE EXPEDIENTES\n`;
-                        csvContent += `Generado por:,${usuarioActual}\n`;
-                        csvContent += `Fecha de Emisión:,${fechaEmision}\n`;
-                        csvContent += `Total de Registros en Selección:,${filteredHistorial.length}\n\n`;
-                        csvContent += `# ,Acreditado,No. Credito,Fecha y Hora\n`;
-
-                        filteredHistorial.forEach((item, index) => {
-                          const dExtra = item.datos_extraidos || {};
-                          const nom = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
-                          const num = dExtra.numero_credito || item.numero_credito || 'N/A';
-                          
-                          // Formato de fecha
-                          const rawF = item.created_at || item.createdAt || item.fecha || item.fecha_creacion;
-                          let fecStr = 'N/A';
-                          if (rawF) {
+                        let fecStr = 'N/A';
+                        if (rawF) {
+                          if (typeof rawF === 'string' && rawF.includes('-')) {
+                            const parts = rawF.split('T')[0].split('-');
+                            if (parts.length === 3) {
+                              fecStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                            }
+                          } else {
                             const d = new Date(rawF);
-                            fecStr = !isNaN(d.getTime()) ? d.toLocaleString('es-MX') : String(rawF);
+                            fecStr = !isNaN(d.getTime()) ? d.toLocaleDateString('es-MX') : String(rawF);
                           }
+                        }
 
-                          csvContent += `${index + 1},"${nom.replace(/"/g, '""')}","${num}","${fecStr}"\n`;
-                        });
+                        csvContent += `${index + 1},"${nom.replace(/"/g, '""')}","${num}","${fecStr}"\n`;
+                      });
 
-                        csvContent += `\nFin del Reporte,,Total:,${filteredHistorial.length}\n`;
+                      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.setAttribute('href', url);
+                      link.setAttribute('download', `Reporte_Expedientes_${now.toISOString().slice(0,10)}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: filteredHistorial.length === 0 ? 'not-allowed' : 'pointer', opacity: filteredHistorial.length === 0 ? 0.5 : 1, fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Download size={13} /> Exportar Excel (.CSV)
+                  </button>
 
-                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.setAttribute('href', url);
-                        link.setAttribute('download', `Reporte_Expedientes_${now.toISOString().slice(0,10)}.csv`);
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }}
-                      style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <Download size={13} /> Exportar Excel (.CSV)
-                    </button>
-
-                    {/* Botón Imprimir / Guardar PDF */}
-                    <button
-                      onClick={() => window.print()}
-                      style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      Imprimir / PDF
-                    </button>
-                  </div>
-                )}
+                  <button
+                    onClick={() => window.print()}
+                    style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    Imprimir / PDF
+                  </button>
+                </div>
               </div>
 
               {filteredHistorial.length === 0 ? (
@@ -1837,23 +1824,24 @@ useEffect(() => {
                         const nombre = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
                         const numCred = dExtra.numero_credito || item.numero_credito || 'N/A';
                         
-                        // Extracción flexible de propiedades de fecha para asegurar compatibilidad
+                        // Parseo flexible de fecha en formato YYYY-MM-DD o ISO string
                         const rawDate = item.created_at || item.createdAt || item.fecha || item.fecha_creacion;
                         let fechaStr = 'Fecha no disponible';
 
                         if (rawDate) {
-                          const dateObj = new Date(rawDate);
-                          if (!isNaN(dateObj.getTime())) {
-                            fechaStr = dateObj.toLocaleString('es-MX', {
-                              year: 'numeric',
-                              month: '2-digit',
-                              day: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true
-                            });
+                          if (typeof rawDate === 'string' && rawDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                            fechaStr = rawDate;
                           } else {
-                            fechaStr = String(rawDate);
+                            const dateObj = new Date(rawDate);
+                            if (!isNaN(dateObj.getTime())) {
+                              fechaStr = dateObj.toLocaleDateString('es-MX', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                              });
+                            } else {
+                              fechaStr = String(rawDate);
+                            }
                           }
                         }
 
@@ -1880,8 +1868,8 @@ useEffect(() => {
             </div>
           )}
 
-
-          {/* TAB: USUARIOS (SOLO ADMIN) */}
+          
+{/* TAB: USUARIOS (SOLO ADMIN) */}
           {activeTab === 'users' && esAdmin && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
               {/* Formulario Crear Usuario */}
