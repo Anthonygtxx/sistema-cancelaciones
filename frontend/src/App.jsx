@@ -141,13 +141,14 @@ useEffect(() => {
       });
 
       if (res.data?.status === 'ok') {
-        setCurrentUser(res.data.user);
-        setIsAuthenticated(true);
-        setLoginPassword('');
-        setSingleFiles([]);
-        setDatos(null);
-        setBatchResults([]);
-      }
+      setCurrentUser(res.data.user);
+      setIsAuthenticated(true);
+      window.history.replaceState(null, "", window.location.href); // <--- AGREGAR ESTA LÍNEA
+      setLoginPassword('');
+      setSingleFiles([]);
+      setDatos(null);
+      setBatchResults([]);
+    }
     } catch (err) {
       setLoginError(err.response?.data?.detail || 'Error al iniciar sesión.');
     } finally {
@@ -314,14 +315,12 @@ const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
   }
 };
 
-// Bloquear el botón de retroceso mientras la sesión esté activa
+// Atrapar el botón "Atrás" del navegador mientras la sesión está activa
 useEffect(() => {
   if (isAuthenticated) {
-    // Inserta un estado adicional en el historial del navegador
     window.history.pushState(null, "", window.location.href);
 
     const handlePopState = () => {
-      // Si el usuario presiona "Atrás", lo volvemos a empujar al estado actual
       window.history.pushState(null, "", window.location.href);
     };
 
