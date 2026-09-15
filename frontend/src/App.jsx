@@ -1055,11 +1055,11 @@ const handleGenerarVistaPrevia = async () => {
       </div>
     )}
 
-{/* --- COLUMNA 3: VISTA PREVIA (ALINEADA Y CON SCROLL) --- */}
+{/* --- COLUMNA 3: VISTA PREVIA (ALINEADA, ALTURA CORRECTA Y CON SCROLL) --- */}
 {mostrarVistaPrevia && (
-  <div className="flex-1 min-w-[380px] h-[650px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col overflow-hidden relative">
+  <div className="flex-1 min-w-[360px] h-[650px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col overflow-hidden relative">
     
-    {/* Inyección de Estilos para Adaptar el Word al Tamaño de la Tarjeta */}
+    {/* Inyección de Estilos para Adaptar el Word al Contenedor */}
     <style>{`
       .docx-custom-sidebar .docx-wrapper {
         background-color: transparent !important;
@@ -1078,21 +1078,20 @@ const handleGenerarVistaPrevia = async () => {
         border: 1px solid #e2e8f0 !important;
         width: 100% !important;
         max-width: 100% !important;
-        padding: 20px !important;
+        padding: 16px !important;
         box-sizing: border-box !important;
-        transform: scale(0.92);
-        transform-origin: top center;
       }
     `}</style>
 
     {/* Encabezado del Panel */}
     <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
       <div className="flex items-center gap-2">
-        <Eye className="w-4 h-4 text-indigo-500" />
-        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Vista Previa</span>
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          Vista Previa
+        </span>
       </div>
 
-      {/* Botón de Cerrar Estilizado */}
+      {/* Botón de Cerrar */}
       <button
         onClick={() => {
           if (previewContainerRef.current) {
@@ -1100,18 +1099,17 @@ const handleGenerarVistaPrevia = async () => {
           }
           setMostrarVistaPrevia(false);
         }}
-        className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-lg transition-colors flex items-center justify-center"
+        className="w-7 h-7 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-lg transition-colors flex items-center justify-center font-bold text-xs"
         title="Cerrar vista previa"
       >
-        <X className="w-4 h-4" />
+        ✕
       </button>
     </div>
 
     {/* Cuerpo con Scroll Interno */}
-    <div className="flex-1 overflow-y-auto p-3 bg-slate-100/70 dark:bg-slate-950/50 custom-scrollbar">
+    <div className="flex-1 overflow-y-auto p-3 bg-slate-100/70 dark:bg-slate-950/50">
       {cargandoPreview ? (
         <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-400">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
           <span className="text-xs font-medium">Cargando vista previa...</span>
         </div>
       ) : (
