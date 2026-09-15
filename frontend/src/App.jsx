@@ -875,13 +875,14 @@ const handleGenerarVistaPrevia = async () => {
             </div>
           )}
 
-    {/* TAB: CASO INDIVIDUAL */}
+   {/* TAB: CASO INDIVIDUAL */}
 {activeTab === 'single' && (
   <div style={{ 
     display: 'grid', 
     gridTemplateColumns: datos ? (mostrarVistaPrevia ? '1fr 1fr 1.2fr' : '1fr 1fr') : '1fr', 
     gap: '24px',
-    transition: 'all 0.3s ease'
+    transition: 'all 0.3s ease',
+    alignItems: 'start'
   }}>
     {/* COLUMNA 1: FORMULARIO DE CARGA DE ARCHIVOS */}
     <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
@@ -1055,71 +1056,115 @@ const handleGenerarVistaPrevia = async () => {
       </div>
     )}
 
-{/* --- COLUMNA 3: VISTA PREVIA (ALINEADA, ALTURA CORRECTA Y CON SCROLL) --- */}
-{mostrarVistaPrevia && (
-  <div className="flex-1 min-w-[360px] h-[650px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col overflow-hidden relative">
-    
-    {/* Inyección de Estilos para Adaptar el Word al Contenedor */}
-    <style>{`
-      .docx-custom-sidebar .docx-wrapper {
-        background-color: transparent !important;
-        padding: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        gap: 16px !important;
-      }
-
-      .docx-custom-sidebar .docx-wrapper > section {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-        border-radius: 8px !important;
-        margin-bottom: 0 !important;
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        padding: 16px !important;
-        box-sizing: border-box !important;
-      }
-    `}</style>
-
-    {/* Encabezado del Panel */}
-    <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-          Vista Previa
-        </span>
-      </div>
-
-      {/* Botón de Cerrar */}
-      <button
-        onClick={() => {
-          if (previewContainerRef.current) {
-            previewContainerRef.current.innerHTML = "";
+    {/* --- COLUMNA 3: VISTA PREVIA (AJUSTADA AL TAMAÑO DE TARJETA CON SCROLL) --- */}
+    {mostrarVistaPrevia && (
+      <div style={{ 
+        backgroundColor: theme.cardBg, 
+        borderRadius: '16px', 
+        border: `1px solid ${theme.border}`,
+        height: '650px',
+        maxHeight: '650px',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        position: 'relative'
+      }}>
+        
+        {/* Reglas CSS para obligar a docx-preview a renderizar adentro con scroll */}
+        <style>{`
+          .docx-container-scroll {
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow-y: auto !important;
           }
-          setMostrarVistaPrevia(false);
-        }}
-        className="w-7 h-7 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-lg transition-colors flex items-center justify-center font-bold text-xs"
-        title="Cerrar vista previa"
-      >
-        ✕
-      </button>
-    </div>
+          .docx-container-scroll .docx-wrapper {
+            background-color: transparent !important;
+            padding: 12px 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 16px !important;
+          }
+          .docx-container-scroll .docx-wrapper > section {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+            border-radius: 6px !important;
+            margin-bottom: 0 !important;
+            background-color: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 16px !important;
+            box-sizing: border-box !important;
+          }
+          .docx-container-scroll::-webkit-scrollbar {
+            width: 6px;
+          }
+          .docx-container-scroll::-webkit-scrollbar-thumb {
+            background-color: rgba(156, 163, 175, 0.5);
+            border-radius: 8px;
+          }
+        `}</style>
 
-    {/* Cuerpo con Scroll Interno */}
-    <div className="flex-1 overflow-y-auto p-3 bg-slate-100/70 dark:bg-slate-950/50">
-      {cargandoPreview ? (
-        <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-400">
-          <span className="text-xs font-medium">Cargando vista previa...</span>
+        {/* Encabezado de la Vista Previa */}
+        <div style={{ 
+          padding: '16px 20px', 
+          borderBottom: `1px solid ${theme.border}`, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          backgroundColor: theme.subtleBg
+        }}>
+          <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Eye size={18} color={theme.accent} /> Vista Previa
+          </h2>
+
+          {/* Botón Rediseñado estilo Píldora */}
+          <button
+            onClick={() => {
+              if (previewContainerRef.current) {
+                previewContainerRef.current.innerHTML = "";
+              }
+              setMostrarVistaPrevia(false);
+            }}
+            style={{ 
+              backgroundColor: '#ef4444', 
+              color: '#ffffff', 
+              border: 'none', 
+              padding: '5px 12px', 
+              borderRadius: '20px', 
+              fontWeight: '600', 
+              fontSize: '12px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
+              transition: 'all 0.2s ease'
+            }}
+            title="Cerrar vista previa"
+          >
+            <span>Cerrar</span>
+            <span style={{ fontSize: '13px', fontWeight: 'bold', marginLeft: '2px' }}>✕</span>
+          </button>
         </div>
-      ) : (
-        <div 
-          ref={previewContainerRef} 
-          className="w-full flex flex-col items-center gap-4 docx-custom-sidebar"
-        />
-      )}
-    </div>
 
+        {/* Visor con Scroll Interno Limitado */}
+        <div style={{ flex: 1, padding: '12px', overflow: 'hidden', backgroundColor: theme.dropzoneBg }}>
+          {cargandoPreview ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '8px', color: theme.textSecondary }}>
+              <Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} />
+              <span style={{ fontSize: '13px', fontWeight: '500' }}>Cargando vista previa...</span>
+            </div>
+          ) : (
+            <div 
+              ref={previewContainerRef} 
+              className="docx-container-scroll"
+            />
+          )}
+        </div>
+
+      </div>
+    )}
   </div>
 )}
 
@@ -1648,5 +1693,3 @@ const handleGenerarVistaPrevia = async () => {
       )}
     </div>
   )};
-</div>
-)}
