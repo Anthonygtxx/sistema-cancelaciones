@@ -316,16 +316,29 @@ const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
   }
 };
 
-  // Advertir/Detener la salida accidental del sitio
+// Manejo estricto de navegación e invalidador de sesión
 useEffect(() => {
   if (isAuthenticated) {
+    // 1. Mensaje de advertencia al intentar salir/retroceder
     const handleBeforeUnload = (e) => {
       e.preventDefault();
-      e.returnValue = ""; // Muestra el diálogo nativo del navegador confirmando si desea salir
+      e.returnValue = "";
+    };
+
+    // 2. Destruir la cookie/sesión en el servidor si el usuario confirma que quiere salir
+    const handlePageHide = () => {
+      // sendBeacon envía la petición de logout de forma garantizada incluso si la pestaña se cierra
+      const logoutUrl = 'https://sistema-cancelaciones-production.up.railway.app/api/auth/logout';
+      navigator.sendBeacon(logoutUrl);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
   }
 }, [isAuthenticated]);
 
