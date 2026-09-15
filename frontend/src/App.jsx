@@ -83,6 +83,28 @@ export default function App() {
   const [plantillas, setPlantillas] = useState([]);
   const [archivoPlantilla, setArchivoPlantilla] = useState(null);
 
+  // Validar sesión activa al recargar la página (F5)
+useEffect(() => {
+  const checkAuth = async () => {
+    try {
+      // Hacemos una petición silenciosa enviando cookies
+      const response = await api.get('/auth/me', { withCredentials: true });
+      if (response.data && response.data.user) {
+        setIsAuthenticated(true);
+        setCurrentUser(response.data.user);
+      }
+    } catch (error) {
+      // Si la cookie no existe o expiró, redirige al login
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
+
+  checkAuth();
+}, []);
+
   useEffect(() => {
     verificarSesion();
   }, []);
