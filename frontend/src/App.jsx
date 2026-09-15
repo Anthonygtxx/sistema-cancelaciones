@@ -238,7 +238,7 @@ useEffect(() => {
   // Espera 100ms tras dejar de escribir antes de enviar la petición
   const timer = setTimeout(() => {
     actualizarVistaPreviaTiempoReal();
-  }, 100);
+  }, 0);
 
   return () => clearTimeout(timer);
 }, [datos, mostrarVistaPrevia]);
@@ -281,7 +281,7 @@ useEffect(() => {
 
   const timer = setTimeout(() => {
     actualizarVistaPreviaMasivaTiempoReal(batchPreviewIndex);
-  }, 500);
+  }, 0);
 
   return () => clearTimeout(timer);
 }, [batchResults, batchPreviewIndex]);
@@ -1647,7 +1647,7 @@ useEffect(() => {
 )}
 
 
-          {/* TAB: HISTORIAL */}
+{/* TAB: HISTORIAL */}
           {activeTab === 'history' && (
             <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
@@ -1751,6 +1751,51 @@ useEffect(() => {
                 </div>
               </div>
 
+              {/* BARRA DE CONTEO Y REPORTES */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: theme.subtleBg, borderRadius: '8px', marginBottom: '16px', border: `1px solid ${theme.border}`, flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ fontSize: '13px', color: theme.textPrimary, fontWeight: '600' }}>
+                  Total encontrados: <span style={{ color: theme.accent, fontSize: '15px', fontWeight: '700' }}>{filteredHistorial.length}</span> expedientes
+                </div>
+
+                {filteredHistorial.length > 0 && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {/* Botón Descargar Reporte CSV/Excel */}
+                    <button
+                      onClick={() => {
+                        const headers = "Acreditado,No. Credito,Fecha\n";
+                        const rows = filteredHistorial.map(item => {
+                          const dExtra = item.datos_extraidos || {};
+                          const nom = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
+                          const num = dExtra.numero_credito || item.numero_credito || 'N/A';
+                          const fec = item.created_at || item.fecha || '';
+                          return `"${nom}","${num}","${fec}"`;
+                        }).join("\n");
+                        
+                        const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.setAttribute('href', url);
+                        link.setAttribute('download', `Reporte_Expedientes_${new Date().toISOString().slice(0,10)}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Download size={13} /> Exportar Reporte (.CSV)
+                    </button>
+
+                    {/* Botón Imprimir / Guardar PDF */}
+                    <button
+                      onClick={() => window.print()}
+                      style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      Imprimir / PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {filteredHistorial.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.textSecondary, fontSize: '14px' }}>
                   No se encontraron expedientes con los criterios seleccionados.
@@ -1762,7 +1807,7 @@ useEffect(() => {
                       <tr style={{ borderBottom: `2px solid ${theme.border}`, color: theme.textSecondary }}>
                         <th style={{ padding: '12px' }}>Acreditado</th>
                         <th style={{ padding: '12px' }}>No. Crédito</th>
-                        <th style={{ padding: '12px' }}>Fecha</th>
+                        <th style={{ padding: '12px' }}>Fecha y Hora</th>
                         <th style={{ padding: '12px', textAlign: 'right' }}>Acciones</th>
                       </tr>
                     </thead>
@@ -1771,11 +1816,19 @@ useEffect(() => {
                         const dExtra = item.datos_extraidos || {};
                         const nombre = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
                         const numCred = dExtra.numero_credito || item.numero_credito || 'N/A';
-                        const fechaStr = new Date(item.created_at || item.fecha || Date.now()).toLocaleDateString('es-MX', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        });
+                        
+                        // Formato completo y robusto para evitar incongruencias al filtrar por día
+                        const fechaObj = new Date(item.created_at || item.fecha || Date.now());
+                        const fechaStr = isNaN(fechaObj.getTime())
+                          ? 'Fecha no disponible'
+                          : fechaObj.toLocaleString('es-MX', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            });
 
                         return (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
