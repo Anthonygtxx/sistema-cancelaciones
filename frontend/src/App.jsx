@@ -701,34 +701,110 @@ useEffect(() => {
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
-  const filteredHistorial = historial
-    .filter((item) => {
-      const query = searchQuery.toLowerCase();
-      const acreditado = (item.datos_extraidos?.acreditado || item.datos_extraidos?.nombre_acreditado || '').toLowerCase();
-      const numCredito = (item.datos_extraidos?.numero_credito || item.numero_credito || '').toLowerCase();
-      const matchesQuery = acreditado.includes(query) || numCredito.includes(query);
+ // HELPER: Extrae Año, Mes (0-11) y Día de cualquier tipo de fecha/string
+const parsearFechaExpediente = (item) => {
+  const rawDate = item.created_at || item.createdAt || item.fecha || item.fecha_creacion;
+  if (!rawDate) return null;
 
-      const itemDate = new Date(item.created_at || item.fecha || Date.now());
-      const isSelectedYearMonth = itemDate.getFullYear() === Number(selectedYear) && itemDate.getMonth() === Number(selectedMonth);
+  let year = null, month = null, day = null, horaStr = '00:00';
 
-      let matchesPeriod = true;
-      if (filterPeriod === 'day') {
-        matchesPeriod = isSelectedYearMonth && (selectedDay === 'all' || itemDate.getDate() === Number(selectedDay));
-      } else if (filterPeriod === 'week') {
-        matchesPeriod = isSelectedYearMonth && (selectedWeek === 'all' || getWeekOfMonth(itemDate) === Number(selectedWeek));
-      } else if (filterPeriod === 'month') {
-        matchesPeriod = isSelectedYearMonth;
-      } else if (filterPeriod === 'year') {
-        matchesPeriod = itemDate.getFullYear() === Number(selectedYear);
+  // Caso 1: String en formato "DD-MM-YYYY" o "DD/MM/YYYY" (ej. "15-09-2026")
+  if (typeof rawDate === 'string' && (rawDate.includes('-') || rawDate.includes('/'))) {
+    const separador = rawDate.includes('-') ? '-' : '/';
+    const partes = rawDate.split(' ')[0].split(separador); // Separa fecha de hora si existe
+    
+    if (partes.length === 3) {
+      if (partes[0].length === 2) { 
+        // Formato DD-MM-YYYY
+        day = parseInt(partes[0], 10);
+        month = parseInt(partes[1], 10) - 1; // JS usa meses 0-11
+        year = parseInt(partes[2], 10);
+      } else if (partes[0].length === 4) { 
+        // Formato YYYY-MM-DD
+        year = parseInt(partes[0], 10);
+        month = parseInt(partes[1], 10) - 1;
+        day = parseInt(partes[2], 10);
       }
+    }
+    
+    // Si contiene hora en el string (ej. "15-09-2026 14:30")
+    if (rawDate.includes(' ')) {
+      horaStr = rawDate.split(' ')[1];
+    }
+  } else {
+    // Caso 2: Objeto Date o Timestamp ISO
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      day = d.getDate();
+      month = d.getMonth();
+      year = d.getFullYear();
+      horaStr = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+  }
 
-      return matchesQuery && matchesPeriod;
-    })
-    .sort((a, b) => {
-      const nameA = (a.datos_extraidos?.acreditado || a.datos_extraidos?.nombre_acreditado || '').toLowerCase();
-      const nameB = (b.datos_extraidos?.acreditado || b.datos_extraidos?.nombre_acreditado || '').toLowerCase();
-      return sortAscending ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-    });
+  if (year === null || isNaN(year)) return null;
+
+  return {
+    year,
+    month,
+    day,
+    fechaTexto: `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`,
+    horaTexto: horaStr
+  };
+};
+
+// LÓGICA DE FILTRADO CORREGIDA
+const filteredHistorial = (historial || []).filter((item) => {
+  const parsed = parsearFechaExpediente(item);
+
+  // Filtro por Búsqueda de Texto (Acreditado o Crédito)
+  if (searchQuery && searchQuery.trim() !== '') {
+    const q = searchQuery.toLowerCase();
+    const dExtra = item.datos_extraidos || {};
+    const nombre = (dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || '').toLowerCase();
+    const numCred = (dExtra.numero_credito || item.numero_credito || '').toString().toLowerCase();
+    
+    if (!nombre.includes(q) && !numCred.includes(q)) {
+      return false;
+    }
+  }
+
+  // Si no se eligió un periodo específico, mostrar todo
+  if (filterPeriod === 'all') return true;
+
+  // Si no se pudo procesar la fecha del registro, se omite de los filtros por fecha
+  if (!parsed) return false;
+
+  const targetYear = parseInt(selectedYear, 10);
+  const targetMonth = parseInt(selectedMonth, 10); // 0 = Enero, 8 = Septiembre
+
+  // Filtro por Año
+  if (filterPeriod === 'year') {
+    return parsed.year === targetYear;
+  }
+
+  // Filtro por Mes
+  if (filterPeriod === 'month') {
+    return parsed.year === targetYear && parsed.month === targetMonth;
+  }
+
+  // Filtro por Día
+  if (filterPeriod === 'day') {
+    const matchesYearMonth = parsed.year === targetYear && parsed.month === targetMonth;
+    if (!matchesYearMonth) return false;
+    if (selectedDay === 'all') return true;
+    return parsed.day === parseInt(selectedDay, 10);
+  }
+
+  return true;
+}).sort((a, b) => {
+  const dExtraA = a.datos_extraidos || {};
+  const dExtraB = b.datos_extraidos || {};
+  const nomA = (dExtraA.acreditado || dExtraA.nombre_acreditado || a.nombre_acreditado || '').toLowerCase();
+  const nomB = (dExtraB.acreditado || dExtraB.nombre_acreditado || b.nombre_acreditado || '').toLowerCase();
+  
+  return sortAscending ? nomA.localeCompare(nomB) : nomB.localeCompare(nomA);
+});
 
   const theme = {
     bg: isDarkMode ? '#0b0f19' : '#f8fafc',
@@ -1678,7 +1754,6 @@ useEffect(() => {
                     >
                       <option value="all">Todo el historial</option>
                       <option value="day">Por Día</option>
-                      <option value="week">Por Semana</option>
                       <option value="month">Por Mes</option>
                       <option value="year">Por Año</option>
                     </select>
@@ -1698,7 +1773,7 @@ useEffect(() => {
                   )}
 
                   {/* Filtro Dinámico: Mes */}
-                  {(filterPeriod === 'day' || filterPeriod === 'week' || filterPeriod === 'month') && (
+                  {(filterPeriod === 'day' || filterPeriod === 'month') && (
                     <select
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(e.target.value)}
@@ -1736,60 +1811,68 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* BARRA DE CONTEO Y REPORTES (Disponible siempre) */}
+              {/* BARRA DE CONTEO Y EXPORTACIÓN PERMANENTE */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: theme.subtleBg, borderRadius: '8px', marginBottom: '16px', border: `1px solid ${theme.border}`, flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ fontSize: '13px', color: theme.textPrimary, fontWeight: '600' }}>
                   Total encontrados: <span style={{ color: theme.accent, fontSize: '15px', fontWeight: '700' }}>{filteredHistorial.length}</span> expedientes
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  {/* Botón Exportar CSV / Excel */}
+                  {/* Botón Exportar CSV / Excel corregido */}
                   <button
                     disabled={filteredHistorial.length === 0}
                     onClick={() => {
-                      const now = new Date();
-                      const fechaEmision = now.toLocaleDateString('es-MX') + ' ' + now.toLocaleTimeString('es-MX');
-                      const usuarioActual = user?.nombre || user?.username || user?.email || 'admin';
-                      
-                      let csvContent = "\uFEFF"; // UTF-8 BOM para soporte de acentos en Excel
-                      csvContent += `REPORTE DE HISTORIAL DE EXPEDIENTES\n`;
-                      csvContent += `Generado por:,${usuarioActual}\n`;
-                      csvContent += `Fecha de Emisión:,${fechaEmision}\n`;
-                      csvContent += `Total de Registros:,${filteredHistorial.length}\n\n`;
-                      csvContent += `# ,Acreditado,No. Credito,Fecha\n`;
-
-                      filteredHistorial.forEach((item, index) => {
-                        const dExtra = item.datos_extraidos || {};
-                        const nom = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
-                        const num = dExtra.numero_credito || item.numero_credito || 'N/A';
-                        const rawF = item.created_at || item.createdAt || item.fecha || item.fecha_creacion;
+                      try {
+                        const now = new Date();
+                        const fechaEmision = now.toLocaleDateString('es-MX') + ' ' + now.toLocaleTimeString('es-MX');
+                        const usuarioActual = user?.nombre || user?.username || user?.email || 'admin';
                         
-                        let fecStr = 'N/A';
-                        if (rawF) {
-                          if (typeof rawF === 'string' && rawF.includes('-')) {
-                            const parts = rawF.split('T')[0].split('-');
-                            if (parts.length === 3) {
-                              fecStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                            }
-                          } else {
-                            const d = new Date(rawF);
-                            fecStr = !isNaN(d.getTime()) ? d.toLocaleDateString('es-MX') : String(rawF);
-                          }
-                        }
+                        let csvLines = [];
+                        csvLines.push("\uFEFFREPORTE DE HISTORIAL DE EXPEDIENTES");
+                        csvLines.push(`Generado por:,${usuarioActual}`);
+                        csvLines.push(`Fecha de Emision:,${fechaEmision}`);
+                        csvLines.push(`Total de Registros:,${filteredHistorial.length}`);
+                        csvLines.push("");
+                        csvLines.push("#,Acreditado,No. Credito,Fecha");
 
-                        csvContent += `${index + 1},"${nom.replace(/"/g, '""')}","${num}","${fecStr}"\n`;
-                      });
+                        filteredHistorial.forEach((item, index) => {
+                          const dExtra = item.datos_extraidos || {};
+                          const nom = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
+                          const num = dExtra.numero_credito || item.numero_credito || 'N/A';
+                          const p = parsearFechaExpediente(item);
+                          const fec = p ? p.fechaTexto : (item.created_at || item.fecha || 'N/A');
 
-                      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                      const url = URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.setAttribute('href', url);
-                      link.setAttribute('download', `Reporte_Expedientes_${now.toISOString().slice(0,10)}.csv`);
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
+                          csvLines.push(`${index + 1},"${nom.replace(/"/g, '""')}","${num}","${fec}"`);
+                        });
+
+                        const csvContent = csvLines.join("\n");
+                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.setAttribute('download', `Reporte_Expedientes_${now.toISOString().slice(0,10)}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                      } catch (err) {
+                        alert("Error al generar el archivo Excel/CSV: " + err.message);
+                      }
                     }}
-                    style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: filteredHistorial.length === 0 ? 'not-allowed' : 'pointer', opacity: filteredHistorial.length === 0 ? 0.5 : 1, fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    style={{ 
+                      backgroundColor: theme.cardBg, 
+                      color: theme.textPrimary, 
+                      border: `1px solid ${theme.border}`, 
+                      padding: '6px 12px', 
+                      borderRadius: '6px', 
+                      cursor: filteredHistorial.length === 0 ? 'not-allowed' : 'pointer', 
+                      opacity: filteredHistorial.length === 0 ? 0.5 : 1, 
+                      fontSize: '12px', 
+                      fontWeight: '600', 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '6px' 
+                    }}
                   >
                     <Download size={13} /> Exportar Excel (.CSV)
                   </button>
@@ -1814,7 +1897,7 @@ useEffect(() => {
                       <tr style={{ borderBottom: `2px solid ${theme.border}`, color: theme.textSecondary }}>
                         <th style={{ padding: '12px' }}>Acreditado</th>
                         <th style={{ padding: '12px' }}>No. Crédito</th>
-                        <th style={{ padding: '12px' }}>Fecha y Hora</th>
+                        <th style={{ padding: '12px' }}>Fecha</th>
                         <th style={{ padding: '12px', textAlign: 'right' }}>Acciones</th>
                       </tr>
                     </thead>
@@ -1824,26 +1907,8 @@ useEffect(() => {
                         const nombre = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
                         const numCred = dExtra.numero_credito || item.numero_credito || 'N/A';
                         
-                        // Parseo flexible de fecha en formato YYYY-MM-DD o ISO string
-                        const rawDate = item.created_at || item.createdAt || item.fecha || item.fecha_creacion;
-                        let fechaStr = 'Fecha no disponible';
-
-                        if (rawDate) {
-                          if (typeof rawDate === 'string' && rawDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
-                            fechaStr = rawDate;
-                          } else {
-                            const dateObj = new Date(rawDate);
-                            if (!isNaN(dateObj.getTime())) {
-                              fechaStr = dateObj.toLocaleDateString('es-MX', {
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit'
-                              });
-                            } else {
-                              fechaStr = String(rawDate);
-                            }
-                          }
-                        }
+                        const parsed = parsearFechaExpediente(item);
+                        const fechaStr = parsed ? parsed.fechaTexto : (item.created_at || item.fecha || 'Sin fecha');
 
                         return (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
@@ -1868,7 +1933,7 @@ useEffect(() => {
             </div>
           )}
 
-          
+
 {/* TAB: USUARIOS (SOLO ADMIN) */}
           {activeTab === 'users' && esAdmin && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
