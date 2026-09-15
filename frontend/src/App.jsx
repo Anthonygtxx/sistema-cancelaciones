@@ -1759,30 +1759,50 @@ useEffect(() => {
 
                 {filteredHistorial.length > 0 && (
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    {/* Botón Descargar Reporte CSV/Excel */}
+                    {/* Botón Descargar Reporte CSV/Excel Completo */}
                     <button
                       onClick={() => {
-                        const headers = "Acreditado,No. Credito,Fecha\n";
-                        const rows = filteredHistorial.map(item => {
+                        const now = new Date();
+                        const fechaEmision = now.toLocaleDateString('es-MX') + ' ' + now.toLocaleTimeString('es-MX');
+                        const usuarioActual = user?.nombre || user?.username || user?.email || 'admin';
+                        
+                        let csvContent = "\uFEFF"; // UTF-8 BOM para soporte de acentos en Excel
+                        csvContent += `REPORTE DE HISTORIAL DE EXPEDIENTES\n`;
+                        csvContent += `Generado por:,${usuarioActual}\n`;
+                        csvContent += `Fecha de Emisión:,${fechaEmision}\n`;
+                        csvContent += `Total de Registros en Selección:,${filteredHistorial.length}\n\n`;
+                        csvContent += `# ,Acreditado,No. Credito,Fecha y Hora\n`;
+
+                        filteredHistorial.forEach((item, index) => {
                           const dExtra = item.datos_extraidos || {};
                           const nom = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
                           const num = dExtra.numero_credito || item.numero_credito || 'N/A';
-                          const fec = item.created_at || item.fecha || '';
-                          return `"${nom}","${num}","${fec}"`;
-                        }).join("\n");
-                        
-                        const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+                          
+                          // Formato de fecha
+                          const rawF = item.created_at || item.createdAt || item.fecha || item.fecha_creacion;
+                          let fecStr = 'N/A';
+                          if (rawF) {
+                            const d = new Date(rawF);
+                            fecStr = !isNaN(d.getTime()) ? d.toLocaleString('es-MX') : String(rawF);
+                          }
+
+                          csvContent += `${index + 1},"${nom.replace(/"/g, '""')}","${num}","${fecStr}"\n`;
+                        });
+
+                        csvContent += `\nFin del Reporte,,Total:,${filteredHistorial.length}\n`;
+
+                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                         const url = URL.createObjectURL(blob);
                         const link = document.createElement('a');
                         link.setAttribute('href', url);
-                        link.setAttribute('download', `Reporte_Expedientes_${new Date().toISOString().slice(0,10)}.csv`);
+                        link.setAttribute('download', `Reporte_Expedientes_${now.toISOString().slice(0,10)}.csv`);
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
                       }}
                       style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                     >
-                      <Download size={13} /> Exportar Reporte (.CSV)
+                      <Download size={13} /> Exportar Excel (.CSV)
                     </button>
 
                     {/* Botón Imprimir / Guardar PDF */}
@@ -1817,11 +1837,14 @@ useEffect(() => {
                         const nombre = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
                         const numCred = dExtra.numero_credito || item.numero_credito || 'N/A';
                         
-                        // Formato completo y robusto para evitar incongruencias al filtrar por día
-                        const fechaObj = new Date(item.created_at || item.fecha || Date.now());
-                        const fechaStr = isNaN(fechaObj.getTime())
-                          ? 'Fecha no disponible'
-                          : fechaObj.toLocaleString('es-MX', {
+                        // Extracción flexible de propiedades de fecha para asegurar compatibilidad
+                        const rawDate = item.created_at || item.createdAt || item.fecha || item.fecha_creacion;
+                        let fechaStr = 'Fecha no disponible';
+
+                        if (rawDate) {
+                          const dateObj = new Date(rawDate);
+                          if (!isNaN(dateObj.getTime())) {
+                            fechaStr = dateObj.toLocaleString('es-MX', {
                               year: 'numeric',
                               month: '2-digit',
                               day: '2-digit',
@@ -1829,6 +1852,10 @@ useEffect(() => {
                               minute: '2-digit',
                               hour12: true
                             });
+                          } else {
+                            fechaStr = String(rawDate);
+                          }
+                        }
 
                         return (
                           <tr key={idx} style={{ borderBottom: `1px solid ${theme.border}` }}>
@@ -1853,7 +1880,8 @@ useEffect(() => {
             </div>
           )}
 
-{/* TAB: USUARIOS (SOLO ADMIN) */}
+
+          {/* TAB: USUARIOS (SOLO ADMIN) */}
           {activeTab === 'users' && esAdmin && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
               {/* Formulario Crear Usuario */}
