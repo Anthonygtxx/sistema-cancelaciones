@@ -45,34 +45,36 @@ export default function App() {
     // 1. EXPORTAR A CSV / EXCEL
     if (format === 'csv') {
       try {
-        let csvLines = [];
+ let csvLines = [];
         csvLines.push("\uFEFFREPORTE DE HISTORIAL DE EXPEDIENTES");
         csvLines.push(`Fecha de Emisión:,${fechaEmision}`);
         csvLines.push(`Total de Registros:,${filteredHistorial.length}`);
         csvLines.push("");
-        csvLines.push("#,Acreditado,No. Credito,Fecha");
+        
+        // 1. CABECERA: 5 columnas exactas
+        csvLines.push("#,Propietario,Acreditado,No. Credito,Fecha");
 
-filteredHistorial.forEach((item, index) => {
-  const dExtra = item.datos_extraidos || {};
-  
-  // Usuario que generó/propietario del registro (o usuario activo)
-  const prop = item.usuario_propietario || item.usuario || user?.username || 'N/A';
+        // 2. FILAS: 5 valores exactos correspondientes
+        filteredHistorial.forEach((item, index) => {
+          const dExtra = item.datos_extraidos || {};
+          
+          const prop = item.usuario_propietario || item.usuario || 'N/A';
 
-  const nom = 
-    dExtra.acreditado || 
-    dExtra.nombre_acreditado || 
-    dExtra.nombre || 
-    dExtra.titular || 
-    item.nombre_acreditado || 
-    'N/A';
+          const nom = 
+            dExtra.acreditado || 
+            dExtra.nombre_acreditado || 
+            dExtra.nombre || 
+            dExtra.titular || 
+            item.nombre_acreditado || 
+            'N/A';
 
-  const num = dExtra.numero_credito || item.numero_credito || 'N/A';
-  const p = parsearFechaExpediente(item);
-  const fec = p ? p.fechaTexto : (item.created_at || item.fecha || 'N/A');
+          const num = dExtra.numero_credito || item.numero_credito || 'N/A';
+          const p = parsearFechaExpediente(item);
+          const fec = p ? p.fechaTexto : (item.created_at || item.fecha || 'N/A');
 
-  // Incluimos prop en la fila
-  csvLines.push(`${index + 1},"${prop}","${nom.replace(/"/g, '""')}","${num}","${fec}"`);
-});
+          // Formato idéntico a las cabeceras
+          csvLines.push(`${index + 1},"${prop}","${nom.replace(/"/g, '""')}","${num}","${fec}"`);
+        });
 
         const csvContent = csvLines.join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
