@@ -27,6 +27,80 @@ export default function App() {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
+  // ESTADO PARA EL MENÚ DESPLEGABLE DE EXPORTACIÓN
+  const [showExportMenu, setShowExportMenu] = React.useState(false);
+
+  // FUNCIÓN MULTI-FORMATO DE EXPORTACIÓN
+  const handleExport = async (format) => {
+    setShowExportMenu(false);
+
+    if (filteredHistorial.length === 0) {
+      alert("No hay datos para exportar.");
+      return;
+    }
+
+    const now = new Date();
+    const fechaEmision = now.toLocaleDateString('es-MX') + ' ' + now.toLocaleTimeString('es-MX');
+
+    // 1. EXPORTAR A CSV / EXCEL
+    if (format === 'csv') {
+      try {
+        let csvLines = [];
+        csvLines.push("\uFEFFREPORTE DE HISTORIAL DE EXPEDIENTES");
+        csvLines.push(`Fecha de Emisión:,${fechaEmision}`);
+        csvLines.push(`Total de Registros:,${filteredHistorial.length}`);
+        csvLines.push("");
+        csvLines.push("#,Acreditado,No. Credito,Fecha");
+
+        filteredHistorial.forEach((item, index) => {
+          const dExtra = item.datos_extraidos || {};
+          const nom = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
+          const num = dExtra.numero_credito || item.numero_credito || 'N/A';
+          const p = parsearFechaExpediente(item);
+          const fec = p ? p.fechaTexto : (item.created_at || item.fecha || 'N/A');
+
+          csvLines.push(`${index + 1},"${nom.replace(/"/g, '""')}","${num}","${fec}"`);
+        });
+
+        const csvContent = csvLines.join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Reporte_Expedientes_${now.toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert("Error al generar CSV: " + err.message);
+      }
+    }
+
+    // 2. EXPORTAR A IMAGEN (PNG)
+    if (format === 'image') {
+      try {
+        const html2canvas = (await import('html2canvas')).default;
+        const element = document.getElementById('tabla-historial-export');
+        if (!element) {
+          alert("No se encontró la tabla para captura.");
+          return;
+        }
+        const canvas = await html2canvas(element, { scale: 2 });
+        const link = document.createElement('a');
+        link.download = `Reporte_Expedientes_${now.toISOString().slice(0, 10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } catch (err) {
+        alert("Para exportar a imagen, instala html2canvas con: npm install html2canvas");
+      }
+    }
+
+    // 3. IMPRIMIR / PDF
+    if (format === 'print') {
+      window.print();
+    }
+  };
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
@@ -1811,87 +1885,62 @@ const filteredHistorial = (historial || []).filter((item) => {
                 </div>
               </div>
 
-              {/* BARRA DE CONTEO Y EXPORTACIÓN PERMANENTE */}
+              {/* BARRA DE CONTEO Y BOTÓN GLOBAL DE EXPORTACIÓN */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: theme.subtleBg, borderRadius: '8px', marginBottom: '16px', border: `1px solid ${theme.border}`, flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ fontSize: '13px', color: theme.textPrimary, fontWeight: '600' }}>
                   Total encontrados: <span style={{ color: theme.accent, fontSize: '15px', fontWeight: '700' }}>{filteredHistorial.length}</span> expedientes
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {/* Botón Exportar CSV / Excel corregido */}
+                {/* MENÚ DESPLEGABLE GLOBAL DE EXPORTACIÓN */}
+                <div style={{ position: 'relative' }}>
                   <button
-                    disabled={filteredHistorial.length === 0}
-                    onClick={() => {
-                      try {
-                        const now = new Date();
-                        const fechaEmision = now.toLocaleDateString('es-MX') + ' ' + now.toLocaleTimeString('es-MX');
-                        const usuarioActual = user?.nombre || user?.username || user?.email || 'admin';
-                        
-                        let csvLines = [];
-                        csvLines.push("\uFEFFREPORTE DE HISTORIAL DE EXPEDIENTES");
-                        csvLines.push(`Generado por:,${usuarioActual}`);
-                        csvLines.push(`Fecha de Emision:,${fechaEmision}`);
-                        csvLines.push(`Total de Registros:,${filteredHistorial.length}`);
-                        csvLines.push("");
-                        csvLines.push("#,Acreditado,No. Credito,Fecha");
-
-                        filteredHistorial.forEach((item, index) => {
-                          const dExtra = item.datos_extraidos || {};
-                          const nom = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
-                          const num = dExtra.numero_credito || item.numero_credito || 'N/A';
-                          const p = parsearFechaExpediente(item);
-                          const fec = p ? p.fechaTexto : (item.created_at || item.fecha || 'N/A');
-
-                          csvLines.push(`${index + 1},"${nom.replace(/"/g, '""')}","${num}","${fec}"`);
-                        });
-
-                        const csvContent = csvLines.join("\n");
-                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.setAttribute('download', `Reporte_Expedientes_${now.toISOString().slice(0,10)}.csv`);
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-                      } catch (err) {
-                        alert("Error al generar el archivo Excel/CSV: " + err.message);
-                      }
-                    }}
-                    style={{ 
-                      backgroundColor: theme.cardBg, 
-                      color: theme.textPrimary, 
-                      border: `1px solid ${theme.border}`, 
-                      padding: '6px 12px', 
-                      borderRadius: '6px', 
-                      cursor: filteredHistorial.length === 0 ? 'not-allowed' : 'pointer', 
-                      opacity: filteredHistorial.length === 0 ? 0.5 : 1, 
-                      fontSize: '12px', 
-                      fontWeight: '600', 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      gap: '6px' 
-                    }}
+                    onClick={() => setShowExportMenu(!showExportMenu)}
+                    style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                   >
-                    <Download size={13} /> Exportar Excel (.CSV)
+                    <Download size={14} color={theme.accent} />
+                    Exportar Reporte
+                    <span style={{ fontSize: '10px' }}>▼</span>
                   </button>
 
-                  <button
-                    onClick={() => window.print()}
-                    style={{ backgroundColor: theme.cardBg, color: theme.textPrimary, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                  >
-                    Imprimir / PDF
-                  </button>
+                  {showExportMenu && (
+                    <div style={{ position: 'absolute', right: 0, top: '110%', backgroundColor: theme.cardBg, border: `1px solid ${theme.border}`, borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 100, minWidth: '180px', overflow: 'hidden' }}>
+                      <button
+                        onClick={() => handleExport('csv')}
+                        style={{ width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', backgroundColor: 'transparent', color: theme.textPrimary, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        onMouseOver={(e) => e.target.style.backgroundColor = theme.subtleBg}
+                        onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        📊 Excel (.CSV)
+                      </button>
+
+                      <button
+                        onClick={() => handleExport('image')}
+                        style={{ width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', backgroundColor: 'transparent', color: theme.textPrimary, fontSize: '13px', cursor: 'pointer', borderTop: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', gap: '8px' }}
+                        onMouseOver={(e) => e.target.style.backgroundColor = theme.subtleBg}
+                        onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        🖼️ Imagen (.PNG)
+                      </button>
+
+                      <button
+                        onClick={() => handleExport('print')}
+                        style={{ width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', backgroundColor: 'transparent', color: theme.textPrimary, fontSize: '13px', cursor: 'pointer', borderTop: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', gap: '8px' }}
+                        onMouseOver={(e) => e.target.style.backgroundColor = theme.subtleBg}
+                        onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                      >
+                        🖨️ Imprimir / PDF
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-
+              
               {filteredHistorial.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.textSecondary, fontSize: '14px' }}>
                   No se encontraron expedientes con los criterios seleccionados.
                 </div>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
+                <div id="tabla-historial-export" style={{ overflowX: 'auto', backgroundColor: theme.cardBg, padding: '8px', borderRadius: '8px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                     <thead>
                       <tr style={{ borderBottom: `2px solid ${theme.border}`, color: theme.textSecondary }}>
