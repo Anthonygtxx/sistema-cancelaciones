@@ -27,6 +27,19 @@ export default function App() {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
+  // Advertir/Detener la salida accidental del sitio
+useEffect(() => {
+  if (isAuthenticated) {
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = ""; // Muestra el diálogo nativo del navegador confirmando si desea salir
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }
+}, [isAuthenticated]);
+
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   // --- ESTADO DE SESIÓN Y USUARIO ACTIVO ---
