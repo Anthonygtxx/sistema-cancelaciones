@@ -27,18 +27,6 @@ export default function App() {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
-  // Advertir/Detener la salida accidental del sitio
-useEffect(() => {
-  if (isAuthenticated) {
-    const handleBeforeUnload = (e) => {
-      e.preventDefault();
-      e.returnValue = ""; // Muestra el diálogo nativo del navegador confirmando si desea salir
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }
-}, [isAuthenticated]);
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
@@ -247,10 +235,10 @@ useEffect(() => {
   // Solo se ejecuta si la vista previa está visible y existen los datos requeridos
   if (!mostrarVistaPrevia || !datos || !expedienteId) return;
 
-  // Espera 500ms tras dejar de escribir antes de enviar la petición
+  // Espera 100ms tras dejar de escribir antes de enviar la petición
   const timer = setTimeout(() => {
     actualizarVistaPreviaTiempoReal();
-  }, 500);
+  }, 100);
 
   return () => clearTimeout(timer);
 }, [datos, mostrarVistaPrevia]);
@@ -328,26 +316,16 @@ const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
   }
 };
 
-// Candado permanente para bloquear el botón de retroceso del navegador
+  // Advertir/Detener la salida accidental del sitio
 useEffect(() => {
   if (isAuthenticated) {
-    // 1. Reemplazamos la entrada actual para limpiar rastros
-    window.history.replaceState(null, "", window.location.href);
-    
-    // 2. Empujamos un estado extra al historial
-    window.history.pushState(null, "", window.location.href);
-
-    const handlePopState = (e) => {
-      // Forzamos al navegador a quedarse siempre en la URL actual,
-      // neutralizando múltiples clics rápidos en la flecha atrás
-      window.history.pushState(null, "", window.location.href);
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = ""; // Muestra el diálogo nativo del navegador confirmando si desea salir
     };
 
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }
 }, [isAuthenticated]);
 
