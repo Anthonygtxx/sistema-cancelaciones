@@ -201,6 +201,40 @@ const handleGenerarVistaPrevia = async () => {
   }
 };
 
+// Actualización en tiempo real con debounce al editar datos
+useEffect(() => {
+  // Solo se ejecuta si la vista previa está visible y existen los datos requeridos
+  if (!mostrarVistaPrevia || !datos || !expedienteId) return;
+
+  // Espera 500ms tras dejar de escribir antes de enviar la petición
+  const timer = setTimeout(() => {
+    actualizarVistaPreviaTiempoReal();
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [datos, mostrarVistaPrevia]);
+
+// Petición silenciosa para re-renderizar el visor sin parpadeos
+const actualizarVistaPreviaTiempoReal = async () => {
+  try {
+    const response = await api.post(
+      `/expedientes/${expedienteId}/generar-word`,
+      {
+        plantilla: 'plantilla_manera2.docx',
+        datos: datos
+      },
+      { responseType: 'arraybuffer' }
+    );
+
+    if (previewContainerRef.current) {
+      previewContainerRef.current.innerHTML = "";
+      await renderAsync(response.data, previewContainerRef.current);
+    }
+  } catch (error) {
+    console.error("Error al actualizar la vista previa en tiempo real:", error);
+  }
+};
+
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
     try {
