@@ -1055,39 +1055,44 @@ const handleGenerarVistaPrevia = async () => {
       </div>
     )}
 
-{/* --- SECCIÓN DE VISTA PREVIA (ABAJO DE TODO CON HOJAS SEPARADAS) --- */}
+{/* --- COLUMNA 3: VISTA PREVIA (ALINEADA Y CON SCROLL) --- */}
 {mostrarVistaPrevia && (
-  <div className="w-full mt-8 flex flex-col items-center">
+  <div className="flex-1 min-w-[380px] h-[650px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col overflow-hidden relative">
     
-    {/* Inyección de Estilos Locales para Separación y Sombra de Páginas */}
+    {/* Inyección de Estilos para Adaptar el Word al Tamaño de la Tarjeta */}
     <style>{`
-      .docx-custom-preview .docx-wrapper {
+      .docx-custom-sidebar .docx-wrapper {
         background-color: transparent !important;
         padding: 0 !important;
         display: flex !important;
         flex-direction: column !important;
         align-items: center !important;
-        gap: 28px !important; /* Espacio vertical entre hojas */
+        gap: 16px !important;
       }
 
-      .docx-custom-preview .docx-wrapper > section {
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-        border-radius: 6px !important;
+      .docx-custom-sidebar .docx-wrapper > section {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+        border-radius: 8px !important;
         margin-bottom: 0 !important;
         background-color: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
         width: 100% !important;
-        max-width: 816px !important; /* Formato Carta / A4 */
-        min-height: 1056px !important;
-        padding: 48px !important;
+        max-width: 100% !important;
+        padding: 20px !important;
         box-sizing: border-box !important;
+        transform: scale(0.92);
+        transform-origin: top center;
       }
     `}</style>
 
-    {/* Visor del Documento */}
-    <div className="relative w-full max-w-5xl bg-slate-200 dark:bg-slate-900 rounded-2xl shadow-xl p-4 sm:p-8 border border-slate-300 dark:border-slate-800">
-      
-      {/* Botón Flotante para Cerrar con Limpieza Completa del DOM */}
+    {/* Encabezado del Panel */}
+    <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+      <div className="flex items-center gap-2">
+        <Eye className="w-4 h-4 text-indigo-500" />
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Vista Previa</span>
+      </div>
+
+      {/* Botón de Cerrar Estilizado */}
       <button
         onClick={() => {
           if (previewContainerRef.current) {
@@ -1095,28 +1100,32 @@ const handleGenerarVistaPrevia = async () => {
           }
           setMostrarVistaPrevia(false);
         }}
-        className="absolute top-4 right-4 z-20 bg-white/90 dark:bg-slate-800/90 hover:bg-red-500 hover:text-white text-slate-600 dark:text-slate-300 w-9 h-9 rounded-full shadow-md transition-all duration-200 backdrop-blur-sm border border-slate-200 dark:border-slate-700 flex items-center justify-center font-bold text-sm"
+        className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-lg transition-colors flex items-center justify-center"
         title="Cerrar vista previa"
       >
-        ✕
+        <X className="w-4 h-4" />
       </button>
+    </div>
 
+    {/* Cuerpo con Scroll Interno */}
+    <div className="flex-1 overflow-y-auto p-3 bg-slate-100/70 dark:bg-slate-950/50 custom-scrollbar">
       {cargandoPreview ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
-          <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-          <p className="text-sm font-medium">Generando vista previa...</p>
+        <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-400">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <span className="text-xs font-medium">Cargando vista previa...</span>
         </div>
       ) : (
-        /* Contenedor de las Hojas Separadas */
         <div 
           ref={previewContainerRef} 
-          className="w-full flex flex-col items-center gap-6 overflow-x-auto docx-custom-preview"
+          className="w-full flex flex-col items-center gap-4 docx-custom-sidebar"
         />
       )}
     </div>
 
   </div>
 )}
+
+
           {/* TAB: CARGA MASIVA */}
           {activeTab === 'batch' && (
             <div>
