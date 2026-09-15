@@ -52,25 +52,27 @@ export default function App() {
         csvLines.push("");
         csvLines.push("#,Acreditado,No. Credito,Fecha");
 
-        filteredHistorial.forEach((item, index) => {
-          const dExtra = item.datos_extraidos || {};
-          // Busca el nombre en cualquier propiedad posible dentro de datos_extraidos o la raíz del objeto
-const nom = 
-  dExtra.acreditado || 
-  dExtra.nombre_acreditado || 
-  dExtra.nombre || 
-  dExtra.titular || 
-  dExtra.nombreAcreditado ||
-  item.nombre_acreditado || 
-  item.acreditado || 
-  item.nombre || 
-  'N/A';
-          const num = dExtra.numero_credito || item.numero_credito || 'N/A';
-          const p = parsearFechaExpediente(item);
-          const fec = p ? p.fechaTexto : (item.created_at || item.fecha || 'N/A');
+filteredHistorial.forEach((item, index) => {
+  const dExtra = item.datos_extraidos || {};
+  
+  // Usuario que generó/propietario del registro (o usuario activo)
+  const prop = item.usuario_propietario || item.usuario || user?.username || 'N/A';
 
-          csvLines.push(`${index + 1},"${nom.replace(/"/g, '""')}","${num}","${fec}"`);
-        });
+  const nom = 
+    dExtra.acreditado || 
+    dExtra.nombre_acreditado || 
+    dExtra.nombre || 
+    dExtra.titular || 
+    item.nombre_acreditado || 
+    'N/A';
+
+  const num = dExtra.numero_credito || item.numero_credito || 'N/A';
+  const p = parsearFechaExpediente(item);
+  const fec = p ? p.fechaTexto : (item.created_at || item.fecha || 'N/A');
+
+  // Incluimos prop en la fila
+  csvLines.push(`${index + 1},"${prop}","${nom.replace(/"/g, '""')}","${num}","${fec}"`);
+});
 
         const csvContent = csvLines.join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
