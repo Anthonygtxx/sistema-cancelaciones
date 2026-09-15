@@ -13,7 +13,8 @@ import {
 axios.defaults.withCredentials = true;
 
 const api = axios.create({
-  baseURL: 'https://sistema-cancelaciones-production.up.railway.app/api'
+  baseURL: 'https://sistema-cancelaciones-production.up.railway.app/api',
+  withCredentials: true // <--- CRUCIAL para cookies
 });
 
 export default function App() {
@@ -87,14 +88,18 @@ export default function App() {
 useEffect(() => {
   const checkAuth = async () => {
     try {
-      // Hacemos una petición silenciosa enviando cookies
+      // 1. Apuntamos a /api/auth/me (o a través de tu instancia 'api' si ya tiene el baseURL '/api')
+      // 2. Forzamos withCredentials: true para asegurar el envío de la cookie session_id
       const response = await api.get('/auth/me', { withCredentials: true });
+      
       if (response.data && response.data.user) {
         setIsAuthenticated(true);
         setCurrentUser(response.data.user);
+      } else {
+        setIsAuthenticated(false);
       }
     } catch (error) {
-      // Si la cookie no existe o expiró, redirige al login
+      console.error("Error verificando sesión al recargar:", error);
       setIsAuthenticated(false);
       setCurrentUser(null);
     } finally {
