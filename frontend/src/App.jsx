@@ -314,6 +314,25 @@ const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
   }
 };
 
+// Bloquear el botón de retroceso mientras la sesión esté activa
+useEffect(() => {
+  if (isAuthenticated) {
+    // Inserta un estado adicional en el historial del navegador
+    window.history.pushState(null, "", window.location.href);
+
+    const handlePopState = () => {
+      // Si el usuario presiona "Atrás", lo volvemos a empujar al estado actual
+      window.history.pushState(null, "", window.location.href);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }
+}, [isAuthenticated]);
+
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
     try {
