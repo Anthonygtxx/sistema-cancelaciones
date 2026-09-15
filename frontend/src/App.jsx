@@ -242,6 +242,50 @@ const actualizarVistaPreviaTiempoReal = async () => {
   }
 };
 
+// Estado recomendado para controlar qué expediente del lote se está previsualizando
+// const [batchPreviewIndex, setBatchPreviewIndex] = useState(null);
+
+// Hook para actualización en tiempo real cuando se modifican los datos del lote
+useEffect(() => {
+  if (batchPreviewIndex === null || !batchResults[batchPreviewIndex]) return;
+
+  const timer = setTimeout(() => {
+    actualizarVistaPreviaMasivaTiempoReal(batchPreviewIndex);
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [batchResults, batchPreviewIndex]);
+
+// Función de actualización fluida sin parpadeo (Double Buffer)
+const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
+  try {
+    const item = batchResults[index];
+    if (!item) return;
+
+    const response = await api.post(
+      `/expedientes/${item.expediente_id}/generar-word`,
+      {
+        plantilla: 'plantilla_manera2.docx',
+        datos: item.datos_extraidos
+      },
+      { responseType: 'arraybuffer' }
+    );
+
+    if (batchPreviewRef.current) {
+      // Renderizado en memoria fuera de pantalla
+      const tempContainer = document.createElement('div');
+      tempContainer.className = "docx-container-scroll";
+
+      await renderAsync(response.data, tempContainer);
+
+      // Reemplazo instantáneo sin pantalla en blanco
+      batchPreviewRef.current.innerHTML = tempContainer.innerHTML;
+    }
+  } catch (error) {
+    console.error("Error al actualizar la vista previa masiva:", error);
+  }
+};
+
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
     try {
@@ -1210,200 +1254,346 @@ const actualizarVistaPreviaTiempoReal = async () => {
 )}
 
 
-          {/* TAB: CARGA MASIVA */}
-          {activeTab === 'batch' && (
-            <div>
-              <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FolderPlus size={20} color={theme.accent} /> Carga Masiva de Expedientes
-                </h2>
+ {/* TAB: CARGA MASIVA */}
+{activeTab === 'batch' && (
+  <div>
+    {/* SECCIÓN SUPERIOR: FORMULARIO DE CARGA */}
+    <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, marginBottom: '24px' }}>
+      <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <FolderPlus size={20} color={theme.accent} /> Carga Masiva de Expedientes
+      </h2>
 
-                <div 
-                  onDragOver={handleDragOver}
-                  onDrop={handleDropBatch}
-                  style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '32px 20px', textAlign: 'center', marginBottom: '20px', cursor: 'pointer' }}
-                >
-                  <FileArchive size={40} color={theme.accent} style={{ margin: '0 auto 12px auto' }} />
-                  <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>
-                    Arrastra aquí tu carpeta o múltiples archivos PDF
-                  </p>
-                  <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: theme.textSecondary }}>se escanearán subcarpetas automáticamente</p>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf"
-                    webkitdirectory="true"
-                    onChange={handleBatchFileChange}
-                    style={{ display: 'none' }}
-                    id="batch-file-input"
-                  />
-                  <label htmlFor="batch-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
-                    Buscar Carpeta / Archivos
-                  </label>
-                </div>
+      <div 
+        onDragOver={handleDragOver}
+        onDrop={handleDropBatch}
+        style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '32px 20px', textAlign: 'center', marginBottom: '20px', cursor: 'pointer' }}
+      >
+        <FileArchive size={40} color={theme.accent} style={{ margin: '0 auto 12px auto' }} />
+        <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>
+          Arrastra aquí tu carpeta o múltiples archivos PDF
+        </p>
+        <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: theme.textSecondary }}>se escanearán subcarpetas automáticamente</p>
+        <input
+          type="file"
+          multiple
+          accept=".pdf"
+          webkitdirectory="true"
+          onChange={handleBatchFileChange}
+          style={{ display: 'none' }}
+          id="batch-file-input"
+        />
+        <label htmlFor="batch-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
+          Buscar Carpeta / Archivos
+        </label>
+      </div>
 
-                {batchFiles.length > 0 && (
-                  <div style={{ marginBottom: '20px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textSecondary }}>
-                      Archivos Detectados ({batchFiles.length}):
+      {batchFiles.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textSecondary }}>
+            Archivos Detectados ({batchFiles.length}):
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '150px', overflowY: 'auto' }}>
+            {batchFiles.map((f, i) => (
+              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '6px', fontSize: '13px', color: theme.textPrimary }}>
+                <FileText size={14} color={theme.textSecondary} />
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {batchLoading && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px', color: theme.textSecondary }}>
+            <span>Procesando lote de documentos...</span>
+            <span>{progressBatch}%</span>
+          </div>
+          <div style={{ width: '100%', backgroundColor: theme.subtleBg, height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: `${progressBatch}%`, backgroundColor: theme.accent, height: '100%', transition: 'width 0.2s' }} />
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={handleUploadBatch}
+        disabled={batchFiles.length === 0 || batchLoading}
+        style={{
+          width: '100%',
+          backgroundColor: batchFiles.length === 0 || batchLoading ? theme.subtleBg : theme.accent,
+          color: batchFiles.length === 0 || batchLoading ? theme.textSecondary : '#fff',
+          border: 'none',
+          padding: '12px',
+          borderRadius: '10px',
+          fontWeight: '600',
+          fontSize: '14px',
+          cursor: batchFiles.length === 0 || batchLoading ? 'not-allowed' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
+        }}
+      >
+        {batchLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <FolderPlus size={16} />}
+        Procesar Carga Masiva
+      </button>
+    </div>
+
+    {/* RESULTADOS DEL LOTE */}
+    {batchResults.length > 0 && (
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: batchPreviewIndex !== null ? '1.2fr 1fr' : '1fr', 
+        gap: '24px',
+        alignItems: 'start',
+        transition: 'all 0.3s ease'
+      }}>
+        
+        {/* COLUMNA IZQUIERDA: LISTA Y ACORDEONES */}
+        <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: theme.textPrimary }}>
+              Resultados del Lote ({batchResults.length})
+            </h2>
+            <button
+              onClick={handleDownloadZip}
+              style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', fontWeight: '600', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Download size={16} /> Descargar Todo (ZIP)
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {batchResults.map((res, idx) => {
+              const isOpen = !!openAccordion[idx];
+              const datosExtraidos = res.datos_extraidos || {};
+              const acreditadoNombre = datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || 'Acreditado no identificado';
+              const isPreviewingThis = batchPreviewIndex === idx;
+
+              return (
+                <div key={idx} style={{ border: `1px solid ${isPreviewingThis ? theme.accent : theme.border}`, borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s ease' }}>
+                  <div 
+                    onClick={() => toggleAccordion(idx)}
+                    style={{ padding: '14px 18px', backgroundColor: theme.subtleBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <CheckCircle size={18} color="#10b981" />
+                      <span style={{ fontWeight: '600', fontSize: '14px', color: theme.textPrimary }}>
+                        {acreditadoNombre}
+                      </span>
+                      {datosExtraidos.numero_credito && (
+                        <span style={{ fontSize: '12px', color: theme.textSecondary, backgroundColor: theme.cardBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${theme.border}` }}>
+                          Crédito: {datosExtraidos.numero_credito}
+                        </span>
+                      )}
                     </div>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '150px', overflowY: 'auto' }}>
-                      {batchFiles.map((f, i) => (
-                        <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '6px', fontSize: '13px', color: theme.textPrimary }}>
-                          <FileText size={14} color={theme.textSecondary} />
-                          <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      
+                      {/* BOTÓN VISTA PREVIA INDIVIDUAL EN LOTE */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setBatchPreviewIndex(idx);
+                          actualizarVistaPreviaMasivaTiempoReal(idx);
+                        }}
+                        style={{ 
+                          backgroundColor: isPreviewingThis ? theme.accent : theme.cardBg, 
+                          color: isPreviewingThis ? '#fff' : theme.textPrimary, 
+                          border: `1px solid ${theme.border}`, 
+                          padding: '6px 10px', 
+                          borderRadius: '6px', 
+                          fontSize: '12px', 
+                          fontWeight: '600', 
+                          cursor: 'pointer', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '4px' 
+                        }}
+                      >
+                        <Eye size={12} color={isPreviewingThis ? '#fff' : theme.accent} /> 
+                        {isPreviewingThis ? 'Viendo' : 'Previa'}
+                      </button>
 
-                {batchLoading && (
-                  <div style={{ marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px', color: theme.textSecondary }}>
-                      <span>Procesando lote de documentos...</span>
-                      <span>{progressBatch}%</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadWord(res.expediente_id, datosExtraidos);
+                        }}
+                        style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Download size={12} /> DOCX
+                      </button>
+                      {isOpen ? <ChevronUp size={18} color={theme.textSecondary} /> : <ChevronDown size={18} color={theme.textSecondary} />}
                     </div>
-                    <div style={{ width: '100%', backgroundColor: theme.subtleBg, height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${progressBatch}%`, backgroundColor: theme.accent, height: '100%', transition: 'width 0.2s' }} />
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={handleUploadBatch}
-                  disabled={batchFiles.length === 0 || batchLoading}
-                  style={{
-                    width: '100%',
-                    backgroundColor: batchFiles.length === 0 || batchLoading ? theme.subtleBg : theme.accent,
-                    color: batchFiles.length === 0 || batchLoading ? theme.textSecondary : '#fff',
-                    border: 'none',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    fontWeight: '600',
-                    fontSize: '14px',
-                    cursor: batchFiles.length === 0 || batchLoading ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  {batchLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <FolderPlus size={16} />}
-                  Procesar Carga Masiva
-                </button>
-              </div>
-
-              {batchResults.length > 0 && (
-                <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                    <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: theme.textPrimary }}>
-                      Resultados del Lote ({batchResults.length})
-                    </h2>
-                    <button
-                      onClick={handleDownloadZip}
-                      style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', fontWeight: '600', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      <Download size={16} /> Descargar Todo (ZIP)
-                    </button>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {batchResults.map((res, idx) => {
-                      const isOpen = !!openAccordion[idx];
-                      const datosExtraidos = res.datos_extraidos || {};
-                      const acreditadoNombre = datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || 'Acreditado no identificado';
+                  {isOpen && (
+                    <div style={{ padding: '18px', backgroundColor: theme.cardBg, borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                      {Object.entries(datosExtraidos).map(([bKey, bVal]) => {
+                        const fieldKey = `batch_${idx}_${bKey}`;
+                        const isUnlocked = unlockedFields[fieldKey];
 
-                      return (
-                        <div key={idx} style={{ border: `1px solid ${theme.border}`, borderRadius: '10px', overflow: 'hidden' }}>
-                          <div 
-                            onClick={() => toggleAccordion(idx)}
-                            style={{ padding: '14px 18px', backgroundColor: theme.subtleBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                              <CheckCircle size={18} color="#10b981" />
-                              <span style={{ fontWeight: '600', fontSize: '14px', color: theme.textPrimary }}>
-                                {acreditadoNombre}
-                              </span>
-                              {datosExtraidos.numero_credito && (
-                                <span style={{ fontSize: '12px', color: theme.textSecondary, backgroundColor: theme.cardBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${theme.border}` }}>
-                                  Crédito: {datosExtraidos.numero_credito}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDownloadWord(res.expediente_id, datosExtraidos);
+                        return (
+                          <div key={bKey} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <label style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
+                              {formatLabel(bKey)}
+                            </label>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                value={bVal || ''}
+                                disabled={!isUnlocked}
+                                onChange={(e) => handleBatchInputChange(idx, bKey, e.target.value)}
+                                style={{
+                                  flex: 1,
+                                  padding: '8px 10px',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${theme.border}`,
+                                  backgroundColor: isUnlocked ? theme.inputBg : theme.subtleBg,
+                                  color: theme.textPrimary,
+                                  fontSize: '12px',
+                                  opacity: isUnlocked ? 1 : 0.8
                                 }}
-                                style={{ backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleToggleUnlock(fieldKey)}
+                                style={{
+                                  padding: '8px',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${theme.border}`,
+                                  backgroundColor: isUnlocked ? '#fef3c7' : theme.subtleBg,
+                                  color: isUnlocked ? '#d97706' : theme.textSecondary,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
                               >
-                                <Download size={12} /> DOCX
+                                {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
                               </button>
-                              {isOpen ? <ChevronUp size={18} color={theme.textSecondary} /> : <ChevronDown size={18} color={theme.textSecondary} />}
                             </div>
                           </div>
-
-                          {isOpen && (
-                            <div style={{ padding: '18px', backgroundColor: theme.cardBg, borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-                              {Object.entries(datosExtraidos).map(([bKey, bVal]) => {
-                                const fieldKey = `batch_${idx}_${bKey}`;
-                                const isUnlocked = unlockedFields[fieldKey];
-
-                                return (
-                                  <div key={bKey} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
-                                      {formatLabel(bKey)}
-                                    </label>
-                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                      <input
-                                        type="text"
-                                        value={bVal || ''}
-                                        disabled={!isUnlocked}
-                                        onChange={(e) => handleBatchInputChange(idx, bKey, e.target.value)}
-                                        style={{
-                                          flex: 1,
-                                          padding: '8px 10px',
-                                          borderRadius: '6px',
-                                          border: `1px solid ${theme.border}`,
-                                          backgroundColor: isUnlocked ? theme.inputBg : theme.subtleBg,
-                                          color: theme.textPrimary,
-                                          fontSize: '12px',
-                                          opacity: isUnlocked ? 1 : 0.8
-                                        }}
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => handleToggleUnlock(fieldKey)}
-                                        style={{
-                                          padding: '8px',
-                                          borderRadius: '6px',
-                                          border: `1px solid ${theme.border}`,
-                                          backgroundColor: isUnlocked ? '#fef3c7' : theme.subtleBg,
-                                          color: isUnlocked ? '#d97706' : theme.textSecondary,
-                                          cursor: 'pointer',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center'
-                                        }}
-                                      >
-                                        {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* COLUMNA DERECHA: PANEL DE VISTA PREVIA MASIVA */}
+        {batchPreviewIndex !== null && (
+          <div style={{ 
+            backgroundColor: theme.cardBg, 
+            borderRadius: '16px', 
+            border: `1px solid ${theme.border}`,
+            height: '650px',
+            maxHeight: '650px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            position: 'sticky',
+            top: '24px'
+          }}>
+            
+            {/* Reglas CSS para scroll interno */}
+            <style>{`
+              .docx-container-scroll {
+                height: 100% !important;
+                max-height: 100% !important;
+                overflow-y: auto !important;
+              }
+              .docx-container-scroll .docx-wrapper {
+                background-color: transparent !important;
+                padding: 12px 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 16px !important;
+              }
+              .docx-container-scroll .docx-wrapper > section {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+                border-radius: 6px !important;
+                margin-bottom: 0 !important;
+                background-color: #ffffff !important;
+                border: 1px solid #e2e8f0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 16px !important;
+                box-sizing: border-box !important;
+              }
+              .docx-container-scroll::-webkit-scrollbar {
+                width: 6px;
+              }
+              .docx-container-scroll::-webkit-scrollbar-thumb {
+                background-color: rgba(156, 163, 175, 0.5);
+                border-radius: 8px;
+              }
+            `}</style>
+
+            {/* Encabezado del visor */}
+            <div style={{ 
+              padding: '16px 20px', 
+              borderBottom: `1px solid ${theme.border}`, 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              backgroundColor: theme.subtleBg
+            }}>
+              <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Eye size={18} color={theme.accent} /> 
+                Previa ({batchResults[batchPreviewIndex]?.datos_extraidos?.acreditado || 'Expediente'})
+              </h2>
+
+              {/* Botón de cierre píldora */}
+              <button
+                onClick={() => {
+                  if (batchPreviewRef.current) {
+                    batchPreviewRef.current.innerHTML = "";
+                  }
+                  setBatchPreviewIndex(null);
+                }}
+                style={{ 
+                  backgroundColor: '#ef4444', 
+                  color: '#ffffff', 
+                  border: 'none', 
+                  padding: '5px 12px', 
+                  borderRadius: '20px', 
+                  fontWeight: '600', 
+                  fontSize: '12px', 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
+                  transition: 'all 0.2s ease'
+                }}
+                title="Cerrar vista previa"
+              >
+                <span>Cerrar</span>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', marginLeft: '2px' }}>✕</span>
+              </button>
             </div>
-          )}
+
+            {/* Contenedor de la vista previa en tiempo real */}
+            <div style={{ flex: 1, padding: '12px', overflow: 'hidden', backgroundColor: theme.dropzoneBg }}>
+              <div 
+                ref={batchPreviewRef} 
+                className="docx-container-scroll"
+              />
+            </div>
+
+          </div>
+        )}
+
+      </div>
+    )}
+  </div>
+)}
+
 
           {/* TAB: HISTORIAL */}
           {activeTab === 'history' && (
