@@ -54,7 +54,17 @@ export default function App() {
 
         filteredHistorial.forEach((item, index) => {
           const dExtra = item.datos_extraidos || {};
-          const nom = dExtra.acreditado || dExtra.nombre_acreditado || item.nombre_acreditado || 'N/A';
+          // Busca el nombre en cualquier propiedad posible dentro de datos_extraidos o la raíz del objeto
+const nom = 
+  dExtra.acreditado || 
+  dExtra.nombre_acreditado || 
+  dExtra.nombre || 
+  dExtra.titular || 
+  dExtra.nombreAcreditado ||
+  item.nombre_acreditado || 
+  item.acreditado || 
+  item.nombre || 
+  'N/A';
           const num = dExtra.numero_credito || item.numero_credito || 'N/A';
           const p = parsearFechaExpediente(item);
           const fec = p ? p.fechaTexto : (item.created_at || item.fecha || 'N/A');
