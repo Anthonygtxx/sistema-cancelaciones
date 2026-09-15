@@ -316,28 +316,24 @@ const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
   }
 };
 
-// Manejo estricto de navegación e invalidador de sesión
+// Neutralizar navegación por historial del navegador
 useEffect(() => {
   if (isAuthenticated) {
-    // 1. Mensaje de advertencia al intentar salir/retroceder
-    const handleBeforeUnload = (e) => {
-      e.preventDefault();
-      e.returnValue = "";
+    // 1. Limpia el historial previo sustituyendo la entrada actual
+    window.history.replaceState(null, "", window.location.href);
+    
+    // 2. Empuja un estado ficticio
+    window.history.pushState(null, "", window.location.href);
+
+    const handlePopState = (e) => {
+      // Al presionar la flecha, vuelve a inyectar la posición actual
+      window.history.pushState(null, "", window.location.href);
     };
 
-    // 2. Destruir la cookie/sesión en el servidor si el usuario confirma que quiere salir
-    const handlePageHide = () => {
-      // sendBeacon envía la petición de logout de forma garantizada incluso si la pestaña se cierra
-      const logoutUrl = 'https://sistema-cancelaciones-production.up.railway.app/api/auth/logout';
-      navigator.sendBeacon(logoutUrl);
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("popstate", handlePopState);
 
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("popstate", handlePopState);
     };
   }
 }, [isAuthenticated]);
