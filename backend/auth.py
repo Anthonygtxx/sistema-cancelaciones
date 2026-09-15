@@ -102,8 +102,9 @@ def login(data: LoginRequest, response: Response, db: Session = Depends(get_db))
         key="session_id",
         value=session_id,
         httponly=True,       # Protege la cookie contra JS malicioso (XSS)
-        samesite="lax",      # Previene CSRF
-        secure=False         # True si usas HTTPS en el servidor
+        samesite="none",     # OBLIGATORIO: Permite compartir cookies entre Vercel y Railway
+        secure=True,         # OBLIGATORIO: Requerido cuando samesite="none" (HTTPS)
+        max_age=86400        # Mantiene la cookie activa durante 24 horas
     )
 
     return {
