@@ -315,12 +315,18 @@ const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
   }
 };
 
-// Atrapar el botón "Atrás" del navegador mientras la sesión está activa
+// Candado permanente para bloquear el botón de retroceso del navegador
 useEffect(() => {
   if (isAuthenticated) {
+    // 1. Reemplazamos la entrada actual para limpiar rastros
+    window.history.replaceState(null, "", window.location.href);
+    
+    // 2. Empujamos un estado extra al historial
     window.history.pushState(null, "", window.location.href);
 
-    const handlePopState = () => {
+    const handlePopState = (e) => {
+      // Forzamos al navegador a quedarse siempre en la URL actual,
+      // neutralizando múltiples clics rápidos en la flecha atrás
       window.history.pushState(null, "", window.location.href);
     };
 
