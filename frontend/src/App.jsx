@@ -243,7 +243,8 @@ const actualizarVistaPreviaTiempoReal = async () => {
 };
 
 // Estado recomendado para controlar qué expediente del lote se está previsualizando
-// const [batchPreviewIndex, setBatchPreviewIndex] = useState(null);
+ const [batchPreviewIndex, setBatchPreviewIndex] = useState(null);
+ const batchPreviewRef = useRef(null);
 
 // Hook para actualización en tiempo real cuando se modifican los datos del lote
 useEffect(() => {
