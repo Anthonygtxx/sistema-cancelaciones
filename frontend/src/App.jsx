@@ -1697,32 +1697,63 @@ const filteredHistorial = (historial || []).filter((item) => {
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       
-                      {/* === NUEVO MENÚ DESPLEGABLE DE PLANTILLAS === */}
-                      <select
-                        value={res.plantilla_seleccionada || ""}
-                        onChange={(e) => handleBatchPlantillaChange(idx, e.target.value)}
-                        onClick={(e) => e.stopPropagation()} // Para que no abra/cierre el acordeón al hacer clic
-                        style={{
-                          padding: '6px 8px',
-                          borderRadius: '6px',
-                          border: `1px solid ${theme.border}`,
-                          backgroundColor: '#fff',
-                          color: theme.textPrimary,
-                          fontSize: '12px',
-                          outline: 'none',
-                          cursor: 'pointer',
-                          maxWidth: '120px'
-                        }}
-                        title="Seleccionar plantilla para este expediente"
-                      >
-                        <option value="" disabled>Seleccionar...</option>
-                        {plantillas.map((p) => (
-                          <option key={p} value={p}>
-                            {p.replace(".docx", "")}
-                          </option>
-                        ))}
-                      </select>
-                      {/* =========================================== */}
+                      {/* === MENÚ DESPLEGABLE DE PLANTILLAS === */}
+<select
+  value={res.plantilla_seleccionada || ""}
+  onChange={(e) => handleBatchPlantillaChange(idx, e.target.value)}
+  onClick={(e) => e.stopPropagation()}
+  style={{
+    padding: '6px 8px',
+    borderRadius: '6px',
+    border: `1px solid ${theme.border}`,
+    backgroundColor: theme.inputBg,
+    color: theme.textPrimary,
+    fontSize: '12px',
+    outline: 'none',
+    cursor: 'pointer',
+    maxWidth: '220px',
+    textOverflow: 'ellipsis'
+  }}
+  title="Seleccionar plantilla para este expediente"
+>
+  <option value="" disabled>Seleccionar plantilla...</option>
+  
+  <optgroup label="1. MODELOS CDMX 2026 - APERTURA DE CRÉDITO">
+    <option value="CDMX_AP_H_SOLTERO">CDMX - Ap. Crédito - Hombre Soltero</option>
+    <option value="CDMX_AP_H_CASADO">CDMX - Ap. Crédito - Hombre Casado</option>
+    <option value="CDMX_AP_M_SOLTERA">CDMX - Ap. Crédito - Mujer Soltera</option>
+    <option value="CDMX_AP_M_CASADA">CDMX - Ap. Crédito - Mujer Casada</option>
+  </optgroup>
+
+  <optgroup label="CONTRATO DE MUTUO">
+    <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
+    <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
+    <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
+    <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
+  </optgroup>
+
+  <optgroup label="2. MODELOS COACREDITADOS 2026">
+    <option value="COAC_CDMX_AP">Coacreditados - CDMX - Ap. Crédito</option>
+    <option value="COAC_CDMX_MUTUO">Coacreditados - CDMX - C. Mutuo</option>
+    <option value="COAC_EDOMEX_AP">Coacreditados - EDOMEX - Ap. Crédito</option>
+    <option value="COAC_EDOMEX_MUTUO">Coacreditados - EDOMEX - C. Mutuo</option>
+  </optgroup>
+
+  <optgroup label="3. MODELOS EDOMEX 2026 - APERTURA DE CRÉDITO">
+    <option value="EDOMEX_AP_H_SOLTERO">EDOMEX - Ap. Crédito - Hombre Soltero</option>
+    <option value="EDOMEX_AP_H_CASADO">EDOMEX - Ap. Crédito - Hombre Casado</option>
+    <option value="EDOMEX_AP_M_SOLTERA">EDOMEX - Ap. Crédito - Mujer Soltera</option>
+    <option value="EDOMEX_AP_M_CASADA">EDOMEX - Ap. Crédito - Mujer Casada</option>
+  </optgroup>
+
+  <optgroup label="CONTRATO DE MUTUO">
+    <option value="EDOMEX_MUTUO_H_SOLTERO">EDOMEX - C. Mutuo - Hombre Soltero</option>
+    <option value="EDOMEX_MUTUO_H_CASADO">EDOMEX - C. Mutuo - Hombre Casado</option>
+    <option value="EDOMEX_MUTUO_M_SOLTERA">EDOMEX - C. Mutuo - Mujer Soltera</option>
+    <option value="EDOMEX_MUTUO_M_CASADA">EDOMEX - C. Mutuo - Mujer Casada</option>
+  </optgroup>
+</select>
+{/* =========================================== */}
 
                       {/* BOTÓN VISTA PREVIA INDIVIDUAL EN LOTE */}
                       <button
