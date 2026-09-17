@@ -316,9 +316,16 @@ def obtener_historial(
 async def procesar_documento(
     files: List[UploadFile] = File(...),
     usuario_propietario: Optional[str] = Form(None),
+    plantilla: Optional[str] = Form(None),  # Recibe la clave seleccionada en el frontend
     db: Session = Depends(get_db)
 ):
     try:
+        # LOGS DE MONITOREO
+        print("================ [PROCESAMIENTO INDIVIDUAL] ================")
+        print(f"Usuario: {usuario_propietario}")
+        print(f"Plantilla recibida desde Frontend: {plantilla}")
+        print("============================================================")
+
         propietario_final = usuario_propietario if usuario_propietario else "admin"
 
         os.makedirs("uploads", exist_ok=True)
@@ -339,6 +346,10 @@ async def procesar_documento(
         
         datos_limpios = limpiar_datos_para_plantilla(datos_combinados, num_credito)
 
+        # Si el diccionario de datos requiere persistir la clave de la plantilla:
+        if plantilla:
+            datos_limpios["plantilla_seleccionada"] = plantilla
+
         nuevo_expediente = models.Expediente(
             usuario_propietario=propietario_final,
             numero_credito=num_credito,
@@ -358,7 +369,6 @@ async def procesar_documento(
     except Exception as e:
         print(f"ERROR EN /procesar: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # --- PROCESAMIENTO MASIVO ---
 @app.post("/api/expedientes/procesar-masivo")

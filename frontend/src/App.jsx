@@ -652,13 +652,15 @@ useEffect(() => {
     const formData = new FormData();
     singleFiles.forEach((f) => formData.append('files', f));
     formData.append('usuario_propietario', currentUser.username);
+    // Inyección del parámetro de la plantilla elegida
+    formData.append('plantilla', selectedPlantilla);
 
     try {
       const res = await api.post('/expedientes/procesar', formData);
       clearInterval(interval);
       setProgressSingle(100);
       setTimeout(() => {
-        setExpedienteId(res.data.expediente_id);
+        setExpedienteId(res.data.expediente_id || res.data.id || null);
         const rawDatos = res.data.datos_extraidos || {};
         setDatos({
           acreditado: rawDatos.acreditado || rawDatos.nombre_acreditado || '',
@@ -1188,7 +1190,7 @@ const filteredHistorial = (historial || []).filter((item) => {
             </div>
           )}
 
-  {/* TAB: CASO INDIVIDUAL */}
+ {/* TAB: CASO INDIVIDUAL */}
 {activeTab === 'single' && (
   <div style={{ 
     display: 'grid', 
@@ -1230,7 +1232,7 @@ const filteredHistorial = (historial || []).filter((item) => {
             <option value="CDMX_AP_M_CASADA">CDMX - Ap. Crédito - Mujer Casada</option>
           </optgroup>
 
-          <optgroup label="1. MODELOS CDMX 2026 - CONTRATO DE MUTUO">
+          <optgroup label="CONTRATO DE MUTUO">
             <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
             <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
             <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
@@ -1251,7 +1253,7 @@ const filteredHistorial = (historial || []).filter((item) => {
             <option value="EDOMEX_AP_M_CASADA">EDOMEX - Ap. Crédito - Mujer Casada</option>
           </optgroup>
 
-          <optgroup label="3. MODELOS EDOMEX 2026 - CONTRATO DE MUTUO">
+          <optgroup label="CONTRATO DE MUTUO">
             <option value="EDOMEX_MUTUO_H_SOLTERO">EDOMEX - C. Mutuo - Hombre Soltero</option>
             <option value="EDOMEX_MUTUO_H_CASADO">EDOMEX - C. Mutuo - Hombre Casado</option>
             <option value="EDOMEX_MUTUO_M_SOLTERA">EDOMEX - C. Mutuo - Mujer Soltera</option>
@@ -1426,7 +1428,7 @@ const filteredHistorial = (historial || []).filter((item) => {
       </div>
     )}
 
-    {/* --- COLUMNA 3: VISTA PREVIA (AJUSTADA AL TAMAÑO DE TARJETA CON SCROLL) --- */}
+    {/* COLUMNA 3: VISTA PREVIA (CON ENCABEZADO CORREGIDO) */}
     {mostrarVistaPrevia && (
       <div style={{ 
         backgroundColor: theme.cardBg, 
@@ -1440,7 +1442,7 @@ const filteredHistorial = (historial || []).filter((item) => {
         position: 'relative'
       }}>
         
-        {/* Reglas CSS para obligar a docx-preview a renderizar adentro con scroll */}
+        {/* Reglas CSS para docx-preview */}
         <style>{`
           .docx-container-scroll {
             height: 100% !important;
@@ -1475,20 +1477,21 @@ const filteredHistorial = (historial || []).filter((item) => {
           }
         `}</style>
 
-        {/* Encabezado de la Vista Previa */}
+        {/* Encabezado con Alineación Corregida */}
         <div style={{ 
           padding: '16px 20px', 
           borderBottom: `1px solid ${theme.border}`, 
           display: 'flex', 
           justify: 'space-between', 
           alignItems: 'center',
+          width: '100%',
+          boxSizing: 'border-box',
           backgroundColor: theme.subtleBg
         }}>
-          <h2 style={{ fontSize: '16px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Eye size={18} color={theme.accent} /> Vista Previa
           </h2>
 
-          {/* Botón Rediseñado estilo Píldora */}
           <button
             onClick={() => {
               if (previewContainerRef.current) {
@@ -1505,20 +1508,20 @@ const filteredHistorial = (historial || []).filter((item) => {
               fontWeight: '600', 
               fontSize: '12px', 
               cursor: 'pointer',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '4px',
               boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
-              transition: 'all 0.2s ease'
+              flexShrink: 0
             }}
             title="Cerrar vista previa"
           >
             <span>Cerrar</span>
-            <span style={{ fontSize: '13px', fontWeight: 'bold', marginLeft: '2px' }}>✕</span>
+            <span style={{ fontSize: '12px', fontWeight: 'bold' }}>✕</span>
           </button>
         </div>
 
-        {/* Visor con Scroll Interno Limitado */}
+        {/* Visor de documento con scroll */}
         <div style={{ flex: 1, padding: '12px', overflow: 'hidden', backgroundColor: theme.dropzoneBg }}>
           {cargandoPreview ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '8px', color: theme.textSecondary }}>
