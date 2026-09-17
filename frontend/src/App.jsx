@@ -294,7 +294,7 @@ const handleGenerarVistaPrevia = async () => {
     const response = await api.post(
       `/expedientes/${expedienteId}/generar-word`, 
       {
-        plantilla: 'plantilla_manera2.docx',
+        plantilla: selectedPlantilla, // Utiliza la plantilla dinámicamente seleccionada
         datos: datos
       },
       { 
@@ -745,30 +745,33 @@ useEffect(() => {
     }
   };
 
-  const handleDownloadWord = async (id, datosActuales) => {
-    try {
-      // Se envían la plantilla seleccionada y los datos en la estructura del payload que espera el backend
-      const payload = {
-        plantilla: selectedPlantilla,
-        datos: datosActuales || {}
-      };
+ const handleDownloadWord = async (id, datosActuales) => {
+  try {
+    // Se envían la plantilla seleccionada y los datos en la estructura del payload que espera el backend
+    const payload = {
+      plantilla: selectedPlantilla, // Utiliza la plantilla dinámicamente seleccionada
+      datos: datosActuales || {}
+    };
 
-      const response = await api.post(
-        `/expedientes/${id}/generar-word`,
-        payload,
-        { responseType: 'blob' }
-      );
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Cancelacion_${datosActuales?.numero_credito || 'expediente'}.docx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      setError('Error al descargar el archivo Word.');
-    }
-  };
+    const response = await api.post(
+      `/expedientes/${id}/generar-word`,
+      payload,
+      { responseType: 'blob' }
+    );
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Cancelacion_${datosActuales?.numero_credito || 'expediente'}.docx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url); // Liberar memoria
+  } catch (err) {
+    console.error("Error al descargar Word:", err);
+    setError('Error al descargar el archivo Word.');
+  }
+};
 
   const handleDownloadZip = async () => {
     const ids = batchResults.map((r) => r.expediente_id);
