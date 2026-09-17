@@ -1561,7 +1561,7 @@ const filteredHistorial = (historial || []).filter((item) => {
 )}
 
 
- {/* TAB: CARGA MASIVA */}
+{/* TAB: CARGA MASIVA */}
 {activeTab === 'batch' && (
   <div>
     {/* SECCIÓN SUPERIOR: FORMULARIO DE CARGA */}
@@ -1694,8 +1694,36 @@ const filteredHistorial = (historial || []).filter((item) => {
                         </span>
                       )}
                     </div>
+                    
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       
+                      {/* === NUEVO MENÚ DESPLEGABLE DE PLANTILLAS === */}
+                      <select
+                        value={res.plantilla_seleccionada || ""}
+                        onChange={(e) => handleBatchPlantillaChange(idx, e.target.value)}
+                        onClick={(e) => e.stopPropagation()} // Para que no abra/cierre el acordeón al hacer clic
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          border: `1px solid ${theme.border}`,
+                          backgroundColor: '#fff',
+                          color: theme.textPrimary,
+                          fontSize: '12px',
+                          outline: 'none',
+                          cursor: 'pointer',
+                          maxWidth: '120px'
+                        }}
+                        title="Seleccionar plantilla para este expediente"
+                      >
+                        <option value="" disabled>Seleccionar...</option>
+                        {plantillas.map((p) => (
+                          <option key={p} value={p}>
+                            {p.replace(".docx", "")}
+                          </option>
+                        ))}
+                      </select>
+                      {/* =========================================== */}
+
                       {/* BOTÓN VISTA PREVIA INDIVIDUAL EN LOTE */}
                       <button
                         onClick={(e) => {
