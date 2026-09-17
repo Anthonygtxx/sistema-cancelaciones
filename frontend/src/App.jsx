@@ -1477,49 +1477,53 @@ const filteredHistorial = (historial || []).filter((item) => {
           }
         `}</style>
 
-        {/* Encabezado con Alineación Corregida */}
-        <div style={{ 
-          padding: '16px 20px', 
-          borderBottom: `1px solid ${theme.border}`, 
-          display: 'flex', 
-          justify: 'space-between', 
-          alignItems: 'center',
-          width: '100%',
-          boxSizing: 'border-box',
-          backgroundColor: theme.subtleBg
-        }}>
-          <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Eye size={18} color={theme.accent} /> Vista Previa
-          </h2>
+        {/* Encabezado Vista Previa con el botón alineado a la derecha extrema */}
+<div style={{ 
+  padding: '14px 16px', 
+  borderBottom: `1px solid ${theme.border}`, 
+  display: 'flex', 
+  flexDirection: 'row',
+  justifyContent: 'space-between', 
+  alignItems: 'center',
+  width: '100%',
+  boxSizing: 'border-box',
+  backgroundColor: theme.subtleBg
+}}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <Eye size={18} color={theme.accent} />
+    <span style={{ fontSize: '15px', fontWeight: '700', color: theme.textPrimary }}>
+      Vista Previa
+    </span>
+  </div>
 
-          <button
-            onClick={() => {
-              if (previewContainerRef.current) {
-                previewContainerRef.current.innerHTML = "";
-              }
-              setMostrarVistaPrevia(false);
-            }}
-            style={{ 
-              backgroundColor: '#ef4444', 
-              color: '#ffffff', 
-              border: 'none', 
-              padding: '5px 12px', 
-              borderRadius: '20px', 
-              fontWeight: '600', 
-              fontSize: '12px', 
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
-              flexShrink: 0
-            }}
-            title="Cerrar vista previa"
-          >
-            <span>Cerrar</span>
-            <span style={{ fontSize: '12px', fontWeight: 'bold' }}>✕</span>
-          </button>
-        </div>
+  <button
+    onClick={() => {
+      if (previewContainerRef.current) {
+        previewContainerRef.current.innerHTML = "";
+      }
+      setMostrarVistaPrevia(false);
+    }}
+    style={{ 
+      backgroundColor: '#ef4444', 
+      color: '#ffffff', 
+      border: 'none', 
+      padding: '5px 12px', 
+      borderRadius: '20px', 
+      fontWeight: '600', 
+      fontSize: '12px', 
+      cursor: 'pointer',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
+      marginLeft: 'auto'
+    }}
+    title="Cerrar vista previa"
+  >
+    <span>Cerrar</span>
+    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>✕</span>
+  </button>
+</div>
 
         {/* Visor de documento con scroll */}
         <div style={{ flex: 1, padding: '12px', overflow: 'hidden', backgroundColor: theme.dropzoneBg }}>

@@ -512,23 +512,39 @@ def generar_word(
     if not expediente:
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     
-    # Extraer datos y plantilla seleccionada del body
+    # 1. Normalizar payload recibido
     datos_payload = datos_payload or {}
-    nombre_plantilla = datos_payload.get("plantilla", "plantilla_manera2.docx")
     datos_modificados = datos_payload.get("datos", datos_payload)
     
-    # Resolver ruta de plantilla usando la nueva función dinámica
+    # 2. Unificar datos guardados en BD con los nuevos modificados
+    datos_actuales = dict(expediente.datos_extraidos or {})
+    if isinstance(datos_modificados, dict):
+        datos_actuales.update(datos_modificados)
+
+    # 3. Obtener la plantilla seleccionada (priorizando payload -> datos de BD -> fallback por defecto)
+    nombre_plantilla = (
+        datos_payload.get("plantilla") 
+        or datos_actuales.get("plantilla_seleccionada") 
+        or datos_actuales.get("plantilla")
+        or "plantilla_manera2.docx"
+    )
+
+    print(f"================ [GENERAR WORD] ================")
+    print(f"Expediente ID: {expediente_id}")
+    print(f"Plantilla a utilizar: {nombre_plantilla}")
+    print(f"================================================")
+    
+    # 4. Resolver ruta de plantilla usando la función dinámica
     ruta_plantilla = resolver_ruta_plantilla(nombre_plantilla)
 
     os.makedirs("uploads/generados", exist_ok=True)
     
-    datos_actuales = dict(expediente.datos_extraidos or {})
-    if isinstance(datos_modificados, dict):
-        datos_actuales.update(datos_modificados)
-    
     num_credito = datos_actuales.get("numero_credito") or expediente.numero_credito
     datos_finales = limpiar_datos_para_plantilla(datos_actuales, num_credito)
     
+    # Asegurar que se mantenga la plantilla en el diccionario guardado
+    datos_finales["plantilla_seleccionada"] = nombre_plantilla
+
     expediente.datos_extraidos = datos_finales
     expediente.numero_credito = num_credito
     flag_modified(expediente, "datos_extraidos")
