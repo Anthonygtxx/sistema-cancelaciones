@@ -334,27 +334,23 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [datos, mostrarVistaPrevia]);
 
-// Petición y renderizado suave sin parpadeo (Seamless Swap)
+
 const actualizarVistaPreviaTiempoReal = async () => {
   try {
     const response = await api.post(
       `/expedientes/${expedienteId}/generar-word`,
       {
-        plantilla: 'plantilla_manera2.docx',
+        plantilla: selectedPlantilla, // <-- Cambiado a selectedPlantilla
         datos: datos
       },
       { responseType: 'arraybuffer' }
     );
 
     if (previewContainerRef.current) {
-      // 1. Crear un contenedor invisible fuera de la vista del usuario
       const tempContainer = document.createElement('div');
       tempContainer.className = "docx-container-scroll";
 
-      // 2. Renderizar el nuevo Word en el contenedor oculto
       await renderAsync(response.data, tempContainer);
-
-      // 3. Reemplazar el contenido actual de golpe cuando ya esté listo todo el HTML
       previewContainerRef.current.innerHTML = tempContainer.innerHTML;
     }
   } catch (error) {
@@ -377,7 +373,6 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [batchResults, batchPreviewIndex]);
 
-// Función de actualización fluida sin parpadeo (Double Buffer)
 const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
   try {
     const item = batchResults[index];
@@ -386,20 +381,17 @@ const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
     const response = await api.post(
       `/expedientes/${item.expediente_id}/generar-word`,
       {
-        plantilla: 'plantilla_manera2.docx',
+        plantilla: selectedPlantilla, // <-- Cambiado a selectedPlantilla
         datos: item.datos_extraidos
       },
       { responseType: 'arraybuffer' }
     );
 
     if (batchPreviewRef.current) {
-      // Renderizado en memoria fuera de pantalla
       const tempContainer = document.createElement('div');
       tempContainer.className = "docx-container-scroll";
 
       await renderAsync(response.data, tempContainer);
-
-      // Reemplazo instantáneo sin pantalla en blanco
       batchPreviewRef.current.innerHTML = tempContainer.innerHTML;
     }
   } catch (error) {
