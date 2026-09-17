@@ -30,6 +30,9 @@ export default function App() {
   // ESTADO PARA EL MENÚ DESPLEGABLE DE EXPORTACIÓN
   const [showExportMenu, setShowExportMenu] = React.useState(false);
 
+  // Estado para la plantilla seleccionada (por defecto la primera de CDMX)
+const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLTERO');
+
   // FUNCIÓN MULTI-FORMATO DE EXPORTACIÓN
   const handleExport = async (format) => {
     setShowExportMenu(false);
@@ -673,6 +676,25 @@ useEffect(() => {
     }
   };
 
+
+  const handleInputChange = (field, value) => {
+    setDatos((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBatchInputChange = (index, field, value) => {
+    setBatchResults((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        datos_extraidos: {
+          ...updated[index].datos_extraidos,
+          [field]: value
+        }
+      };
+      return updated;
+    });
+  };
+
   const handleUploadBatch = async () => {
     if (batchFiles.length === 0) return;
     setBatchLoading(true);
@@ -686,6 +708,8 @@ useEffect(() => {
     const formData = new FormData();
     batchFiles.forEach((f) => formData.append('files', f));
     formData.append('usuario_propietario', currentUser.username);
+    // Inyección de la plantilla notarial seleccionada
+    formData.append('plantilla', selectedPlantilla);
 
     try {
       const res = await api.post('/expedientes/procesar-masivo', formData);
@@ -719,29 +743,17 @@ useEffect(() => {
     }
   };
 
-  const handleInputChange = (field, value) => {
-    setDatos((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleBatchInputChange = (index, field, value) => {
-    setBatchResults((prev) => {
-      const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        datos_extraidos: {
-          ...updated[index].datos_extraidos,
-          [field]: value
-        }
-      };
-      return updated;
-    });
-  };
-
   const handleDownloadWord = async (id, datosActuales) => {
     try {
+      // Se envían la plantilla seleccionada y los datos en la estructura del payload que espera el backend
+      const payload = {
+        plantilla: selectedPlantilla,
+        datos: datosActuales || {}
+      };
+
       const response = await api.post(
         `/expedientes/${id}/generar-word`,
-        datosActuales || {},
+        payload,
         { responseType: 'blob' }
       );
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -1176,7 +1188,7 @@ const filteredHistorial = (historial || []).filter((item) => {
             </div>
           )}
 
-   {/* TAB: CASO INDIVIDUAL */}
+  {/* TAB: CASO INDIVIDUAL */}
 {activeTab === 'single' && (
   <div style={{ 
     display: 'grid', 
@@ -1190,6 +1202,63 @@ const filteredHistorial = (historial || []).filter((item) => {
       <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
         <Upload size={20} color={theme.accent} /> Cargar Expediente Individual
       </h2>
+
+      {/* SELECTOR DE PLANTILLA NOTARIAL 2026 */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: theme.textPrimary, marginBottom: '8px' }}>
+          📜 Selecciona la Plantilla Notarial (Modelo 2026):
+        </label>
+        <select
+          value={selectedPlantilla}
+          onChange={(e) => setSelectedPlantilla(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            borderRadius: '8px',
+            border: `1px solid ${theme.border}`,
+            backgroundColor: theme.inputBg,
+            color: theme.textPrimary,
+            fontSize: '13px',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+        >
+          <optgroup label="1. MODELOS CDMX 2026 - APERTURA DE CRÉDITO">
+            <option value="CDMX_AP_H_SOLTERO">CDMX - Ap. Crédito - Hombre Soltero</option>
+            <option value="CDMX_AP_H_CASADO">CDMX - Ap. Crédito - Hombre Casado</option>
+            <option value="CDMX_AP_M_SOLTERA">CDMX - Ap. Crédito - Mujer Soltera</option>
+            <option value="CDMX_AP_M_CASADA">CDMX - Ap. Crédito - Mujer Casada</option>
+          </optgroup>
+
+          <optgroup label="1. MODELOS CDMX 2026 - CONTRATO DE MUTUO">
+            <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
+            <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
+            <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
+            <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
+          </optgroup>
+
+          <optgroup label="2. MODELOS COACREDITADOS 2026">
+            <option value="COAC_CDMX_AP">Coacreditados - CDMX - Ap. Crédito</option>
+            <option value="COAC_CDMX_MUTUO">Coacreditados - CDMX - C. Mutuo</option>
+            <option value="COAC_EDOMEX_AP">Coacreditados - EDOMEX - Ap. Crédito</option>
+            <option value="COAC_EDOMEX_MUTUO">Coacreditados - EDOMEX - C. Mutuo</option>
+          </optgroup>
+
+          <optgroup label="3. MODELOS EDOMEX 2026 - APERTURA DE CRÉDITO">
+            <option value="EDOMEX_AP_H_SOLTERO">EDOMEX - Ap. Crédito - Hombre Soltero</option>
+            <option value="EDOMEX_AP_H_CASADO">EDOMEX - Ap. Crédito - Hombre Casado</option>
+            <option value="EDOMEX_AP_M_SOLTERA">EDOMEX - Ap. Crédito - Mujer Soltera</option>
+            <option value="EDOMEX_AP_M_CASADA">EDOMEX - Ap. Crédito - Mujer Casada</option>
+          </optgroup>
+
+          <optgroup label="3. MODELOS EDOMEX 2026 - CONTRATO DE MUTUO">
+            <option value="EDOMEX_MUTUO_H_SOLTERO">EDOMEX - C. Mutuo - Hombre Soltero</option>
+            <option value="EDOMEX_MUTUO_H_CASADO">EDOMEX - C. Mutuo - Hombre Casado</option>
+            <option value="EDOMEX_MUTUO_M_SOLTERA">EDOMEX - C. Mutuo - Mujer Soltera</option>
+            <option value="EDOMEX_MUTUO_M_CASADA">EDOMEX - C. Mutuo - Mujer Casada</option>
+          </optgroup>
+        </select>
+      </div>
 
       <div 
         onDragOver={handleDragOver}
@@ -1411,7 +1480,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           padding: '16px 20px', 
           borderBottom: `1px solid ${theme.border}`, 
           display: 'flex', 
-          justifyContent: 'space-between', 
+          justify: 'space-between', 
           alignItems: 'center',
           backgroundColor: theme.subtleBg
         }}>
@@ -2095,55 +2164,6 @@ const filteredHistorial = (historial || []).filter((item) => {
             </div>
           )}
 
-          {/* TAB: PLANTILLAS (SOLO ADMIN) */}
-          {activeTab === 'templates' && esAdmin && (
-            <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Settings size={20} color={theme.accent} /> Gestión de Plantillas Notariales (.docx)
-              </h2>
-
-              <form onSubmit={handleSubirPlantilla} style={{ marginBottom: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <input
-                  type="file"
-                  accept=".docx"
-                  onChange={(e) => setArchivoPlantilla(e.target.files?.[0] || null)}
-                  style={{ fontSize: '13px', color: theme.textPrimary }}
-                />
-                <button
-                  type="submit"
-                  disabled={!archivoPlantilla}
-                  style={{
-                    backgroundColor: archivoPlantilla ? theme.accent : theme.subtleBg,
-                    color: archivoPlantilla ? '#fff' : theme.textSecondary,
-                    border: 'none',
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    fontSize: '13px',
-                    cursor: archivoPlantilla ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  Subir Plantilla
-                </button>
-              </form>
-
-              <div>
-                <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: theme.textSecondary }}>Plantillas Existentes:</h3>
-                {plantillas.length === 0 ? (
-                  <p style={{ fontSize: '13px', color: theme.textSecondary }}>No hay plantillas personalizadas registradas.</p>
-                ) : (
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {plantillas.map((p, idx) => (
-                      <li key={idx} style={{ padding: '10px 14px', borderRadius: '8px', backgroundColor: theme.subtleBg, marginBottom: '8px', fontSize: '13px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FileCode size={16} color={theme.accent} />
-                        <span>{p.nombre || p.filename || `Plantilla ${idx + 1}`}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* MODAL DE CERRAR SESIÓN */}
           {showLogoutModal && (

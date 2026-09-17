@@ -22,6 +22,60 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
+# --- CATÁLOGO DE LAS 20 PLANTILLAS NOTARIALES 2026 ---
+TEMPLATES_DIR = "templates"
+
+PLANTILLAS_CATALOGO = {
+    # 1. MODELOS CDMX 2026
+    "CDMX_AP_H_CASADO": "CDMX_AP_H_CASADO.docx",
+    "CDMX_AP_H_SOLTERO": "CDMX_AP_H_SOLTERO.docx",
+    "CDMX_AP_M_CASADA": "CDMX_AP_M_CASADA.docx",
+    "CDMX_AP_M_SOLTERA": "CDMX_AP_M_SOLTERA.docx",
+    "CDMX_MUTUO_H_CASADO": "CDMX_MUTUO_H_CASADO.docx",
+    "CDMX_MUTUO_H_SOLTERO": "CDMX_MUTUO_H_SOLTERO.docx",
+    "CDMX_MUTUO_M_CASADA": "CDMX_MUTUO_M_CASADA.docx",
+    "CDMX_MUTUO_M_SOLTERA": "CDMX_MUTUO_M_SOLTERA.docx",
+
+    # 2. MODELOS COACREDITADOS 2026
+    "COAC_CDMX_AP": "COAC_CDMX_AP.docx",
+    "COAC_CDMX_MUTUO": "COAC_CDMX_MUTUO.docx",
+    "COAC_EDOMEX_AP": "COAC_EDOMEX_AP.docx",
+    "COAC_EDOMEX_MUTUO": "COAC_EDOMEX_MUTUO.docx",
+
+    # 3. MODELOS EDOMEX 2026
+    "EDOMEX_AP_H_CASADO": "EDOMEX_AP_H_CASADO.docx",
+    "EDOMEX_AP_H_SOLTERO": "EDOMEX_AP_H_SOLTERO.docx",
+    "EDOMEX_AP_M_CASADA": "EDOMEX_AP_M_CASADA.docx",
+    "EDOMEX_AP_M_SOLTERA": "EDOMEX_AP_M_SOLTERA.docx",
+    "EDOMEX_MUTUO_H_CASADO": "EDOMEX_MUTUO_H_CASADO.docx",
+    "EDOMEX_MUTUO_H_SOLTERO": "EDOMEX_MUTUO_H_SOLTERO.docx",
+    "EDOMEX_MUTUO_M_CASADA": "EDOMEX_MUTUO_M_CASADA.docx",
+    "EDOMEX_MUTUO_M_SOLTERA": "EDOMEX_MUTUO_M_SOLTERA.docx",
+}
+
+def resolver_ruta_plantilla(nombre_o_clave: Optional[str]) -> str:
+    """Resuelve la ruta física del archivo .docx admitiendo clave o nombre directo."""
+    if not os.path.exists(TEMPLATES_DIR):
+        os.makedirs(TEMPLATES_DIR, exist_ok=True)
+        
+    if not nombre_o_clave:
+        return os.path.join(TEMPLATES_DIR, "plantilla_manera2.docx")
+        
+    # 1. Búsqueda por clave corta de catálogo
+    if nombre_o_clave in PLANTILLAS_CATALOGO:
+        ruta = os.path.join(TEMPLATES_DIR, PLANTILLAS_CATALOGO[nombre_o_clave])
+        if os.path.exists(ruta):
+            return ruta
+
+    # 2. Búsqueda por nombre directo de archivo
+    nombre_archivo = nombre_o_clave if nombre_o_clave.endswith(".docx") else f"{nombre_o_clave}.docx"
+    ruta_directa = os.path.join(TEMPLATES_DIR, nombre_archivo)
+    if os.path.exists(ruta_directa):
+        return ruta_directa
+
+    # Fallback por defecto si no se encuentra
+    return os.path.join(TEMPLATES_DIR, "plantilla_manera2.docx")
+
 
 def numero_a_letras(monto: Any) -> str:
     """Convierte un valor numérico o texto a su representación formal en letras en MXN con centavos explícitos."""
@@ -195,13 +249,12 @@ def home():
 @app.get("/api/plantillas")
 def obtener_lista_plantillas():
     """Retorna la lista de nombres de archivos .docx disponibles en el directorio templates/"""
-    templates_dir = "templates"
-    if not os.path.exists(templates_dir):
-        os.makedirs(templates_dir, exist_ok=True)
+    if not os.path.exists(TEMPLATES_DIR):
+        os.makedirs(TEMPLATES_DIR, exist_ok=True)
         return {"plantillas": []}
     
     archivos = [
-        f for f in os.listdir(templates_dir) 
+        f for f in os.listdir(TEMPLATES_DIR) 
         if f.endswith(".docx") and not f.startswith("~$")
     ]
     return {"plantillas": sorted(archivos)}
@@ -321,11 +374,8 @@ async def procesar_masivo(
         os.makedirs("uploads", exist_ok=True)
         os.makedirs("uploads/generados", exist_ok=True)
         
-        # Selección dinámica de plantilla
-        nombre_plantilla = plantilla if plantilla else "plantilla_manera2.docx"
-        ruta_plantilla = os.path.join("templates", nombre_plantilla)
-        if not os.path.exists(ruta_plantilla):
-            ruta_plantilla = "templates/plantilla_manera2.docx"
+        # Selección dinámica de plantilla usando el resolvedor
+        ruta_plantilla = resolver_ruta_plantilla(plantilla)
 
         agrupados_por_credito = {}
 
@@ -457,10 +507,8 @@ def generar_word(
     nombre_plantilla = datos_payload.get("plantilla", "plantilla_manera2.docx")
     datos_modificados = datos_payload.get("datos", datos_payload)
     
-    # Resolver ruta de plantilla
-    ruta_plantilla = os.path.join("templates", nombre_plantilla)
-    if not os.path.exists(ruta_plantilla):
-        ruta_plantilla = "templates/plantilla_manera2.docx"
+    # Resolver ruta de plantilla usando la nueva función dinámica
+    ruta_plantilla = resolver_ruta_plantilla(nombre_plantilla)
 
     os.makedirs("uploads/generados", exist_ok=True)
     
@@ -579,4 +627,3 @@ async def actualizar_plantilla(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
         
     return {"status": "exito", "mensaje": f"Plantilla '{file.filename}' subida correctamente"}
-
