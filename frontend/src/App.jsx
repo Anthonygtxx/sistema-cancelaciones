@@ -381,7 +381,8 @@ const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
     const response = await api.post(
       `/expedientes/${item.expediente_id}/generar-word`,
       {
-        plantilla: selectedPlantilla, // <-- Cambiado a selectedPlantilla
+        // Utiliza la plantilla de la fila
+        plantilla: item.plantilla_seleccionada || selectedPlantilla, 
         datos: item.datos_extraidos
       },
       { responseType: 'arraybuffer' }
@@ -689,6 +690,22 @@ useEffect(() => {
     });
   };
 
+  const handleBatchPlantillaChange = (index, nuevaPlantilla) => {
+  setBatchResults((prev) => {
+    const updated = [...prev];
+    updated[index] = {
+      ...updated[index],
+      plantilla_seleccionada: nuevaPlantilla
+    };
+    return updated;
+  });
+
+  // Actualiza la vista previa en tiempo real si ese documento está abierto
+  if (batchPreviewIndex === index) {
+    actualizarVistaPreviaMasivaTiempoReal(index);
+  }
+};
+
   const handleUploadBatch = async () => {
     if (batchFiles.length === 0) return;
     setBatchLoading(true);
@@ -709,27 +726,30 @@ useEffect(() => {
       const res = await api.post('/expedientes/procesar-masivo', formData);
       clearInterval(interval);
       setProgressBatch(100);
-      setTimeout(() => {
-        const detallesNormalizados = (res.data.detalles || []).map((item) => {
-          const raw = item.datos_extraidos || {};
-          return {
-            ...item,
-            datos_extraidos: {
-              acreditado: raw.acreditado || raw.nombre_acreditado || '',
-              monto: raw.monto || raw.monto_credito || '',
-              numero_credito: raw.numero_credito || '',
-              ...raw
-            }
-          };
-        });
+      // Dentro de handleUploadBatch, reemplaza el bloque setTimeout:
+setTimeout(() => {
+  const detallesNormalizados = (res.data.detalles || []).map((item) => {
+    const raw = item.datos_extraidos || {};
+    return {
+      ...item,
+      // Asigna la plantilla global como valor inicial para esta fila
+      plantilla_seleccionada: selectedPlantilla,
+      datos_extraidos: {
+        acreditado: raw.acreditado || raw.nombre_acreditado || '',
+        monto: raw.monto || raw.monto_credito || '',
+        numero_credito: raw.numero_credito || '',
+        ...raw
+      }
+    };
+  });
 
-        setBatchResults(detallesNormalizados);
-        if (detallesNormalizados.length > 0) {
-          setOpenAccordion({ 0: true });
-        }
-        setUnlockedFields({});
-        setBatchLoading(false);
-      }, 500);
+  setBatchResults(detallesNormalizados);
+  if (detallesNormalizados.length > 0) {
+    setOpenAccordion({ 0: true });
+  }
+  setUnlockedFields({});
+  setBatchLoading(false);
+}, 500);
     } catch (err) {
       clearInterval(interval);
       setError(err.response?.data?.detail || 'Error al procesar el lote.');

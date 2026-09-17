@@ -403,20 +403,29 @@ async def procesar_masivo(
 
             datos = services.extraer_datos_pdf(ruta_guardado)
             
-            num_credito = datos.get("numero_credito")
-            if not num_credito or num_credito == "NO_ENCONTRADO":
-                match = re.search(r'(\d{8,12})', file.filename)
-                num_credito = match.group(1) if match else file.filename.split('.')[0]
+            # --- MODIFICACIÓN CLAVE ---
+            # Agrupamos estrictamente por el prefijo del nombre del archivo (antes del guion bajo)
+            # Ej: "1505068636_Carta.pdf" -> "1505068636"
+            prefijo = file.filename.split('_')[0]
+            # Limpiamos por si acaso el archivo no tiene guion (ej. "1505068636.pdf")
+            prefijo = prefijo.replace('.pdf', '').replace('.PDF', '')
 
-            if num_credito not in agrupados_por_credito:
-                agrupados_por_credito[num_credito] = []
+            if prefijo not in agrupados_por_credito:
+                agrupados_por_credito[prefijo] = []
             
-            agrupados_por_credito[num_credito].append((ruta_guardado, datos))
+            agrupados_por_credito[prefijo].append((ruta_guardado, datos))
 
         resultados = []
-        for num_credito, grupo in agrupados_por_credito.items():
+        for prefijo, grupo in agrupados_por_credito.items():
             lista_datos = [item[1] for item in grupo]
+            
+            # Esta función de tu archivo services ya junta los textos de ambos PDFs
             datos_raw = services.combinar_datos_pareja(lista_datos)
+            
+            # Si el texto interno no traía número de crédito, usamos el del nombre del archivo
+            num_credito = datos_raw.get("numero_credito")
+            if not num_credito or num_credito == "NO_ENCONTRADO":
+                num_credito = prefijo
             
             datos_finales = limpiar_datos_para_plantilla(datos_raw, num_credito)
 
@@ -438,7 +447,7 @@ async def procesar_masivo(
             resultados.append({
                 "id": str(nuevo_expediente.id),
                 "expediente_id": str(nuevo_expediente.id),
-                "archivos_asociados": len(grupo),
+                "archivos_asociados": len(grupo), # Aquí verás "2" si unió carta y constancia
                 "datos": datos_finales,
                 "datos_extraidos": datos_finales,
                 "ruta_word": ruta_salida
