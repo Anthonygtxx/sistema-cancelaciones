@@ -401,11 +401,15 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            # PROTECCIÓN: Aislamiento si un archivo PDF individual está dañado al extraer
             try:
                 datos = services.extraer_datos_pdf(ruta_guardado)
+                
+                # Validación extra: Si no encontró número de crédito o está vacío, forzamos un error
+                if not datos or datos.get("numero_credito") == "NO_ENCONTRADO":
+                    raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
+                    
             except Exception as e_file:
-                print(f"⚠️ Advertencia: Error al extraer datos del archivo individual {file.filename}: {e_file}")
+                print(f"Error al extraer datos del archivo individual {file.filename}: {e_file}")
                 datos = {"error_extraccion": str(e_file)}
             
             # --- MODIFICACIÓN CLAVE ---
