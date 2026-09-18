@@ -1719,8 +1719,8 @@ const filteredHistorial = (historial || []).filter((item) => {
                 padding: '6px 12px',
                 borderRadius: '6px',
                 border: `1px solid ${theme.border}`,
-                backgroundColor: theme.accent,
-                color: '#fff',
+                backgroundColor: theme.inputBg,
+                color: theme.textPrimary,
                 fontSize: '12px',
                 fontWeight: '600',
                 cursor: 'pointer',
@@ -1967,6 +1967,28 @@ const filteredHistorial = (historial || []).filter((item) => {
         })}
       </div>
     </div>
+
+    {/* COLUMNA DERECHA: VISTA PREVIA (SI ESTÁ ACTIVA) */}
+    {batchPreviewIndex !== null && (
+      <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, position: 'sticky', top: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Eye size={18} color={theme.accent} /> Previa ({batchResults[batchPreviewIndex]?.datos_extraidos?.acreditado || 'Documento'})
+          </h3>
+          <button
+            onClick={() => setBatchPreviewIndex(null)}
+            style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+          >
+            Cerrar
+          </button>
+        </div>
+        
+        <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '12px', backgroundColor: theme.subtleBg, borderRadius: '8px', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '13px' }}>
+          {renderVistaPreviaMasiva ? renderVistaPreviaMasiva() : <p>Cargando vista previa...</p>}
+        </div>
+      </div>
+    )}
+
   </div>
 )}
 
