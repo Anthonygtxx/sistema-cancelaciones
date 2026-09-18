@@ -2,6 +2,7 @@ import os
 import shutil
 import zipfile
 import re
+import uuid
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Body, Query, Header
 from fastapi.responses import FileResponse
@@ -489,7 +490,14 @@ def descargar_zip(expediente_ids: List[str] = Body(...), db: Session = Depends(g
     
     with zipfile.ZipFile(ruta_zip, 'w') as zipf:
         for exp_id in expediente_ids:
-            exp = db.query(models.Expediente).filter(models.Expediente.id == exp_id).first()
+            # 1. Validar si el ID es un UUID válido (evita el error de Postgres con textos como "CANCELACIONES/1234")
+            try:
+                uuid_val = uuid.UUID(str(exp_id))
+            except ValueError:
+                continue  # Salta esta iteración si es una tarjeta de error o texto no válido
+            
+            # 2. Buscar usando el UUID convertido
+            exp = db.query(models.Expediente).filter(models.Expediente.id == uuid_val).first()
             if exp and exp.ruta_word_generado and os.path.exists(exp.ruta_word_generado):
                 nombre_archivo = os.path.basename(exp.ruta_word_generado)
                 zipf.write(exp.ruta_word_generado, arcname=nombre_archivo)
