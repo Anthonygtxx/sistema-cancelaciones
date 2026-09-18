@@ -619,11 +619,20 @@ useEffect(() => {
   };
 
   const handleSingleFileChange = (e) => {
-    if (e.target.files) {
-      setSingleFiles(Array.from(e.target.files));
-      setDatos(null);
+  if (e.target.files) {
+    const filesArray = Array.from(e.target.files);
+    
+    // Validar que no se suban más de 2 archivos en el trámite individual
+    if (filesArray.length > 2) {
+      alert("⚠️ Solo se permite un máximo de 2 archivos para el trámite individual.");
+      e.target.value = ""; // Limpia el input para que no se queden seleccionados
+      return;
     }
-  };
+
+    setSingleFiles(filesArray);
+    setDatos(null);
+  }
+};
 
   const handleBatchFileChange = (e) => {
     if (e.target.files) {
@@ -1275,11 +1284,11 @@ const filteredHistorial = (historial || []).filter((item) => {
             cursor: 'pointer'
           }}
         >
-          <optgroup label="1. MODELOS CDMX 2026 - APERTURA DE CRÉDITO">
-            <option value="CDMX_AP_H_SOLTERO">CDMX - Ap. Crédito - Hombre Soltero</option>
-            <option value="CDMX_AP_H_CASADO">CDMX - Ap. Crédito - Hombre Casado</option>
-            <option value="CDMX_AP_M_SOLTERA">CDMX - Ap. Crédito - Mujer Soltera</option>
-            <option value="CDMX_AP_M_CASADA">CDMX - Ap. Crédito - Mujer Casada</option>
+          <optgroup label="CDMX - APERTURA DE CRÉDITO">
+            <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
           </optgroup>
 
           <optgroup label="CONTRATO DE MUTUO">
@@ -1289,25 +1298,25 @@ const filteredHistorial = (historial || []).filter((item) => {
             <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
           </optgroup>
 
-          <optgroup label="2. MODELOS COACREDITADOS 2026">
-            <option value="COAC_CDMX_AP">Coacreditados - CDMX - Ap. Crédito</option>
-            <option value="COAC_CDMX_MUTUO">Coacreditados - CDMX - C. Mutuo</option>
-            <option value="COAC_EDOMEX_AP">Coacreditados - EDOMEX - Ap. Crédito</option>
-            <option value="COAC_EDOMEX_MUTUO">Coacreditados - EDOMEX - C. Mutuo</option>
+          <optgroup label="MODELOS COACREDITADOS">
+            <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
+            <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
+            <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
+            <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
           </optgroup>
 
-          <optgroup label="3. MODELOS EDOMEX 2026 - APERTURA DE CRÉDITO">
-            <option value="EDOMEX_AP_H_SOLTERO">EDOMEX - Ap. Crédito - Hombre Soltero</option>
-            <option value="EDOMEX_AP_H_CASADO">EDOMEX - Ap. Crédito - Hombre Casado</option>
-            <option value="EDOMEX_AP_M_SOLTERA">EDOMEX - Ap. Crédito - Mujer Soltera</option>
-            <option value="EDOMEX_AP_M_CASADA">EDOMEX - Ap. Crédito - Mujer Casada</option>
+          <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
+            <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
           </optgroup>
 
           <optgroup label="CONTRATO DE MUTUO">
-            <option value="EDOMEX_MUTUO_H_SOLTERO">EDOMEX - C. Mutuo - Hombre Soltero</option>
-            <option value="EDOMEX_MUTUO_H_CASADO">EDOMEX - C. Mutuo - Hombre Casado</option>
-            <option value="EDOMEX_MUTUO_M_SOLTERA">EDOMEX - C. Mutuo - Mujer Soltera</option>
-            <option value="EDOMEX_MUTUO_M_CASADA">EDOMEX - C. Mutuo - Mujer Casada</option>
+            <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
+            <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
           </optgroup>
         </select>
       </div>
@@ -1729,40 +1738,40 @@ const filteredHistorial = (historial || []).filter((item) => {
                 >
                   <option value="" disabled>Aplicar a seleccionados ({selectedBatchIndices.length})...</option>
                   
-                  <optgroup label="1. MODELOS CDMX 2026 - APERTURA DE CRÉDITO">
-                    <option value="CDMX_AP_H_SOLTERO">CDMX - Ap. Crédito - Hombre Soltero</option>
-                    <option value="CDMX_AP_H_CASADO">CDMX - Ap. Crédito - Hombre Casado</option>
-                    <option value="CDMX_AP_M_SOLTERA">CDMX - Ap. Crédito - Mujer Soltera</option>
-                    <option value="CDMX_AP_M_CASADA">CDMX - Ap. Crédito - Mujer Casada</option>
-                  </optgroup>
+                  <optgroup label="CDMX - APERTURA DE CRÉDITO">
+            <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+          </optgroup>
 
-                  <optgroup label="CONTRATO DE MUTUO">
-                    <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
-                    <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
-                    <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
-                    <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
-                  </optgroup>
+          <optgroup label="CONTRATO DE MUTUO">
+            <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
+            <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
+            <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
+            <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
+          </optgroup>
 
-                  <optgroup label="2. MODELOS COACREDITADOS 2026">
-                    <option value="COAC_CDMX_AP">Coacreditados - CDMX - Ap. Crédito</option>
-                    <option value="COAC_CDMX_MUTUO">Coacreditados - CDMX - C. Mutuo</option>
-                    <option value="COAC_EDOMEX_AP">Coacreditados - EDOMEX - Ap. Crédito</option>
-                    <option value="COAC_EDOMEX_MUTUO">Coacreditados - EDOMEX - C. Mutuo</option>
-                  </optgroup>
+          <optgroup label="MODELOS COACREDITADOS">
+            <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
+            <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
+            <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
+            <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
+          </optgroup>
 
-                  <optgroup label="3. MODELOS EDOMEX 2026 - APERTURA DE CRÉDITO">
-                    <option value="EDOMEX_AP_H_SOLTERO">EDOMEX - Ap. Crédito - Hombre Soltero</option>
-                    <option value="EDOMEX_AP_H_CASADO">EDOMEX - Ap. Crédito - Hombre Casado</option>
-                    <option value="EDOMEX_AP_M_SOLTERA">EDOMEX - Ap. Crédito - Mujer Soltera</option>
-                    <option value="EDOMEX_AP_M_CASADA">EDOMEX - Ap. Crédito - Mujer Casada</option>
-                  </optgroup>
+          <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
+            <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+          </optgroup>
 
-                  <optgroup label="CONTRATO DE MUTUO">
-                    <option value="EDOMEX_MUTUO_H_SOLTERO">EDOMEX - C. Mutuo - Hombre Soltero</option>
-                    <option value="EDOMEX_MUTUO_H_CASADO">EDOMEX - C. Mutuo - Hombre Casado</option>
-                    <option value="EDOMEX_MUTUO_M_SOLTERA">EDOMEX - C. Mutuo - Mujer Soltera</option>
-                    <option value="EDOMEX_MUTUO_M_CASADA">EDOMEX - C. Mutuo - Mujer Casada</option>
-                  </optgroup>
+          <optgroup label="CONTRATO DE MUTUO">
+            <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
+            <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+          </optgroup>
                 </select>
               )}
             </div>
@@ -1837,40 +1846,40 @@ const filteredHistorial = (historial || []).filter((item) => {
                       >
                         <option value="" disabled>Seleccionar plantilla...</option>
                         
-                        <optgroup label="1. MODELOS CDMX 2026 - APERTURA DE CRÉDITO">
-                          <option value="CDMX_AP_H_SOLTERO">CDMX - Ap. Crédito - Hombre Soltero</option>
-                          <option value="CDMX_AP_H_CASADO">CDMX - Ap. Crédito - Hombre Casado</option>
-                          <option value="CDMX_AP_M_SOLTERA">CDMX - Ap. Crédito - Mujer Soltera</option>
-                          <option value="CDMX_AP_M_CASADA">CDMX - Ap. Crédito - Mujer Casada</option>
-                        </optgroup>
+                        <optgroup label="CDMX - APERTURA DE CRÉDITO">
+            <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+          </optgroup>
 
-                        <optgroup label="CONTRATO DE MUTUO">
-                          <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
-                          <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
-                          <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
-                          <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
-                        </optgroup>
+          <optgroup label="CONTRATO DE MUTUO">
+            <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
+            <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
+            <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
+            <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
+          </optgroup>
 
-                        <optgroup label="2. MODELOS COACREDITADOS 2026">
-                          <option value="COAC_CDMX_AP">Coacreditados - CDMX - Ap. Crédito</option>
-                          <option value="COAC_CDMX_MUTUO">Coacreditados - CDMX - C. Mutuo</option>
-                          <option value="COAC_EDOMEX_AP">Coacreditados - EDOMEX - Ap. Crédito</option>
-                          <option value="COAC_EDOMEX_MUTUO">Coacreditados - EDOMEX - C. Mutuo</option>
-                        </optgroup>
+          <optgroup label="MODELOS COACREDITADOS">
+            <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
+            <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
+            <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
+            <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
+          </optgroup>
 
-                        <optgroup label="3. MODELOS EDOMEX 2026 - APERTURA DE CRÉDITO">
-                          <option value="EDOMEX_AP_H_SOLTERO">EDOMEX - Ap. Crédito - Hombre Soltero</option>
-                          <option value="EDOMEX_AP_H_CASADO">EDOMEX - Ap. Crédito - Hombre Casado</option>
-                          <option value="EDOMEX_AP_M_SOLTERA">EDOMEX - Ap. Crédito - Mujer Soltera</option>
-                          <option value="EDOMEX_AP_M_CASADA">EDOMEX - Ap. Crédito - Mujer Casada</option>
-                        </optgroup>
+          <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
+            <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+          </optgroup>
 
-                        <optgroup label="CONTRATO DE MUTUO">
-                          <option value="EDOMEX_MUTUO_H_SOLTERO">EDOMEX - C. Mutuo - Hombre Soltero</option>
-                          <option value="EDOMEX_MUTUO_H_CASADO">EDOMEX - C. Mutuo - Hombre Casado</option>
-                          <option value="EDOMEX_MUTUO_M_SOLTERA">EDOMEX - C. Mutuo - Mujer Soltera</option>
-                          <option value="EDOMEX_MUTUO_M_CASADA">EDOMEX - C. Mutuo - Mujer Casada</option>
-                        </optgroup>
+          <optgroup label="CONTRATO DE MUTUO">
+            <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
+            <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+          </optgroup>
                       </select>
                       {/* =========================================== */}
 
