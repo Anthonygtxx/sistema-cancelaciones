@@ -1292,10 +1292,10 @@ const filteredHistorial = (historial || []).filter((item) => {
           </optgroup>
 
           <optgroup label="CONTRATO DE MUTUO">
-            <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
-            <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
-            <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
-            <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
+            <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+            <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
           </optgroup>
 
           <optgroup label="MODELOS COACREDITADOS">
@@ -1746,10 +1746,10 @@ const filteredHistorial = (historial || []).filter((item) => {
           </optgroup>
 
           <optgroup label="CONTRATO DE MUTUO">
-            <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
-            <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
-            <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
-            <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
+            <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+            <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
           </optgroup>
 
           <optgroup label="MODELOS COACREDITADOS">
@@ -1785,14 +1785,26 @@ const filteredHistorial = (historial || []).filter((item) => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {batchResults.map((res, idx) => {
-              const isOpen = !!openAccordion[idx];
-              const datosExtraidos = res.datos_extraidos || {};
-              const acreditadoNombre = datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || 'Acreditado no identificado';
-              const isPreviewingThis = batchPreviewIndex === idx;
-              const isSelected = selectedBatchIndices.includes(idx);
-
-              return (
+{batchResults.map((res, idx) => {
+  if (res.error) {
+    return (
+      <div key={idx} style={{ border: '1px solid #ef4444', borderRadius: '10px', padding: '14px 18px', backgroundColor: '#fef2f2', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#b91c1c', fontSize: '14px', fontWeight: '600' }}>
+          <span>⚠️ Error al procesar archivo:</span>
+          <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{res.expediente_id}</span>
+        </div>
+        <p style={{ margin: '6px 0 0 28px', fontSize: '12px', color: '#7f1d1d' }}>
+          Detalle: {res.error} (El resto del lote se procesó con éxito).
+        </p>
+      </div>
+    );
+  }
+  const isOpen = !!openAccordion[idx];
+  const datosExtraidos = res.datos_extraidos || {};
+  const acreditadoNombre = datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || 'Acreditado no identificado';
+  const isPreviewingThis = batchPreviewIndex === idx;
+  const isSelected = selectedBatchIndices.includes(idx);
+  return (
                 <div key={idx} style={{ border: `1px solid ${isPreviewingThis ? theme.accent : theme.border}`, borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s ease' }}>
                   <div 
                     onClick={() => toggleAccordion(idx)}
@@ -1854,10 +1866,10 @@ const filteredHistorial = (historial || []).filter((item) => {
           </optgroup>
 
           <optgroup label="CONTRATO DE MUTUO">
-            <option value="CDMX_MUTUO_H_SOLTERO">CDMX - C. Mutuo - Hombre Soltero</option>
-            <option value="CDMX_MUTUO_H_CASADO">CDMX - C. Mutuo - Hombre Casado</option>
-            <option value="CDMX_MUTUO_M_SOLTERA">CDMX - C. Mutuo - Mujer Soltera</option>
-            <option value="CDMX_MUTUO_M_CASADA">CDMX - C. Mutuo - Mujer Casada</option>
+            <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+            <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
           </optgroup>
 
           <optgroup label="MODELOS COACREDITADOS">

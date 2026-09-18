@@ -401,7 +401,12 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            datos = services.extraer_datos_pdf(ruta_guardado)
+            # PROTECCIÓN: Aislamiento si un archivo PDF individual está dañado al extraer
+            try:
+                datos = services.extraer_datos_pdf(ruta_guardado)
+            except Exception as e_file:
+                print(f"⚠️ Advertencia: Error al extraer datos del archivo individual {file.filename}: {e_file}")
+                datos = {"error_extraccion": str(e_file)}
             
             # --- MODIFICACIÓN CLAVE ---
             # Agrupamos estrictamente por el prefijo del nombre del archivo (antes del guion bajo)
@@ -417,45 +422,56 @@ async def procesar_masivo(
 
         resultados = []
         for prefijo, grupo in agrupados_por_credito.items():
-            lista_datos = [item[1] for item in grupo]
-            
-            # Esta función de tu archivo services ya junta los textos de ambos PDFs
-            datos_raw = services.combinar_datos_pareja(lista_datos)
-            
-            # Si el texto interno no traía número de crédito, usamos el del nombre del archivo
-            num_credito = datos_raw.get("numero_credito")
-            if not num_credito or num_credito == "NO_ENCONTRADO":
-                num_credito = prefijo
-            
-            datos_finales = limpiar_datos_para_plantilla(datos_raw, num_credito)
+            try:
+                # AISLAMIENTO DE GRUPO: Si este crédito en particular falla, no afecta al resto del lote
+                lista_datos = [item[1] for item in grupo]
+                
+                # Esta función de tu archivo services ya junta los textos de ambos PDFs
+                datos_raw = services.combinar_datos_pareja(lista_datos)
+                
+                # Si el texto interno no traía número de crédito, usamos el del nombre del archivo
+                num_credito = datos_raw.get("numero_credito")
+                if not num_credito or num_credito == "NO_ENCONTRADO":
+                    num_credito = prefijo
+                
+                datos_finales = limpiar_datos_para_plantilla(datos_raw, num_credito)
 
-            ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
-            services.generar_word_cancelacion(ruta_plantilla, datos_finales, ruta_salida)
+                ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
+                services.generar_word_cancelacion(ruta_plantilla, datos_finales, ruta_salida)
 
-            rutas_pdf = ";".join([item[0] for item in grupo])
-            nuevo_expediente = models.Expediente(
-                usuario_propietario=propietario_final,
-                numero_credito=num_credito,
-                datos_extraidos=datos_finales,
-                ruta_pdf_constancia=rutas_pdf,
-                ruta_word_generado=ruta_salida
-            )
-            db.add(nuevo_expediente)
-            db.commit()
-            db.refresh(nuevo_expediente)
+                rutas_pdf = ";".join([item[0] for item in grupo])
+                nuevo_expediente = models.Expediente(
+                    usuario_propietario=propietario_final,
+                    numero_credito=num_credito,
+                    datos_extraidos=datos_finales,
+                    ruta_pdf_constancia=rutas_pdf,
+                    ruta_word_generado=ruta_salida
+                )
+                db.add(nuevo_expediente)
+                db.commit()
+                db.refresh(nuevo_expediente)
 
-            resultados.append({
-                "id": str(nuevo_expediente.id),
-                "expediente_id": str(nuevo_expediente.id),
-                "archivos_asociados": len(grupo), # Aquí verás "2" si unió carta y constancia
-                "datos": datos_finales,
-                "datos_extraidos": datos_finales,
-                "ruta_word": ruta_salida
-            })
+                resultados.append({
+                    "id": str(nuevo_expediente.id),
+                    "expediente_id": str(nuevo_expediente.id),
+                    "archivos_asociados": len(grupo), # Aquí verás "2" si unió carta y constancia
+                    "datos": datos_finales,
+                    "datos_extraidos": datos_finales,
+                    "ruta_word": ruta_salida
+                })
+            except Exception as e_grupo:
+                # Si un grupo específico falla, hacemos rollback de su transacción y guardamos el error en los resultados
+                db.rollback()
+                print(f"❌ ERROR AISLADO al procesar el expediente/crédito {prefijo}: {e_grupo}")
+                resultados.append({
+                    "expediente_id": prefijo,
+                    "archivos_asociados": len(grupo),
+                    "error": str(e_grupo) # Esto le avisa al frontend qué archivo falló exactamente
+                })
 
-        return {"status": "exito", "procesados": len(resultados), "detalles": resultados}
+        return {"status": "exito", "procesados": len([r for r in resultados if "error" not in r]), "detalles": resultados}
     except Exception as e:
-        print(f"ERROR EN /procesar-masivo: {e}")
+        print(f"ERROR GLOBAL EN /procesar-masivo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
