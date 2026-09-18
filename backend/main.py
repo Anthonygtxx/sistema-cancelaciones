@@ -685,3 +685,27 @@ async def actualizar_plantilla(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
         
     return {"status": "exito", "mensaje": f"Plantilla '{file.filename}' subida correctamente"}
+
+
+@app.post("/api/reprocesar-item")
+async def reprocesar_item(file: UploadFile = File(...), expediente_id: str = Form(...)):
+    try:
+        ruta_guardado = os.path.join("uploads", os.path.basename(file.filename))
+        with open(ruta_guardado, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        datos = services.extraer_datos_pdf(ruta_guardado)
+        if not datos or datos.get("numero_credito") == "NO_ENCONTRADO":
+            raise ValueError("El archivo PDF sigue sin contener datos legibles.")
+
+        ruta_salida = f"uploads/generados/Cancelacion_{expediente_id}.docx"
+        services.generar_word_cancelacion(ruta_plantilla, datos, ruta_salida)
+
+        return {
+            "success": True,
+            "expediente_id": expediente_id,
+            "datos_extraidos": datos,
+            "ruta_word": ruta_salida
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
