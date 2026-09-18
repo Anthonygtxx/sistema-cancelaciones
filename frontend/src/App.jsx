@@ -1695,7 +1695,7 @@ const filteredHistorial = (historial || []).filter((item) => {
     <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         
-        {/* CHECKBOX MAESTRO, TÍTULO Y SELECTOR MASIVO */}
+        {/* CHECKBOX MAESTRO, TÍTULO Y SELECTOR GLOBAL */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <input 
             type="checkbox"
@@ -1816,7 +1816,7 @@ const filteredHistorial = (historial || []).filter((item) => {
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   
-                  {/* MENÚ DESPLEGABLE DE PLANTILLAS */}
+                  {/* === MENÚ DESPLEGABLE DE PLANTILLAS === */}
                   <select
                     value={res.plantilla_seleccionada || ""}
                     onChange={(e) => handleBatchPlantillaChange(idx, e.target.value)}
@@ -1872,13 +1872,16 @@ const filteredHistorial = (historial || []).filter((item) => {
                       <option value="EDOMEX_MUTUO_M_CASADA">EDOMEX - C. Mutuo - Mujer Casada</option>
                     </optgroup>
                   </select>
+                  {/* =========================================== */}
 
                   {/* BOTÓN VISTA PREVIA INDIVIDUAL EN LOTE */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setBatchPreviewIndex(idx);
-                      actualizarVistaPreviaMasivaTiempoReal(idx);
+                      if (typeof actualizarVistaPreviaMasivaTiempoReal === 'function') {
+                        actualizarVistaPreviaMasivaTiempoReal(idx);
+                      }
                     }}
                     style={{ 
                       backgroundColor: isPreviewingThis ? theme.accent : theme.cardBg, 
@@ -1968,7 +1971,7 @@ const filteredHistorial = (historial || []).filter((item) => {
       </div>
     </div>
 
-    {/* COLUMNA DERECHA: VISTA PREVIA (SI ESTÁ ACTIVA) */}
+    {/* COLUMNA DERECHA: VISTA PREVIA LATERAL */}
     {batchPreviewIndex !== null && (
       <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, position: 'sticky', top: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -1984,7 +1987,9 @@ const filteredHistorial = (historial || []).filter((item) => {
         </div>
         
         <div style={{ maxHeight: '70vh', overflowY: 'auto', padding: '12px', backgroundColor: theme.subtleBg, borderRadius: '8px', border: `1px solid ${theme.border}`, color: theme.textPrimary, fontSize: '13px' }}>
-          {renderVistaPreviaMasiva ? renderVistaPreviaMasiva() : <p>Cargando vista previa...</p>}
+          {typeof renderVistaPreviaMasiva === 'function' ? renderVistaPreviaMasiva() : (
+            <p style={{ margin: 0 }}>Vista previa activa para el expediente seleccionado.</p>
+          )}
         </div>
       </div>
     )}
@@ -2413,4 +2418,4 @@ const filteredHistorial = (historial || []).filter((item) => {
           )}
 
         </div>
-      )}
+      )};
