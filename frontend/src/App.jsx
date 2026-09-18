@@ -570,11 +570,6 @@ useEffect(() => {
     return pdfFiles;
   };
 
-    const handleRetryItem = async (expedienteId) => {
-  // Aquí podemos disparar la llamada al endpoint de reintento enviando el archivo corregido
-  console.log(`Reintentando expediente: ${expedienteId}`);
-};
-
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
