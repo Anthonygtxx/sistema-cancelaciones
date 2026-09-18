@@ -249,45 +249,6 @@ useEffect(() => {
     }
   };
 
-  const handleRetryItem = async (expedienteId) => {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.pdf';
-  input.multiple = true; // 👈 Clave para permitir seleccionar la pareja (constancia + carta)
-  
-  input.onchange = async (e) => {
-    const archivosCorregidos = e.target.files;
-    if (!archivosCorregidos || archivosCorregidos.length === 0) return;
-
-    const formData = new FormData();
-    for (let i = 0; i < archivosCorregidos.length; i++) {
-      formData.append('files', archivosCorregidos[i]); // 👈 'files' en plural
-    }
-    formData.append('expediente_id', expedienteId);
-
-    try {
-      const response = await fetch('https://sistema-cancelaciones.railway.app/api/reprocesar-item', {
-        method: 'POST',
-        body: formData,
-      });
-      const resultado = await response.json();
-
-      if (resultado.success) {
-        setBatchResults(prev => prev.map(item => 
-          item.expediente_id === expedienteId 
-            ? { ...resultado, expediente_id: expedienteId } 
-            : item
-        ));
-      } else {
-        alert(`Error al reintentar: ${resultado.error}`);
-      }
-    } catch (err) {
-      console.error("Error de red:", err);
-    }
-  };
-  input.click();
-};
-
   const handleConfirmLogout = async () => {
     try {
       await api.post('/auth/logout');
@@ -608,6 +569,11 @@ useEffect(() => {
     }
     return pdfFiles;
   };
+
+    const handleRetryItem = async (expedienteId) => {
+  // Aquí podemos disparar la llamada al endpoint de reintento enviando el archivo corregido
+  console.log(`Reintentando expediente: ${expedienteId}`);
+};
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -1835,22 +1801,6 @@ const filteredHistorial = (historial || []).filter((item) => {
         <p style={{ margin: '6px 0 0 28px', fontSize: '12px', color: '#7f1d1d' }}>
           Detalle: {res.error} (El resto del lote se procesó con éxito).
         </p>
-        <button 
-  onClick={() => handleRetryItem(res.expediente_id)}
-  style={{ 
-    marginTop: '8px', 
-    padding: '6px 12px', 
-    backgroundColor: '#b91c1c', 
-    color: '#fff', 
-    border: 'none', 
-    borderRadius: '6px', 
-    cursor: 'pointer', 
-    fontSize: '12px',
-    fontWeight: '600'
-  }}
->
-  🔄 Reintentar procesamiento
-</button>
       </div>
     );
   }
@@ -1859,6 +1809,7 @@ const filteredHistorial = (historial || []).filter((item) => {
   const acreditadoNombre = datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || 'Acreditado no identificado';
   const isPreviewingThis = batchPreviewIndex === idx;
   const isSelected = selectedBatchIndices.includes(idx);
+
   return (
                 <div key={idx} style={{ border: `1px solid ${isPreviewingThis ? theme.accent : theme.border}`, borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s ease' }}>
                   <div 
