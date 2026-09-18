@@ -681,22 +681,26 @@ useEffect(() => {
     }
   };
 
-  const handleApplyTemplateToSelected = (plantillaElegida) => {
+ const handleApplyTemplateToSelected = async (plantillaElegida) => {
   if (!plantillaElegida || selectedBatchIndices.length === 0) return;
 
+  // 1. Actualizar el estado visual en la tabla para todos los seleccionados
   setBatchResults(prev => {
     const updated = [...prev];
     selectedBatchIndices.forEach(index => {
       if (updated[index]) {
         updated[index].plantilla_seleccionada = plantillaElegida;
-        if (batchPreviewIndex === index) {
-          actualizarVistaPreviaMasivaTiempoReal(index);
-        }
       }
     });
     return updated;
   });
-  // Opcional: limpiar selección después de aplicar
+
+  // 2. Enviar la orden al backend para regenerar el documento de CADA uno de los seleccionados
+  for (const index of selectedBatchIndices) {
+    await actualizarVistaPreviaMasivaTiempoReal(index);
+  }
+
+  // 3. Limpiar selección después de aplicar
   setSelectedBatchIndices([]);
 };
 
