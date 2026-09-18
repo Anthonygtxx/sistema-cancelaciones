@@ -427,9 +427,12 @@ async def procesar_masivo(
         resultados = []
         for prefijo, grupo in agrupados_por_credito.items():
             try:
-                # AISLAMIENTO DE GRUPO: Si este crédito en particular falla, no afecta al resto del lote
                 lista_datos = [item[1] for item in grupo]
                 
+                # 🛑 VALIDACIÓN CLAVE: Si algún archivo del grupo tiene error de extracción, lanzamos la excepción para la tarjeta roja
+                if any("error_extraccion" in d for d in lista_datos):
+                    raise ValueError("El archivo PDF está corrupto, vacío o no contiene datos legibles.")
+
                 # Esta función de tu archivo services ya junta los textos de ambos PDFs
                 datos_raw = services.combinar_datos_pareja(lista_datos)
                 
@@ -458,19 +461,19 @@ async def procesar_masivo(
                 resultados.append({
                     "id": str(nuevo_expediente.id),
                     "expediente_id": str(nuevo_expediente.id),
-                    "archivos_asociados": len(grupo), # Aquí verás "2" si unió carta y constancia
+                    "archivos_asociados": len(grupo),
                     "datos": datos_finales,
                     "datos_extraidos": datos_finales,
                     "ruta_word": ruta_salida
                 })
             except Exception as e_grupo:
-                # Si un grupo específico falla, hacemos rollback de su transacción y guardamos el error en los resultados
+                # Si un grupo específico falla, hacemos rollback y mandamos el error al frontend para que pinte la tarjeta roja
                 db.rollback()
-                print(f"❌ ERROR AISLADO al procesar el expediente/crédito {prefijo}: {e_grupo}")
+                print(f"ERROR AISLADO al procesar el expediente/crédito {prefijo}: {e_grupo}")
                 resultados.append({
                     "expediente_id": prefijo,
                     "archivos_asociados": len(grupo),
-                    "error": str(e_grupo) # Esto le avisa al frontend qué archivo falló exactamente
+                    "error": str(e_grupo) # 👈 Esto es lo que lee el frontend para mostrar la alerta roja
                 })
 
         return {"status": "exito", "procesados": len([r for r in resultados if "error" not in r]), "detalles": resultados}
