@@ -1794,7 +1794,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{res.expediente_id}</span>
         </div>
         <p style={{ margin: '6px 0 0 28px', fontSize: '12px', color: '#7f1d1d' }}>
-          Detalle: {res.error} (El resto del lote se procesó con éxito).
+          Detalle: {res.error} (El resto del lote se a procesado con éxito).
         </p>
       </div>
     );
