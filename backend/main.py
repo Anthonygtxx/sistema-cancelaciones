@@ -687,24 +687,44 @@ async def actualizar_plantilla(file: UploadFile = File(...)):
     return {"status": "exito", "mensaje": f"Plantilla '{file.filename}' subida correctamente"}
 
 
+from typing import List
+
 @app.post("/api/reprocesar-item")
-async def reprocesar_item(file: UploadFile = File(...), expediente_id: str = Form(...)):
+async def reprocesar_item(files: List[UploadFile] = File(...), expediente_id: str = Form(...)):
     try:
-        ruta_guardado = os.path.join("uploads", os.path.basename(file.filename))
-        with open(ruta_guardado, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        lista_datos = []
+        rutas_guardadas = []
+        
+        for file in files:
+            ruta_guardado = os.path.join("uploads", os.path.basename(file.filename))
+            with open(ruta_guardado, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            rutas_guardadas.append(ruta_guardado)
+            
+            datos_ind = services.extraer_datos_pdf(ruta_guardado)
+            if not datos_ind:
+                raise ValueError(f"El archivo {file.filename} está vacío o corrupto.")
+            lista_datos.append(datos_ind)
 
-        datos = services.extraer_datos_pdf(ruta_guardado)
-        if not datos or datos.get("numero_credito") == "NO_ENCONTRADO":
-            raise ValueError("El archivo PDF sigue sin contener datos legibles.")
+        # Si es pareja, combinamos; si es solo uno, usamos ese
+        datos_raw = services.combinar_datos_pareja(lista_datos) if len(lista_datos) > 1 else lista_datos[0]
+        
+        num_credito = datos_raw.get("numero_credito")
+        if not num_credito or num_credito == "NO_ENCONTRADO":
+            num_credito = expediente_id
 
-        ruta_salida = f"uploads/generados/Cancelacion_{expediente_id}.docx"
-        services.generar_word_cancelacion(ruta_plantilla, datos, ruta_salida)
+        datos_finales = limpiar_datos_para_plantilla(datos_raw, num_credito)
+        ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
+        services.generar_word_cancelacion(ruta_plantilla, datos_finales, ruta_salida)
+
+        rutas_pdf = ";".join(rutas_guardadas)
 
         return {
             "success": True,
             "expediente_id": expediente_id,
-            "datos_extraidos": datos,
+            "archivos_asociados": len(files),
+            "datos": datos_finales,
+            "datos_extraidos": datos_finales,
             "ruta_word": ruta_salida
         }
     except Exception as e:

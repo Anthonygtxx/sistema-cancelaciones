@@ -253,12 +253,16 @@ useEffect(() => {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.pdf';
+  input.multiple = true; // 👈 Clave para permitir seleccionar la pareja (constancia + carta)
+  
   input.onchange = async (e) => {
-    const archivoCorregido = e.target.files[0];
-    if (!archivoCorregido) return;
+    const archivosCorregidos = e.target.files;
+    if (!archivosCorregidos || archivosCorregidos.length === 0) return;
 
     const formData = new FormData();
-    formData.append('file', archivoCorregido);
+    for (let i = 0; i < archivosCorregidos.length; i++) {
+      formData.append('files', archivosCorregidos[i]); // 👈 'files' en plural
+    }
     formData.append('expediente_id', expedienteId);
 
     try {
