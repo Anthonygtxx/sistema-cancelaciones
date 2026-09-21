@@ -1671,51 +1671,95 @@ const filteredHistorial = (historial || []).filter((item) => {
 {/* TAB: CARGA MASIVA */}
 {activeTab === 'batch' && (
   <div>
-    {/* SECCIÓN SUPERIOR: FORMULARIO DE CARGA */}
+    {/* SECCIÓN SUPERIOR: FORMULARIOS DE CARGA SEPARADOS */}
     <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, marginBottom: '24px' }}>
       <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <FolderPlus size={20} color={theme.accent} /> Carga Masiva de Expedientes
+        <FolderPlus size={20} color={theme.accent} /> Carga Masiva de Expedientes (Cartas y Constancias)
       </h2>
 
-      <div 
-        onDragOver={handleDragOver}
-        onDrop={handleDropBatch}
-        style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '32px 20px', textAlign: 'center', marginBottom: '20px', cursor: 'pointer' }}
-      >
-        <FileArchive size={40} color={theme.accent} style={{ margin: '0 auto 12px auto' }} />
-        <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>
-          Arrastra aquí tu carpeta o múltiples archivos PDF
-        </p>
-        <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: theme.textSecondary }}>se escanearán subcarpetas automáticamente</p>
-        <input
-          type="file"
-          multiple
-          accept=".pdf"
-          webkitdirectory="true"
-          onChange={handleBatchFileChange}
-          style={{ display: 'none' }}
-          id="batch-file-input"
-        />
-        <label htmlFor="batch-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
-          Buscar Carpeta / Archivos
-        </label>
-      </div>
-
-      {batchFiles.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textSecondary }}>
-            Archivos Detectados ({batchFiles.length}):
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+        
+        {/* ZONA 1: CARTAS */}
+        <div>
+          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textPrimary }}>
+            1. Archivos de Cartas
           </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '150px', overflowY: 'auto' }}>
-            {batchFiles.map((f, i) => (
-              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '6px', fontSize: '13px', color: theme.textPrimary }}>
-                <FileText size={14} color={theme.textSecondary} />
-                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-              </li>
-            ))}
-          </ul>
+          <div 
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+              setCartasFiles(prev => [...prev, ...files]);
+            }}
+            style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '24px 16px', textAlign: 'center', cursor: 'pointer', minHeight: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}
+          >
+            <FileArchive size={32} color={theme.accent} style={{ marginBottom: '8px' }} />
+            <p style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: '600', color: theme.textPrimary }}>
+              Arrastra aquí las Cartas PDF
+            </p>
+            <input
+              type="file"
+              multiple
+              accept=".pdf"
+              onChange={(e) => {
+                const files = Array.from(e.target.files);
+                setCartasFiles(prev => [...prev, ...files]);
+              }}
+              style={{ display: 'none' }}
+              id="cartas-file-input"
+            />
+            <label htmlFor="cartas-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
+              Buscar Cartas
+            </label>
+          </div>
+          {cartasFiles.length > 0 && (
+            <div style={{ marginTop: '8px', fontSize: '12px', color: theme.textSecondary }}>
+              ✅ {cartasFiles.length} carta(s) seleccionada(s)
+            </div>
+          )}
         </div>
-      )}
+
+        {/* ZONA 2: CONSTANCIAS */}
+        <div>
+          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textPrimary }}>
+            2. Archivos de Constancias
+          </div>
+          <div 
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+              setConstanciasFiles(prev => [...prev, ...files]);
+            }}
+            style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '24px 16px', textAlign: 'center', cursor: 'pointer', minHeight: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}
+          >
+            <FileArchive size={32} color={theme.accent} style={{ marginBottom: '8px' }} />
+            <p style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: '600', color: theme.textPrimary }}>
+              Arrastra aquí las Constancias PDF
+            </p>
+            <input
+              type="file"
+              multiple
+              accept=".pdf"
+              onChange={(e) => {
+                const files = Array.from(e.target.files);
+                setConstanciasFiles(prev => [...prev, ...files]);
+              }}
+              style={{ display: 'none' }}
+              id="constancias-file-input"
+            />
+            <label htmlFor="constancias-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
+              Buscar Constancias
+            </label>
+          </div>
+          {constanciasFiles.length > 0 && (
+            <div style={{ marginTop: '8px', fontSize: '12px', color: theme.textSecondary }}>
+              ✅ {constanciasFiles.length} constancia(s) seleccionada(s)
+            </div>
+          )}
+        </div>
+
+      </div>
 
       {batchLoading && (
         <div style={{ marginBottom: '20px' }}>
@@ -1730,18 +1774,22 @@ const filteredHistorial = (historial || []).filter((item) => {
       )}
 
       <button
-        onClick={handleUploadBatch}
-        disabled={batchFiles.length === 0 || batchLoading}
+        onClick={() => {
+          // Combinamos ambos estados al enviar para mantener compatibilidad con el backend
+          const todosLosArchivos = [...cartasFiles, ...constanciasFiles];
+          handleUploadBatchCustom(todosLosArchivos);
+        }}
+        disabled={(cartasFiles.length === 0 && constanciasFiles.length === 0) || batchLoading}
         style={{
           width: '100%',
-          backgroundColor: batchFiles.length === 0 || batchLoading ? theme.subtleBg : theme.accent,
-          color: batchFiles.length === 0 || batchLoading ? theme.textSecondary : '#fff',
+          backgroundColor: (cartasFiles.length === 0 && constanciasFiles.length === 0) || batchLoading ? theme.subtleBg : theme.accent,
+          color: (cartasFiles.length === 0 && constanciasFiles.length === 0) || batchLoading ? theme.textSecondary : '#fff',
           border: 'none',
           padding: '12px',
           borderRadius: '10px',
           fontWeight: '600',
           fontSize: '14px',
-          cursor: batchFiles.length === 0 || batchLoading ? 'not-allowed' : 'pointer',
+          cursor: (cartasFiles.length === 0 && constanciasFiles.length === 0) || batchLoading ? 'not-allowed' : 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -1749,7 +1797,7 @@ const filteredHistorial = (historial || []).filter((item) => {
         }}
       >
         {batchLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <FolderPlus size={16} />}
-        Procesar Carga Masiva
+        Procesar Carga Masiva ({cartasFiles.length + constanciasFiles.length} archivos totales)
       </button>
     </div>
 
@@ -1802,39 +1850,39 @@ const filteredHistorial = (historial || []).filter((item) => {
                   <option value="" disabled>Aplicar a seleccionados ({selectedBatchIndices.length})...</option>
                   
                   <optgroup label="CDMX - APERTURA DE CRÉDITO">
-                    <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
-                    <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
-                    <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
-                    <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
-                  </optgroup>
+            <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+          </optgroup>
 
-                  <optgroup label="CONTRATO DE MUTUO">
-                    <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-                    <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
-                    <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
-                    <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
-                  </optgroup>
+          <optgroup label="CONTRATO DE MUTUO">
+            <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+            <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+          </optgroup>
 
-                  <optgroup label="MODELOS COACREDITADOS">
-                    <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
-                    <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
-                    <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
-                    <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
-                  </optgroup>
+          <optgroup label="MODELOS COACREDITADOS">
+            <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
+            <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
+            <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
+            <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
+          </optgroup>
 
-                  <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
-                    <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
-                    <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
-                    <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
-                    <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
-                  </optgroup>
+          <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
+            <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+          </optgroup>
 
-                  <optgroup label="CONTRATO DE MUTUO">
-                    <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-                    <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
-                    <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
-                    <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
-                  </optgroup>
+          <optgroup label="CONTRATO DE MUTUO">
+            <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
+            <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+          </optgroup>
                 </select>
               )}
             </div>
@@ -1848,209 +1896,209 @@ const filteredHistorial = (historial || []).filter((item) => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {batchResults.map((res, idx) => {
-            if (res.error) {
-              return (
-                <div key={idx} style={{ border: '1px solid #ef4444', borderRadius: '10px', padding: '14px 18px', backgroundColor: '#fef2f2', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#b91c1c', fontSize: '14px', fontWeight: '600' }}>
-                    <span>⚠️ Error al procesar archivo:</span>
-                    <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{res.expediente_id}</span>
+{batchResults.map((res, idx) => {
+  if (res.error) {
+    return (
+      <div key={idx} style={{ border: '1px solid #ef4444', borderRadius: '10px', padding: '14px 18px', backgroundColor: '#fef2f2', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#b91c1c', fontSize: '14px', fontWeight: '600' }}>
+          <span>⚠️ Error al procesar archivo:</span>
+          <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{res.expediente_id}</span>
+        </div>
+        <p style={{ margin: '6px 0 0 28px', fontSize: '12px', color: '#7f1d1d' }}>
+          Detalle: {res.error} (El resto del lote se a procesado con éxito).
+        </p>
+      </div>
+    );
+  }
+  const isOpen = !!openAccordion[idx];
+  const datosExtraidos = res.datos_extraidos || {};
+  const acreditadoNombre = datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || 'Acreditado no identificado';
+  const isPreviewingThis = batchPreviewIndex === idx;
+  const isSelected = selectedBatchIndices.includes(idx);
+
+  return (
+                <div key={idx} style={{ border: `1px solid ${isPreviewingThis ? theme.accent : theme.border}`, borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s ease' }}>
+                  <div 
+                    onClick={() => toggleAccordion(idx)}
+                    style={{ padding: '14px 18px', backgroundColor: theme.subtleBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      
+                      {/* CHECKBOX INDIVIDUAL */}
+                      <input 
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleToggleSelectBatch(idx);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: theme.accent }}
+                      />
+
+                      <CheckCircle size={18} color="#10b981" />
+                      <span style={{ fontWeight: '600', fontSize: '14px', color: theme.textPrimary }}>
+                        {acreditadoNombre}
+                      </span>
+                      {datosExtraidos.numero_credito && (
+                        <span style={{ fontSize: '12px', color: theme.textSecondary, backgroundColor: theme.cardBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${theme.border}` }}>
+                          Crédito: {datosExtraidos.numero_credito}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      
+                      {/* === MENÚ DESPLEGABLE DE PLANTILLAS === */}
+                      <select
+                        value={res.plantilla_seleccionada || ""}
+                        onChange={(e) => handleBatchPlantillaChange(idx, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          border: `1px solid ${theme.border}`,
+                          backgroundColor: theme.inputBg,
+                          color: theme.textPrimary,
+                          fontSize: '12px',
+                          outline: 'none',
+                          cursor: 'pointer',
+                          maxWidth: '220px',
+                          textOverflow: 'ellipsis'
+                        }}
+                        title="Seleccionar plantilla para este expediente"
+                      >
+                        <option value="" disabled>Seleccionar plantilla...</option>
+                        
+                        <optgroup label="CDMX - APERTURA DE CRÉDITO">
+            <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+          </optgroup>
+
+          <optgroup label="CONTRATO DE MUTUO">
+            <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+            <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+          </optgroup>
+
+          <optgroup label="MODELOS COACREDITADOS">
+            <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
+            <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
+            <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
+            <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
+          </optgroup>
+
+          <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
+            <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+            <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+            <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+            <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+          </optgroup>
+
+          <optgroup label="CONTRATO DE MUTUO">
+            <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+            <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
+            <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+            <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+          </optgroup>
+                      </select>
+                      {/* =========================================== */}
+
+                      {/* BOTÓN VISTA PREVIA INDIVIDUAL EN LOTE */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setBatchPreviewIndex(idx);
+                          actualizarVistaPreviaMasivaTiempoReal(idx);
+                        }}
+                        style={{ 
+                          backgroundColor: isPreviewingThis ? theme.accent : theme.cardBg, 
+                          color: isPreviewingThis ? '#fff' : theme.textPrimary, 
+                          border: `1px solid ${theme.border}`, 
+                          padding: '6px 10px', 
+                          borderRadius: '6px', 
+                          fontSize: '12px', 
+                          fontWeight: '600', 
+                          cursor: 'pointer', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '4px' 
+                        }}
+                      >
+                        <Eye size={12} color={isPreviewingThis ? '#fff' : theme.accent} /> 
+                        {isPreviewingThis ? 'Viendo' : 'Previa'}
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadWord(res.expediente_id, datosExtraidos);
+                        }}
+                        style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Download size={12} /> DOCX
+                      </button>
+                      {isOpen ? <ChevronUp size={18} color={theme.textSecondary} /> : <ChevronDown size={18} color={theme.textSecondary} />}
+                    </div>
                   </div>
-                  <p style={{ margin: '6px 0 0 28px', fontSize: '12px', color: '#7f1d1d' }}>
-                    Detalle: {res.error} (El resto del lote se ha procesado con éxito).
-                  </p>
+
+                  {isOpen && (
+                    <div style={{ padding: '18px', backgroundColor: theme.cardBg, borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                      {Object.entries(datosExtraidos).map(([bKey, bVal]) => {
+                        const fieldKey = `batch_${idx}_${bKey}`;
+                        const isUnlocked = unlockedFields[fieldKey];
+
+                        return (
+                          <div key={bKey} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <label style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
+                              {formatLabel(bKey)}
+                            </label>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                value={bVal || ''}
+                                disabled={!isUnlocked}
+                                onChange={(e) => handleBatchInputChange(idx, bKey, e.target.value)}
+                                style={{
+                                  flex: 1,
+                                  padding: '8px 10px',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${theme.border}`,
+                                  backgroundColor: isUnlocked ? theme.inputBg : theme.subtleBg,
+                                  color: theme.textPrimary,
+                                  fontSize: '12px',
+                                  opacity: isUnlocked ? 1 : 0.8
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleToggleUnlock(fieldKey)}
+                                style={{
+                                  padding: '8px',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${theme.border}`,
+                                  backgroundColor: isUnlocked ? '#fef3c7' : theme.subtleBg,
+                                  color: isUnlocked ? '#d97706' : theme.textSecondary,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
-            }
-            const isOpen = !!openAccordion[idx];
-            const datosExtraidos = res.datos_extraidos || {};
-            const acreditadoNombre = datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || 'Acreditado no identificado';
-            const isPreviewingThis = batchPreviewIndex === idx;
-            const isSelected = selectedBatchIndices.includes(idx);
-
-            return (
-              <div key={idx} style={{ border: `1px solid ${isPreviewingThis ? theme.accent : theme.border}`, borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s ease' }}>
-                <div 
-                  onClick={() => toggleAccordion(idx)}
-                  style={{ padding: '14px 18px', backgroundColor: theme.subtleBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    
-                    {/* CHECKBOX INDIVIDUAL */}
-                    <input 
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        handleToggleSelectBatch(idx);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: theme.accent }}
-                    />
-
-                    <CheckCircle size={18} color="#10b981" />
-                    <span style={{ fontWeight: '600', fontSize: '14px', color: theme.textPrimary }}>
-                      {acreditadoNombre}
-                    </span>
-                    {datosExtraidos.numero_credito && (
-                      <span style={{ fontSize: '12px', color: theme.textSecondary, backgroundColor: theme.cardBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${theme.border}` }}>
-                        Crédito: {datosExtraidos.numero_credito}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    
-                    {/* === MENÚ DESPLEGABLE DE PLANTILLAS === */}
-                    <select
-                      value={res.plantilla_seleccionada || ""}
-                      onChange={(e) => handleBatchPlantillaChange(idx, e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        padding: '6px 8px',
-                        borderRadius: '6px',
-                        border: `1px solid ${theme.border}`,
-                        backgroundColor: theme.inputBg,
-                        color: theme.textPrimary,
-                        fontSize: '12px',
-                        outline: 'none',
-                        cursor: 'pointer',
-                        maxWidth: '220px',
-                        textOverflow: 'ellipsis'
-                      }}
-                      title="Seleccionar plantilla para este expediente"
-                    >
-                      <option value="" disabled>Seleccionar plantilla...</option>
-                      
-                      <optgroup label="CDMX - APERTURA DE CRÉDITO">
-                        <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
-                        <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
-                        <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
-                        <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
-                      </optgroup>
-
-                      <optgroup label="CONTRATO DE MUTUO">
-                        <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-                        <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
-                        <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
-                        <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
-                      </optgroup>
-
-                      <optgroup label="MODELOS COACREDITADOS">
-                        <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
-                        <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
-                        <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
-                        <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
-                      </optgroup>
-
-                      <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
-                        <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
-                        <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
-                        <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
-                        <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
-                      </optgroup>
-
-                      <optgroup label="CONTRATO DE MUTUO">
-                        <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-                        <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
-                        <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
-                        <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
-                      </optgroup>
-                    </select>
-                    {/* =========================================== */}
-
-                    {/* BOTÓN VISTA PREVIA INDIVIDUAL EN LOTE */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setBatchPreviewIndex(idx);
-                        actualizarVistaPreviaMasivaTiempoReal(idx);
-                      }}
-                      style={{ 
-                        backgroundColor: isPreviewingThis ? theme.accent : theme.cardBg, 
-                        color: isPreviewingThis ? '#fff' : theme.textPrimary, 
-                        border: `1px solid ${theme.border}`, 
-                        padding: '6px 10px', 
-                        borderRadius: '6px', 
-                        fontSize: '12px', 
-                        fontWeight: '600', 
-                        cursor: 'pointer', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '4px' 
-                      }}
-                    >
-                      <Eye size={12} color={isPreviewingThis ? '#fff' : theme.accent} /> 
-                      {isPreviewingThis ? 'Viendo' : 'Previa'}
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownloadWord(res.expediente_id, datosExtraidos);
-                      }}
-                      style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <Download size={12} /> DOCX
-                    </button>
-                    {isOpen ? <ChevronUp size={18} color={theme.textSecondary} /> : <ChevronDown size={18} color={theme.textSecondary} />}
-                  </div>
-                </div>
-
-                {isOpen && (
-                  <div style={{ padding: '18px', backgroundColor: theme.cardBg, borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-                    {Object.entries(datosExtraidos).map(([bKey, bVal]) => {
-                      const fieldKey = `batch_${idx}_${bKey}`;
-                      const isUnlocked = unlockedFields[fieldKey];
-
-                      return (
-                        <div key={bKey} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <label style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
-                            {formatLabel(bKey)}
-                          </label>
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <input
-                              type="text"
-                              value={bVal || ''}
-                              disabled={!isUnlocked}
-                              onChange={(e) => handleBatchInputChange(idx, bKey, e.target.value)}
-                              style={{
-                                flex: 1,
-                                padding: '8px 10px',
-                                borderRadius: '6px',
-                                border: `1px solid ${theme.border}`,
-                                backgroundColor: isUnlocked ? theme.inputBg : theme.subtleBg,
-                                color: theme.textPrimary,
-                                fontSize: '12px',
-                                opacity: isUnlocked ? 1 : 0.8
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleToggleUnlock(fieldKey)}
-                              style={{
-                                padding: '8px',
-                                borderRadius: '6px',
-                                border: `1px solid ${theme.border}`,
-                                backgroundColor: isUnlocked ? '#fef3c7' : theme.subtleBg,
-                                color: isUnlocked ? '#d97706' : theme.textSecondary,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+            })}
           </div>
         </div>
 
