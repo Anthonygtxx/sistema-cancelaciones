@@ -2,6 +2,7 @@ import os
 import shutil
 import zipfile
 import re
+import pathlib
 import uuid
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI, UploadFile, BackgroundTasks, File, Form, Depends, HTTPException, Body, Query, Header
@@ -422,7 +423,6 @@ import re
 #   - 0903066392_Carta.pdf / 0903066392_Constancia.pdf
 #   - 0903066392 VIG.pdf   / 0903066392.pdf
 # ==============================================================================
-import re
 
 @app.post("/api/expedientes/procesar-masivo")
 async def procesar_masivo(
@@ -440,15 +440,14 @@ async def procesar_masivo(
         # Selección dinámica de plantilla usando el resolvedor
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
 
-        agrupados_por_credito = {}
-
-        print(f"\n================ [PROCESAMIENTO MASIVO EN CURSO] ================")
+        print(f"\n================ [PROCESAMIENTO MASIVO INTELIGENTE] ================")
         print(f"Total de archivos recibidos: {len(files)}")
         print(f"Plantilla seleccionada: {ruta_plantilla}")
 
+        archivos_procesados = []
+
+        # 1. Guardar y extraer datos preliminares de cada PDF individualmente
         for file in files:
-            # --- LIMPIEZA UNIVERSAL A PRUEBA DE WINDOWS Y LINUX ---
-            # Reemplaza cualquier barra (\ o /) y extrae estrictamente el nombre final del archivo
             nombre_limpio_archivo = file.filename.replace('\\', '/').split('/')[-1]
 
             if not nombre_limpio_archivo.lower().endswith('.pdf'):
@@ -458,43 +457,62 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            # --- NORMALIZACIÓN ESTRICTA DE DÍGITOS ---
-            match_nombre = re.search(r'\d{8,12}', nombre_limpio_archivo)
-            if match_nombre:
-                num_credito_grupo = re.sub(r'\D', '', match_nombre.group(0))
-            else:
-                num_credito_grupo = re.sub(r'\D', '', nombre_limpio_archivo)
-                if not num_credito_grupo:
-                    num_credito_grupo = nombre_limpio_archivo.strip()
-
             try:
-                # Extraemos los datos del PDF individual
                 datos = services.extraer_datos_pdf(ruta_guardado)
-                
-                # Validación de archivo completamente vacío o corrupto
                 if not datos or (datos.get("numero_credito") == "NO_ENCONTRADO" and not datos.get("texto_raw")):
                     raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
-                    
             except Exception as e_file:
                 print(f"Error al extraer datos del archivo individual {nombre_limpio_archivo}: {e_file}")
-                datos = {"error_extraccion": str(e_file)}
+                datos = {"error_extraccion": str(e_file), "numero_credito": "NO_ENCONTRADO"}
 
-            # Agrupamos de forma 100% segura usando la llave limpia de puros dígitos
-            if num_credito_grupo not in agrupados_por_credito:
-                agrupados_por_credito[num_credito_grupo] = []
+            archivos_procesados.append({
+                "ruta": ruta_guardado,
+                "nombre": nombre_limpio_archivo,
+                "datos": datos
+            })
+
+        # 2. Agrupación inteligente basada en el contenido extraído Y respaldo por nombre
+        agrupados_por_credito = {}
+
+        for item in archivos_procesados:
+            ruta = item["ruta"]
+            nombre = item["nombre"]
+            datos = item["datos"]
+
+            # Intentamos obtener el crédito del contenido interno del PDF
+            credito_extraido = datos.get("numero_credito")
+            credito_key = None
+
+            if credito_extraido and credito_extraido != "NO_ENCONTRADO":
+                credito_key = re.sub(r'\D', '', str(credito_extraido))
+
+            # Si el PDF no traía el crédito adentro, lo buscamos en el nombre del archivo
+            if not credito_key or len(credito_key) < 8:
+                match_nombre = re.search(r'\d{8,12}', nombre)
+                if match_nombre:
+                    credito_key = re.sub(r'\D', '', match_nombre.group(0))
+
+            # Último respaldo si de plano no hay números
+            if not credito_key:
+                credito_key = re.sub(r'\D', '', nombre)
+                if not credito_key:
+                    credito_key = pathlib.Path(nombre).stem
+
+            if credito_key not in agrupados_por_credito:
+                agrupados_por_credito[credito_key] = []
             
-            agrupados_por_credito[num_credito_grupo].append((ruta_guardado, datos))
+            agrupados_por_credito[credito_key].append((ruta, datos))
 
+        # 3. Procesamiento y generación de documentos por cada grupo consolidado
         resultados = []
         for prefijo, grupo in agrupados_por_credito.items():
             try:
                 lista_datos = [item[1] for item in grupo]
                 
-                # Si todos los archivos del grupo fallaron, lanzamos error para la tarjeta roja en la UI
+                # Si todos los archivos del grupo fallaron
                 if all("error_extraccion" in d for d in lista_datos):
                     raise ValueError("Los archivos PDF de este crédito están corruptos, vacíos o no contienen datos legibles.")
 
-                # Filtramos los datos válidos para la combinación
                 lista_datos_validos = [d for d in lista_datos if "error_extraccion" not in d]
                 if not lista_datos_validos:
                     lista_datos_validos = lista_datos
@@ -502,7 +520,6 @@ async def procesar_masivo(
                 # Fusionamos los textos de ambos PDFs de la pareja
                 datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
-                # Asignamos el número de crédito definitivo
                 num_credito = datos_raw.get("numero_credito")
                 if not num_credito or num_credito == "NO_ENCONTRADO":
                     num_credito = prefijo
