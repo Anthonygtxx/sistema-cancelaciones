@@ -411,7 +411,17 @@ async def procesar_documento(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- PROCESAMIENTO MASIVO ---
+import re
+
+# ==============================================================================
+# CONVENCIÓN DE NOMENCLATURA RECOMENDADA PARA EL PERSONAL:
+# Para garantizar una lectura y agrupación perfecta, los archivos deben nombrarse 
+# utilizando el número de crédito de 8 a 12 dígitos, seguido opcionalmente de un 
+# guion bajo o espacio y el tipo de documento. 
+# Ejemplos válidos:
+#   - 0903066392_Carta.pdf / 0903066392_Constancia.pdf
+#   - 0903066392 VIG.pdf   / 0903066392.pdf
+# ==============================================================================
 @app.post("/api/expedientes/procesar-masivo")
 async def procesar_masivo(
     files: List[UploadFile] = File(...),
@@ -442,40 +452,47 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            # --- AGRUPACIÓN ROBUSTA POR NÚMERO DE CRÉDITO EN EL NOMBRE ---
-            # Busca una secuencia de 8 a 12 dígitos en el nombre del archivo (ej. 1505068636, 0903066392)
-            match_credito_nombre = re.search(r'\d{8,12}', file.filename)
-            if match_credito_nombre:
-                prefijo = match_credito_nombre.group(0)
-            else:
-                # Respaldo si no encuentra dígitos exactos, limpiando caracteres extraños
-                prefijo = file.filename.split('_')[0].split(' ')[0]
-                prefijo = re.sub(r'[^0-9]', '', prefijo)
-                if not prefijo:
-                    prefijo = file.filename.replace('.pdf', '').replace('.PDF', '')
-
             try:
+                # 1. Extraemos los datos del PDF para leer el contenido interno
                 datos = services.extraer_datos_pdf(ruta_guardado)
                 
-                # Si el PDF está completamente vacío o corrupto
+                # 2. Obtenemos el número de crédito directamente del texto extraído
+                num_credito_interno = datos.get("numero_credito")
+                
+                # 3. Si el texto interno no lo trae, aplicamos la regla de respaldo buscando 
+                # los 8 a 12 dígitos en el nombre del archivo (Siguiendo la convención del personal)
+                if not num_credito_interno or num_credito_interno == "NO_ENCONTRADO":
+                    match_nombre = re.search(r'\d{8,12}', file.filename)
+                    if match_nombre:
+                        num_credito_interno = match_nombre.group(0)
+                    else:
+                        num_credito_interno = file.filename.replace('.pdf', '').replace('.PDF', '').strip()
+                        
+                # Validación de archivo completamente vacío o corrupto
                 if not datos or (datos.get("numero_credito") == "NO_ENCONTRADO" and not datos.get("texto_raw")):
                     raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
                     
             except Exception as e_file:
                 print(f"Error al extraer datos del archivo individual {file.filename}: {e_file}")
                 datos = {"error_extraccion": str(e_file)}
+                # Respaldo por nombre ante cualquier fallo de extracción individual
+                match_nombre = re.search(r'\d{8,12}', file.filename)
+                num_credito_interno = match_nombre.group(0) if match_nombre else file.filename.replace('.pdf', '')
+
+            # --- AGRUPACIÓN INTELIGENTE Y UNIFICADA ---
+            # Todos los archivos que pertenezcan al mismo número de crédito (leído del PDF o del nombre)
+            # caerán estrictamente en la misma lista, evitando duplicados o múltiples resultados.
+            if num_credito_interno not in agrupados_por_credito:
+                agrupados_por_credito[num_credito_interno] = []
             
-            if prefijo not in agrupados_por_credito:
-                agrupados_por_credito[prefijo] = []
-            
-            agrupados_por_credito[prefijo].append((ruta_guardado, datos))
+            agrupados_por_credito[num_credito_interno].append((ruta_guardado, datos))
 
         resultados = []
         for prefijo, grupo in agrupados_por_credito.items():
             try:
                 lista_datos = [item[1] for item in grupo]
                 
-                # Si todos los archivos del grupo fallaron, lanzamos error para la tarjeta roja
+                # Si todos los archivos del grupo fallaron, lanzamos error para la tarjeta roja en la UI
                 if all("error_extraccion" in d for d in lista_datos):
                     raise ValueError("Los archivos PDF de este crédito están corruptos, vacíos o no contienen datos legibles.")
 
@@ -484,10 +501,10 @@ async def procesar_masivo(
                 if not lista_datos_validos:
                     lista_datos_validos = lista_datos
 
-                # Combinamos los textos de ambos PDFs de la pareja
+                # Fusionamos los textos de ambos PDFs de la pareja
                 datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
-                # Si el texto interno no traía número de crédito, usamos el prefijo extraído del nombre
+                # Asignamos el número de crédito definitivo
                 num_credito = datos_raw.get("numero_credito")
                 if not num_credito or num_credito == "NO_ENCONTRADO":
                     num_credito = prefijo
@@ -516,7 +533,7 @@ async def procesar_masivo(
                     "datos": datos_finales,
                     "datos_extraidos": datos_finales,
                     "ruta_word": ruta_salida,
-                    "plantilla_seleccionada": plantilla 
+                    "plantilla_seleccionada": plantilla
                 })
             except Exception as e_grupo:
                 db.rollback()
