@@ -830,8 +830,10 @@ const handleUploadBatch = async () => {
   }
 };
 
-// --- ESTADOS PARA CAPTURA MANUAL Y EXCEL ---
-const [formData, setFormData] = useState({
+// --- DECLARACIÓN DE ESTADOS REQUERIDOS ---
+  const [cargando, setCargando] = useState(false);
+  const [archivoExcel, setArchivoExcel] = useState(null);
+  const [formData, setFormData] = useState({
     numero_credito: '',
     nombre_acreditado: '',
     monto_credito: '',
@@ -858,7 +860,6 @@ const [formData, setFormData] = useState({
       const data = await res.json();
       if (res.ok && data.status === 'exito') {
         alert('¡Expediente manual generado con éxito!');
-        // Si tienes una función para refrescar la lista o agregar el resultado, úsala aquí
         if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
           setExpedientes([data, ...expedientes]);
         }
