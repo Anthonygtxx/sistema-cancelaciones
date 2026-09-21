@@ -2252,7 +2252,7 @@ const filteredHistorial = (historial || []).filter((item) => {
   </div>
 )}
 
-{/* VISTA DE CAPTURA MANUAL CON TODOS LOS CAMPOS, SELECTOR 2026 Y VISTA PREVIA */}
+{/* VISTA DE CAPTURA MANUAL CON TODOS LOS CAMPOS, SELECTOR 2026 Y VISTA PREVIA*/}
 {activeTab === 'manual' && (
   <div style={{ display: 'grid', gridTemplateColumns: manualPreviewActive ? '1fr 1fr' : '1fr', gap: '24px', alignItems: 'start' }}>
     
