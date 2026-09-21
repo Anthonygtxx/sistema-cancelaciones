@@ -187,6 +187,10 @@ const indicePrimerItem = indiceUltimoItem - elementosPorPagina;
 const elementosVisibles = batchResults.slice(indicePrimerItem, indiceUltimoItem);
 const totalPaginas = Math.ceil(batchResults.length / elementosPorPagina);
 
+// Asegúrate de tener estos estados declarados formulario manual
+const [manualPreviewActive, setManualPreviewActive] = useState(false);
+const manualPreviewRef = useRef(null);
+
   // Validar sesión activa al recargar la página (F5)
 useEffect(() => {
   const checkAuth = async () => {
