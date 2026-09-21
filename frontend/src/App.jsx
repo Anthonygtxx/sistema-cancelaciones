@@ -830,6 +830,79 @@ const handleUploadBatch = async () => {
   }
 };
 
+// --- ESTADOS PARA CAPTURA MANUAL Y EXCEL ---
+  const [cargando, setCargando] = useState(false);
+  const [archivoExcel, setArchivoExcel] = useState(null);
+  const [formData, setFormData] = useState({
+    numero_credito: '',
+    nombre_acreditado: '',
+    monto_credito: '',
+    oficina_registral: '',
+    numero_carta: '',
+    folio_real: ''
+  });
+
+  // --- FUNCIÓN PARA ENVÍO MANUAL ---
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    setCargando(true);
+    try {
+      const res = await fetch('https://sistema-cancelaciones-production.up.railway.net/api/expedientes/generar-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, plantilla: plantillaSeleccionada || 'plantilla_manera2.docx' })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'exito') {
+        alert('¡Expediente manual generado con éxito!');
+        // Si tienes una función para refrescar la lista o agregar el resultado, úsala aquí
+        if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
+          setExpedientes([data, ...expedientes]);
+        }
+      } else {
+        alert('Error: ' + (data.detail || 'No se pudo generar'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión con el servidor.');
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  // --- FUNCIÓN PARA CARGA DE EXCEL ---
+  const handleExcelSubmit = async (e) => {
+    e.preventDefault();
+    if (!archivoExcel) return alert('Por favor selecciona un archivo Excel (.xlsx o .csv)');
+    
+    setCargando(true);
+    const dataForm = new FormData();
+    dataForm.append('file', archivoExcel);
+    dataForm.append('plantilla', plantillaSeleccionada || 'plantilla_manera2.docx');
+    dataForm.append('usuario_propietario', 'admin');
+
+    try {
+      const res = await fetch('https://sistema-cancelaciones-production.up.railway.net/api/expedientes/procesar-excel', {
+        method: 'POST',
+        body: dataForm
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'exito') {
+        alert(`¡Lote procesado con éxito! Se generaron ${data.procesados} documentos.`);
+        if (typeof setExpedientes === 'function' && Array.isArray(data.detalles)) {
+          setExpedientes([...data.detalles, ...expedientes]);
+        }
+      } else {
+        alert('Error en lote: ' + (data.detail || 'Fallo al procesar el archivo'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión al subir el Excel.');
+    } finally {
+      setCargando(false);
+    }
+  };
+
  const handleDownloadWord = async (id, datosActuales) => {
   try {
     // Se envían la plantilla seleccionada y los datos en la estructura del payload que espera el backend
