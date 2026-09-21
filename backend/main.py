@@ -410,6 +410,7 @@ async def procesar_documento(
         print(f"ERROR EN /procesar: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # --- PROCESAMIENTO MASIVO ---
 @app.post("/api/expedientes/procesar-masivo")
 async def procesar_masivo(
@@ -441,24 +442,29 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
+            # --- AGRUPACIÓN ROBUSTA POR NÚMERO DE CRÉDITO EN EL NOMBRE ---
+            # Busca una secuencia de 8 a 12 dígitos en el nombre del archivo (ej. 1505068636, 0903066392)
+            match_credito_nombre = re.search(r'\d{8,12}', file.filename)
+            if match_credito_nombre:
+                prefijo = match_credito_nombre.group(0)
+            else:
+                # Respaldo si no encuentra dígitos exactos, limpiando caracteres extraños
+                prefijo = file.filename.split('_')[0].split(' ')[0]
+                prefijo = re.sub(r'[^0-9]', '', prefijo)
+                if not prefijo:
+                    prefijo = file.filename.replace('.pdf', '').replace('.PDF', '')
+
             try:
                 datos = services.extraer_datos_pdf(ruta_guardado)
                 
-                # Validación extra: Si no encontró número de crédito o está vacío, forzamos un error
-                if not datos or datos.get("numero_credito") == "NO_ENCONTRADO":
+                # Si el PDF está completamente vacío o corrupto
+                if not datos or (datos.get("numero_credito") == "NO_ENCONTRADO" and not datos.get("texto_raw")):
                     raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
                     
             except Exception as e_file:
                 print(f"Error al extraer datos del archivo individual {file.filename}: {e_file}")
                 datos = {"error_extraccion": str(e_file)}
             
-            # --- MODIFICACIÓN CLAVE ---
-            # Agrupamos estrictamente por el prefijo del nombre del archivo (antes del guion bajo)
-            # Ej: "1505068636_Carta.pdf" -> "1505068636"
-            prefijo = file.filename.split('_')[0]
-            # Limpiamos por si acaso el archivo no tiene guion (ej. "1505068636.pdf")
-            prefijo = prefijo.replace('.pdf', '').replace('.PDF', '')
-
             if prefijo not in agrupados_por_credito:
                 agrupados_por_credito[prefijo] = []
             
@@ -469,14 +475,19 @@ async def procesar_masivo(
             try:
                 lista_datos = [item[1] for item in grupo]
                 
-                # 🛑 VALIDACIÓN CLAVE: Si algún archivo del grupo tiene error de extracción, lanzamos la excepción para la tarjeta roja
-                if any("error_extraccion" in d for d in lista_datos):
-                    raise ValueError("El archivo PDF está corrupto, vacío o no contiene datos legibles.")
+                # Si todos los archivos del grupo fallaron, lanzamos error para la tarjeta roja
+                if all("error_extraccion" in d for d in lista_datos):
+                    raise ValueError("Los archivos PDF de este crédito están corruptos, vacíos o no contienen datos legibles.")
 
-                # Esta función de tu archivo services ya junta los textos de ambos PDFs
-                datos_raw = services.combinar_datos_pareja(lista_datos)
+                # Filtramos los datos válidos para la combinación
+                lista_datos_validos = [d for d in lista_datos if "error_extraccion" not in d]
+                if not lista_datos_validos:
+                    lista_datos_validos = lista_datos
+
+                # Combinamos los textos de ambos PDFs de la pareja
+                datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
-                # Si el texto interno no traía número de crédito, usamos el del nombre del archivo
+                # Si el texto interno no traía número de crédito, usamos el prefijo extraído del nombre
                 num_credito = datos_raw.get("numero_credito")
                 if not num_credito or num_credito == "NO_ENCONTRADO":
                     num_credito = prefijo
@@ -504,16 +515,16 @@ async def procesar_masivo(
                     "archivos_asociados": len(grupo),
                     "datos": datos_finales,
                     "datos_extraidos": datos_finales,
-                    "ruta_word": ruta_salida
+                    "ruta_word": ruta_salida,
+                    "plantilla_seleccionada": plantilla 
                 })
             except Exception as e_grupo:
-                # Si un grupo específico falla, hacemos rollback y mandamos el error al frontend para que pinte la tarjeta roja
                 db.rollback()
                 print(f"ERROR AISLADO al procesar el expediente/crédito {prefijo}: {e_grupo}")
                 resultados.append({
                     "expediente_id": prefijo,
                     "archivos_asociados": len(grupo),
-                    "error": str(e_grupo) # 👈 Esto es lo que lee el frontend para mostrar la alerta roja
+                    "error": str(e_grupo)
                 })
 
         return {"status": "exito", "procesados": len([r for r in resultados if "error" not in r]), "detalles": resultados}
