@@ -856,7 +856,7 @@ const handleUploadBatch = async () => {
     e.preventDefault();
     setCargando(true);
     try {
-      const res = await fetch('https://sistema-cancelaciones-production.up.railway.net/api/expedientes/generar-manual', {
+      const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'plantilla_manera2.docx' })
@@ -890,7 +890,7 @@ const handleUploadBatch = async () => {
     dataForm.append('usuario_propietario', 'admin');
 
     try {
-      const res = await fetch('https://sistema-cancelaciones-production.up.railway.net/api/expedientes/procesar-excel', {
+      const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/procesar-excel', {
         method: 'POST',
         body: dataForm
       });
@@ -2267,7 +2267,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           // Recuperar token de autenticación si lo guardas en localStorage (para evitar el error 401)
           const token = localStorage.getItem('token') || '';
 
-          const res = await fetch('https://sistema-cancelaciones-production.up.railway.net/api/expedientes/generar-manual', {
+          const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
