@@ -445,20 +445,24 @@ async def procesar_masivo(
         print(f"Plantilla seleccionada: {ruta_plantilla}")
 
         for file in files:
-            if not file.filename.lower().endswith('.pdf'):
+            # --- CORRECCIÓN MULTIPLATAFORMA (WINDOWS vs LINUX) ---
+            # Reemplazamos las barras de Windows (\) por barras normales (/) para que os.path.basename funcione perfectamente
+            nombre_seguro = file.filename.replace('\\', '/')
+            nombre_limpio_archivo = os.path.basename(nombre_seguro)
+
+            if not nombre_limpio_archivo.lower().endswith('.pdf'):
                 continue
                 
-            ruta_guardado = os.path.join("uploads", os.path.basename(file.filename))
+            ruta_guardado = os.path.join("uploads", nombre_limpio_archivo)
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            # --- AGRUPACIÓN ESTRICTA POR EL NOMBRE DEL ARCHIVO ---
-            # Tomamos los 8 a 12 dígitos del nombre del archivo como llave única e indiscutible
-            match_nombre = re.search(r'\d{8,12}', file.filename)
+            # --- AGRUPACIÓN INFALIBLE POR LOS DÍGITOS DEL NOMBRE LIMPIO ---
+            match_nombre = re.search(r'\d{8,12}', nombre_limpio_archivo)
             if match_nombre:
                 num_credito_grupo = match_nombre.group(0)
             else:
-                num_credito_grupo = file.filename.replace('.pdf', '').replace('.PDF', '').strip()
+                num_credito_grupo = nombre_limpio_archivo.replace('.pdf', '').replace('.PDF', '').strip()
 
             try:
                 # Extraemos los datos del PDF individual
@@ -469,10 +473,10 @@ async def procesar_masivo(
                     raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
                     
             except Exception as e_file:
-                print(f"Error al extraer datos del archivo individual {file.filename}: {e_file}")
+                print(f"Error al extraer datos del archivo individual {nombre_limpio_archivo}: {e_file}")
                 datos = {"error_extraccion": str(e_file)}
 
-            # Agrupamos obligatoriamente por el número de crédito del nombre del archivo
+            # Agrupamos obligatoriamente por el número de crédito limpio del nombre
             if num_credito_grupo not in agrupados_por_credito:
                 agrupados_por_credito[num_credito_grupo] = []
             
@@ -495,7 +499,7 @@ async def procesar_masivo(
                 # Fusionamos los textos de ambos PDFs de la pareja
                 datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
-                # Asignamos el número de crédito definitivo (si el texto no lo trajo, usamos el prefijo del nombre)
+                # Asignamos el número de crédito definitivo
                 num_credito = datos_raw.get("numero_credito")
                 if not num_credito or num_credito == "NO_ENCONTRADO":
                     num_credito = prefijo
