@@ -831,15 +831,18 @@ const handleUploadBatch = async () => {
 };
 
 // --- ESTADOS PARA CAPTURA MANUAL Y EXCEL ---
-  const [cargando, setCargando] = useState(false);
-  const [archivoExcel, setArchivoExcel] = useState(null);
-  const [formData, setFormData] = useState({
+const [formData, setFormData] = useState({
     numero_credito: '',
     nombre_acreditado: '',
     monto_credito: '',
     oficina_registral: '',
     numero_carta: '',
-    folio_real: ''
+    entidad_financiera: '',
+    fecha_liquidacion: '',
+    folio_real: '',
+    datos_inmueble: '',
+    fecha_expedicion: '',
+    credito_a_salario: ''
   });
 
   // --- FUNCIÓN PARA ENVÍO MANUAL ---
@@ -2244,7 +2247,7 @@ const filteredHistorial = (historial || []).filter((item) => {
   </div>
 )}
 
-{/* VISTA DE CAPTURA MANUAL */}
+{/* VISTA DE CAPTURA MANUAL COMPLETA */}
 {activeTab === 'manual' && (
   <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
     <h3 style={{ color: theme.textPrimary, marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Generación Manual de Caso Individual</h3>
@@ -2307,12 +2310,65 @@ const filteredHistorial = (historial || []).filter((item) => {
       </div>
 
       <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Entidad Financiera (Banco)</label>
+        <input
+          type="text"
+          placeholder="Ej. BBVA / INFONAVIT"
+          value={formData.entidad_financiera}
+          onChange={e => setFormData({...formData, entidad_financiera: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Fecha de Liquidación</label>
+        <input
+          type="text"
+          placeholder="Ej. 15 de enero de 2026"
+          value={formData.fecha_liquidacion}
+          onChange={e => setFormData({...formData, fecha_liquidacion: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div>
         <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Folio Real</label>
         <input
           type="text"
           value={formData.folio_real}
           onChange={e => setFormData({...formData, folio_real: e.target.value})}
           style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Fecha de Expedición</label>
+        <input
+          type="text"
+          value={formData.fecha_expedicion}
+          onChange={e => setFormData({...formData, fecha_expedicion: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Crédito a Salario</label>
+        <input
+          type="text"
+          value={formData.credito_a_salario}
+          onChange={e => setFormData({...formData, credito_a_salario: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div style={{ gridColumn: '1 / -1' }}>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Datos del Inmueble</label>
+        <textarea
+          rows="2"
+          placeholder="Descripción completa del inmueble..."
+          value={formData.datos_inmueble}
+          onChange={e => setFormData({...formData, datos_inmueble: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none', resize: 'vertical' }}
         />
       </div>
 
@@ -2325,44 +2381,6 @@ const filteredHistorial = (historial || []).filter((item) => {
           {cargando ? 'Generando Documento...' : 'Generar Word Manual'}
         </button>
       </div>
-    </form>
-  </div>
-)}
-
-{/* VISTA DE CARGA EXCEL */}
-{activeTab === 'excel' && (
-  <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-    <h3 style={{ color: theme.textPrimary, marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Carga Masiva mediante Excel o CSV</h3>
-    
-    <form onSubmit={handleExcelSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ border: `2px dashed ${theme.border}`, padding: '32px', borderRadius: '12px', textAlign: 'center', backgroundColor: theme.subtleBg }}>
-        <input
-          type="file"
-          accept=".xlsx, .xls, .csv"
-          onChange={e => setArchivoExcel(e.target.files[0])}
-          style={{ display: 'none' }}
-          id="excel-file-input"
-        />
-        <label htmlFor="excel-file-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-          <FileSpreadsize size={36} color={theme.accent} />
-          <span style={{ color: theme.textPrimary, fontWeight: '600' }}>
-            {archivoExcel ? archivoExcel.name : 'Haz clic para seleccionar tu archivo Excel o arrástralo aquí'}
-          </span>
-          <span style={{ fontSize: '12px', color: theme.textSecondary }}>Formatos permitidos: .xlsx, .xls, .csv</span>
-        </label>
-      </div>
-
-      <div style={{ padding: '12px 16px', backgroundColor: isDarkMode ? '#1e293b' : '#eff6ff', borderRadius: '8px', border: `1px solid ${isDarkMode ? '#334155' : '#dbeafe'}`, fontSize: '13px', color: isDarkMode ? '#93c5fd' : '#1e40af' }}>
-        <strong>Estructura requerida:</strong> Asegúrate de que tu hoja de cálculo incluya columnas con los nombres de encabezado como <code>numero_credito</code>, <code>nombre_acreditado</code> y <code>monto_credito</code>.
-      </div>
-
-      <button
-        type="submit"
-        disabled={cargando}
-        style={{ padding: '12px', backgroundColor: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-      >
-        {cargando ? 'Procesando Lote en Servidor...' : 'Procesar Carga Masiva Excel'}
-      </button>
     </form>
   </div>
 )}
