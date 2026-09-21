@@ -187,6 +187,9 @@ const indicePrimerItem = indiceUltimoItem - elementosPorPagina;
 const elementosVisibles = batchResults.slice(indicePrimerItem, indiceUltimoItem);
 const totalPaginas = Math.ceil(batchResults.length / elementosPorPagina);
 
+const [cartaFiles, setCartaFiles] = useState([]);
+const [constanciaFiles, setConstanciaFiles] = useState([]);
+
   // Validar sesión activa al recargar la página (F5)
 useEffect(() => {
   const checkAuth = async () => {
@@ -644,6 +647,36 @@ useEffect(() => {
   }
 };
 
+// Manejadores para Cartas de Instrucción
+const handleDropCartas = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  setCartaFiles(files);
+};
+
+const handleCartaFileChange = (e) => {
+  if (e.target.files) {
+    const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    setCartaFiles(files);
+  }
+};
+
+// Manejadores para Constancias de Folio
+const handleDropConstancias = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  setConstanciaFiles(files);
+};
+
+const handleConstanciaFileChange = (e) => {
+  if (e.target.files) {
+    const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    setConstanciaFiles(files);
+  }
+};
+
   const handleBatchFileChange = (e) => {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
@@ -765,31 +798,36 @@ const handleToggleSelectBatch = (index) => {
 };
 
 const handleUploadBatch = async () => {
-  if (batchFiles.length === 0) return;
+  if (cartaFiles.length === 0 || constanciaFiles.length === 0) {
+    alert("Debes cargar archivos tanto en Cartas de Instrucción como en Constancias de Folio.");
+    return;
+  }
+
   setBatchLoading(true);
   setProgressBatch(5);
   setError('');
 
-  const chunkSize = 15; // Tamaño de cada lote para proteger el servidor ante concurrencia
-  const totalFiles = batchFiles.length;
-  let processedFiles = 0;
+  const chunkSize = 15; // Tamaño del lote
+  const totalLotes = Math.ceil(Math.max(cartaFiles.length, constanciaFiles.length) / chunkSize);
   let resultadosTotales = [];
 
   try {
-    // Recorrer los archivos divididos en bloques
-    for (let i = 0; i < totalFiles; i += chunkSize) {
-      const chunk = batchFiles.slice(i, i + chunkSize);
+    for (let i = 0; i < totalLotes; i++) {
+      const chunkCartas = cartaFiles.slice(i * chunkSize, (i + 1) * chunkSize);
+      const chunkConstancias = constanciaFiles.slice(i * chunkSize, (i + 1) * chunkSize);
+
       const formData = new FormData();
       
-      // Adjuntar los archivos del bloque actual
-      chunk.forEach((f) => formData.append('files', f));
+      // Adjuntar cartas
+      chunkCartas.forEach((f) => formData.append('cartas', f));
+      // Adjuntar constancias
+      chunkConstancias.forEach((f) => formData.append('constancias', f));
+      
       formData.append('usuario_propietario', currentUser.username);
       formData.append('plantilla', selectedPlantilla);
 
-      // Enviar el bloque al backend
       const res = await api.post('/expedientes/procesar-masivo', formData);
 
-      // Normalizar los resultados de este bloque
       const detallesNormalizados = (res.data.detalles || []).map((item) => {
         const raw = item.datos_extraidos || {};
         return {
@@ -804,17 +842,13 @@ const handleUploadBatch = async () => {
         };
       });
 
-      // Acumular los resultados en la tabla de forma progresiva
       resultadosTotales = [...resultadosTotales, ...detallesNormalizados];
       setBatchResults(resultadosTotales);
 
-      // Calcular el porcentaje de progreso real basado en los archivos procesados
-      processedFiles += chunk.length;
-      const porcentajeReal = Math.round((processedFiles / totalFiles) * 95);
+      const porcentajeReal = Math.round(((i + 1) / totalLotes) * 95);
       setProgressBatch(porcentajeReal);
     }
 
-    // Finalizar proceso al 100%
     setProgressBatch(100);
     setTimeout(() => {
       if (resultadosTotales.length > 0) {
@@ -1768,39 +1802,39 @@ const filteredHistorial = (historial || []).filter((item) => {
                   <option value="" disabled>Aplicar a seleccionados ({selectedBatchIndices.length})...</option>
                   
                   <optgroup label="CDMX - APERTURA DE CRÉDITO">
-            <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
-            <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
-            <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
-            <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
-          </optgroup>
+                    <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+                    <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+                    <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+                    <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+                  </optgroup>
 
-          <optgroup label="CONTRATO DE MUTUO">
-            <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-            <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
-            <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
-            <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
-          </optgroup>
+                  <optgroup label="CONTRATO DE MUTUO">
+                    <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+                    <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+                    <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+                    <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+                  </optgroup>
 
-          <optgroup label="MODELOS COACREDITADOS">
-            <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
-            <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
-            <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
-            <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
-          </optgroup>
+                  <optgroup label="MODELOS COACREDITADOS">
+                    <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
+                    <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
+                    <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
+                    <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
+                  </optgroup>
 
-          <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
-            <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
-            <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
-            <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
-            <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
-          </optgroup>
+                  <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
+                    <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+                    <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+                    <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+                    <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+                  </optgroup>
 
-          <optgroup label="CONTRATO DE MUTUO">
-            <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-            <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
-            <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
-            <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
-          </optgroup>
+                  <optgroup label="CONTRATO DE MUTUO">
+                    <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+                    <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
+                    <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+                    <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+                  </optgroup>
                 </select>
               )}
             </div>
@@ -1814,209 +1848,209 @@ const filteredHistorial = (historial || []).filter((item) => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-{batchResults.map((res, idx) => {
-  if (res.error) {
-    return (
-      <div key={idx} style={{ border: '1px solid #ef4444', borderRadius: '10px', padding: '14px 18px', backgroundColor: '#fef2f2', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#b91c1c', fontSize: '14px', fontWeight: '600' }}>
-          <span>⚠️ Error al procesar archivo:</span>
-          <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{res.expediente_id}</span>
-        </div>
-        <p style={{ margin: '6px 0 0 28px', fontSize: '12px', color: '#7f1d1d' }}>
-          Detalle: {res.error} (El resto del lote se a procesado con éxito).
-        </p>
-      </div>
-    );
-  }
-  const isOpen = !!openAccordion[idx];
-  const datosExtraidos = res.datos_extraidos || {};
-  const acreditadoNombre = datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || 'Acreditado no identificado';
-  const isPreviewingThis = batchPreviewIndex === idx;
-  const isSelected = selectedBatchIndices.includes(idx);
-
-  return (
-                <div key={idx} style={{ border: `1px solid ${isPreviewingThis ? theme.accent : theme.border}`, borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s ease' }}>
-                  <div 
-                    onClick={() => toggleAccordion(idx)}
-                    style={{ padding: '14px 18px', backgroundColor: theme.subtleBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      
-                      {/* CHECKBOX INDIVIDUAL */}
-                      <input 
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleToggleSelectBatch(idx);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: theme.accent }}
-                      />
-
-                      <CheckCircle size={18} color="#10b981" />
-                      <span style={{ fontWeight: '600', fontSize: '14px', color: theme.textPrimary }}>
-                        {acreditadoNombre}
-                      </span>
-                      {datosExtraidos.numero_credito && (
-                        <span style={{ fontSize: '12px', color: theme.textSecondary, backgroundColor: theme.cardBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${theme.border}` }}>
-                          Crédito: {datosExtraidos.numero_credito}
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      
-                      {/* === MENÚ DESPLEGABLE DE PLANTILLAS === */}
-                      <select
-                        value={res.plantilla_seleccionada || ""}
-                        onChange={(e) => handleBatchPlantillaChange(idx, e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                          padding: '6px 8px',
-                          borderRadius: '6px',
-                          border: `1px solid ${theme.border}`,
-                          backgroundColor: theme.inputBg,
-                          color: theme.textPrimary,
-                          fontSize: '12px',
-                          outline: 'none',
-                          cursor: 'pointer',
-                          maxWidth: '220px',
-                          textOverflow: 'ellipsis'
-                        }}
-                        title="Seleccionar plantilla para este expediente"
-                      >
-                        <option value="" disabled>Seleccionar plantilla...</option>
-                        
-                        <optgroup label="CDMX - APERTURA DE CRÉDITO">
-            <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
-            <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
-            <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
-            <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
-          </optgroup>
-
-          <optgroup label="CONTRATO DE MUTUO">
-            <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-            <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
-            <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
-            <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
-          </optgroup>
-
-          <optgroup label="MODELOS COACREDITADOS">
-            <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
-            <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
-            <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
-            <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
-          </optgroup>
-
-          <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
-            <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
-            <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
-            <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
-            <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
-          </optgroup>
-
-          <optgroup label="CONTRATO DE MUTUO">
-            <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-            <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
-            <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
-            <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
-          </optgroup>
-                      </select>
-                      {/* =========================================== */}
-
-                      {/* BOTÓN VISTA PREVIA INDIVIDUAL EN LOTE */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setBatchPreviewIndex(idx);
-                          actualizarVistaPreviaMasivaTiempoReal(idx);
-                        }}
-                        style={{ 
-                          backgroundColor: isPreviewingThis ? theme.accent : theme.cardBg, 
-                          color: isPreviewingThis ? '#fff' : theme.textPrimary, 
-                          border: `1px solid ${theme.border}`, 
-                          padding: '6px 10px', 
-                          borderRadius: '6px', 
-                          fontSize: '12px', 
-                          fontWeight: '600', 
-                          cursor: 'pointer', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '4px' 
-                        }}
-                      >
-                        <Eye size={12} color={isPreviewingThis ? '#fff' : theme.accent} /> 
-                        {isPreviewingThis ? 'Viendo' : 'Previa'}
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDownloadWord(res.expediente_id, datosExtraidos);
-                        }}
-                        style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        <Download size={12} /> DOCX
-                      </button>
-                      {isOpen ? <ChevronUp size={18} color={theme.textSecondary} /> : <ChevronDown size={18} color={theme.textSecondary} />}
-                    </div>
+          {batchResults.map((res, idx) => {
+            if (res.error) {
+              return (
+                <div key={idx} style={{ border: '1px solid #ef4444', borderRadius: '10px', padding: '14px 18px', backgroundColor: '#fef2f2', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#b91c1c', fontSize: '14px', fontWeight: '600' }}>
+                    <span>⚠️ Error al procesar archivo:</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{res.expediente_id}</span>
                   </div>
-
-                  {isOpen && (
-                    <div style={{ padding: '18px', backgroundColor: theme.cardBg, borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-                      {Object.entries(datosExtraidos).map(([bKey, bVal]) => {
-                        const fieldKey = `batch_${idx}_${bKey}`;
-                        const isUnlocked = unlockedFields[fieldKey];
-
-                        return (
-                          <div key={bKey} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
-                              {formatLabel(bKey)}
-                            </label>
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <input
-                                type="text"
-                                value={bVal || ''}
-                                disabled={!isUnlocked}
-                                onChange={(e) => handleBatchInputChange(idx, bKey, e.target.value)}
-                                style={{
-                                  flex: 1,
-                                  padding: '8px 10px',
-                                  borderRadius: '6px',
-                                  border: `1px solid ${theme.border}`,
-                                  backgroundColor: isUnlocked ? theme.inputBg : theme.subtleBg,
-                                  color: theme.textPrimary,
-                                  fontSize: '12px',
-                                  opacity: isUnlocked ? 1 : 0.8
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleToggleUnlock(fieldKey)}
-                                style={{
-                                  padding: '8px',
-                                  borderRadius: '6px',
-                                  border: `1px solid ${theme.border}`,
-                                  backgroundColor: isUnlocked ? '#fef3c7' : theme.subtleBg,
-                                  color: isUnlocked ? '#d97706' : theme.textSecondary,
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center'
-                                }}
-                              >
-                                {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <p style={{ margin: '6px 0 0 28px', fontSize: '12px', color: '#7f1d1d' }}>
+                    Detalle: {res.error} (El resto del lote se ha procesado con éxito).
+                  </p>
                 </div>
               );
-            })}
+            }
+            const isOpen = !!openAccordion[idx];
+            const datosExtraidos = res.datos_extraidos || {};
+            const acreditadoNombre = datosExtraidos.acreditado || datosExtraidos.nombre_acreditado || 'Acreditado no identificado';
+            const isPreviewingThis = batchPreviewIndex === idx;
+            const isSelected = selectedBatchIndices.includes(idx);
+
+            return (
+              <div key={idx} style={{ border: `1px solid ${isPreviewingThis ? theme.accent : theme.border}`, borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s ease' }}>
+                <div 
+                  onClick={() => toggleAccordion(idx)}
+                  style={{ padding: '14px 18px', backgroundColor: theme.subtleBg, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    
+                    {/* CHECKBOX INDIVIDUAL */}
+                    <input 
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleToggleSelectBatch(idx);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: theme.accent }}
+                    />
+
+                    <CheckCircle size={18} color="#10b981" />
+                    <span style={{ fontWeight: '600', fontSize: '14px', color: theme.textPrimary }}>
+                      {acreditadoNombre}
+                    </span>
+                    {datosExtraidos.numero_credito && (
+                      <span style={{ fontSize: '12px', color: theme.textSecondary, backgroundColor: theme.cardBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${theme.border}` }}>
+                        Crédito: {datosExtraidos.numero_credito}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    
+                    {/* === MENÚ DESPLEGABLE DE PLANTILLAS === */}
+                    <select
+                      value={res.plantilla_seleccionada || ""}
+                      onChange={(e) => handleBatchPlantillaChange(idx, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        padding: '6px 8px',
+                        borderRadius: '6px',
+                        border: `1px solid ${theme.border}`,
+                        backgroundColor: theme.inputBg,
+                        color: theme.textPrimary,
+                        fontSize: '12px',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        maxWidth: '220px',
+                        textOverflow: 'ellipsis'
+                      }}
+                      title="Seleccionar plantilla para este expediente"
+                    >
+                      <option value="" disabled>Seleccionar plantilla...</option>
+                      
+                      <optgroup label="CDMX - APERTURA DE CRÉDITO">
+                        <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+                        <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+                        <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+                        <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+                      </optgroup>
+
+                      <optgroup label="CONTRATO DE MUTUO">
+                        <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+                        <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+                        <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+                        <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+                      </optgroup>
+
+                      <optgroup label="MODELOS COACREDITADOS">
+                        <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
+                        <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
+                        <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
+                        <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
+                      </optgroup>
+
+                      <optgroup label="3.EDOMEX - APERTURA DE CRÉDITO">
+                        <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+                        <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+                        <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+                        <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+                      </optgroup>
+
+                      <optgroup label="CONTRATO DE MUTUO">
+                        <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+                        <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
+                        <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+                        <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+                      </optgroup>
+                    </select>
+                    {/* =========================================== */}
+
+                    {/* BOTÓN VISTA PREVIA INDIVIDUAL EN LOTE */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBatchPreviewIndex(idx);
+                        actualizarVistaPreviaMasivaTiempoReal(idx);
+                      }}
+                      style={{ 
+                        backgroundColor: isPreviewingThis ? theme.accent : theme.cardBg, 
+                        color: isPreviewingThis ? '#fff' : theme.textPrimary, 
+                        border: `1px solid ${theme.border}`, 
+                        padding: '6px 10px', 
+                        borderRadius: '6px', 
+                        fontSize: '12px', 
+                        fontWeight: '600', 
+                        cursor: 'pointer', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px' 
+                      }}
+                    >
+                      <Eye size={12} color={isPreviewingThis ? '#fff' : theme.accent} /> 
+                      {isPreviewingThis ? 'Viendo' : 'Previa'}
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadWord(res.expediente_id, datosExtraidos);
+                      }}
+                      style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Download size={12} /> DOCX
+                    </button>
+                    {isOpen ? <ChevronUp size={18} color={theme.textSecondary} /> : <ChevronDown size={18} color={theme.textSecondary} />}
+                  </div>
+                </div>
+
+                {isOpen && (
+                  <div style={{ padding: '18px', backgroundColor: theme.cardBg, borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                    {Object.entries(datosExtraidos).map(([bKey, bVal]) => {
+                      const fieldKey = `batch_${idx}_${bKey}`;
+                      const isUnlocked = unlockedFields[fieldKey];
+
+                      return (
+                        <div key={bKey} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary }}>
+                            {formatLabel(bKey)}
+                          </label>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              value={bVal || ''}
+                              disabled={!isUnlocked}
+                              onChange={(e) => handleBatchInputChange(idx, bKey, e.target.value)}
+                              style={{
+                                flex: 1,
+                                padding: '8px 10px',
+                                borderRadius: '6px',
+                                border: `1px solid ${theme.border}`,
+                                backgroundColor: isUnlocked ? theme.inputBg : theme.subtleBg,
+                                color: theme.textPrimary,
+                                fontSize: '12px',
+                                opacity: isUnlocked ? 1 : 0.8
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleToggleUnlock(fieldKey)}
+                              style={{
+                                padding: '8px',
+                                borderRadius: '6px',
+                                border: `1px solid ${theme.border}`,
+                                backgroundColor: isUnlocked ? '#fef3c7' : theme.subtleBg,
+                                color: isUnlocked ? '#d97706' : theme.textSecondary,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              {isUnlocked ? <Unlock size={14} /> : <Lock size={14} />}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           </div>
         </div>
 

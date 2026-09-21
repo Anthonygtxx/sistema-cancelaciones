@@ -504,7 +504,8 @@ async def procesar_masivo(
                     "archivos_asociados": len(grupo),
                     "datos": datos_finales,
                     "datos_extraidos": datos_finales,
-                    "ruta_word": ruta_salida
+                    "ruta_word": ruta_salida,
+                    "plantilla_seleccionada": plantilla  # 👈 Sincronizado para que el select del frontend lo reconozca
                 })
             except Exception as e_grupo:
                 # Si un grupo específico falla, hacemos rollback y mandamos el error al frontend para que pinte la tarjeta roja
