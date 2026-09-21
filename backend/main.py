@@ -440,16 +440,17 @@ async def procesar_masivo(
         # Selección dinámica de plantilla usando el resolvedor
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
 
-        print(f"\n================ [PROCESAMIENTO MASIVO LIMPIO] ================")
-        print(f"Total de archivos recibidos brutos: {len(files)}")
+        print(f"\n================ [PROCESAMIENTO MASIVO DEFINITIVO] ================")
+        print(f"Total de archivos recibidos: {len(files)}")
 
-        archivos_procesados = []
+        agrupados_por_credito = {}
 
+        # 1. Recorrer todos los archivos y agruparlos ESTRICTAMENTE por el número de crédito de su nombre
         for file in files:
             nombre_archivo_bruto = file.filename or ""
             nombre_limpio_archivo = nombre_archivo_bruto.replace('\\', '/').split('/')[-1]
 
-            # --- 1. FILTRADO ESTRICTO DE ARCHIVOS BASURA Y SISTEMA ---
+            # Filtrar basura del sistema y archivos no PDF
             if not nombre_limpio_archivo.lower().endswith('.pdf'):
                 continue
             if nombre_limpio_archivo.startswith('.') or nombre_limpio_archivo.startswith('~$'):
@@ -461,64 +462,56 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
+            # FUENTE DE VERDAD: Extraer la llave de crédito directamente del nombre del archivo
+            match_nombre = re.search(r'\d{8,12}', nombre_limpio_archivo)
+            if match_nombre:
+                credito_key = re.sub(r'\D', '', match_nombre.group(0))
+            else:
+                # Si el nombre no lo tiene, intentamos leerlo del contenido como respaldo
+                try:
+                    datos_temp = services.extraer_datos_pdf(ruta_guardado)
+                    credito_ext = datos_temp.get("numero_credito")
+                    if credito_ext and credito_ext != "NO_ENCONTRADO":
+                        credito_key = re.sub(r'\D', '', str(credito_ext))
+                    else:
+                        credito_key = "DESCONOCIDO_" + nombre_limpio_archivo
+                except:
+                    credito_key = "DESCONOCIDO_" + nombre_limpio_archivo
+
+            # Extraer datos individuales del PDF
             try:
                 datos = services.extraer_datos_pdf(ruta_guardado)
                 if not datos or (datos.get("numero_credito") == "NO_ENCONTRADO" and not datos.get("texto_raw")):
                     raise ValueError("PDF sin datos legibles.")
             except Exception as e_file:
-                print(f"Archivo individual con error (ignorado): {nombre_limpio_archivo} -> {e_file}")
+                print(f"Error en archivo individual {nombre_limpio_archivo}: {e_file}")
                 datos = {"error_extraccion": str(e_file), "numero_credito": "NO_ENCONTRADO"}
-
-            archivos_procesados.append({
-                "ruta": ruta_guardado,
-                "nombre": nombre_limpio_archivo,
-                "datos": datos
-            })
-
-        # --- 2. AGRUPACIÓN INTELIGENTE ---
-        agrupados_por_credito = {}
-
-        for item in archivos_procesados:
-            ruta = item["ruta"]
-            nombre = item["nombre"]
-            datos = item["datos"]
-
-            credito_extraido = datos.get("numero_credito")
-            credito_key = None
-
-            if credito_extraido and credito_extraido != "NO_ENCONTRADO":
-                credito_key = re.sub(r'\D', '', str(credito_extraido))
-
-            if not credito_key or len(credito_key) < 8:
-                match_nombre = re.search(r'\d{8,12}', nombre)
-                if match_nombre:
-                    credito_key = re.sub(r'\D', '', match_nombre.group(0))
-
-            # Si el archivo no tiene un número de crédito válido, lo descartamos para que no genere basura
-            if not credito_key or len(credito_key) < 8:
-                print(f"Descartando archivo sin número de crédito válido: {nombre}")
-                continue
 
             if credito_key not in agrupados_por_credito:
                 agrupados_por_credito[credito_key] = []
             
-            agrupados_por_credito[credito_key].append((ruta, datos))
+            agrupados_por_credito[credito_key].append((ruta_guardado, datos, nombre_limpio_archivo))
 
-        # --- 3. GENERACIÓN DE RESULTADOS (SOLO EXITOSOS) ---
         resultados = []
+        conteo_exitosos = 0
+
+        # 2. Procesar cada grupo unificado de crédito
         for prefijo, grupo in agrupados_por_credito.items():
             try:
+                if prefijo.startswith("DESCONOCIDO_"):
+                    raise ValueError(f"El archivo {grupo[0][2]} no contiene un número de crédito válido en su nombre.")
+
                 lista_datos = [item[1] for item in grupo]
                 
-                # Si todos los archivos del grupo fallaron, omitimos este grupo silenciosamente
+                # Si todos los archivos del grupo fallaron
                 if all("error_extraccion" in d for d in lista_datos):
-                    print(f"Omitiendo grupo {prefijo} por errores de lectura.")
-                    continue
+                    raise ValueError(f"Los archivos PDF del crédito {prefijo} están corruptos o vacíos.")
 
                 lista_datos_validos = [d for d in lista_datos if "error_extraccion" not in d]
                 if not lista_datos_validos:
                     lista_datos_validos = lista_datos
 
+                # Fusionar datos de la pareja (Carta + Constancia)
                 datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
                 num_credito = datos_raw.get("numero_credito")
@@ -546,7 +539,6 @@ async def procesar_masivo(
                 db.commit()
                 db.refresh(nuevo_expediente)
 
-                # SOLO se añaden a resultados los expedientes reales y exitosos
                 resultados.append({
                     "id": str(nuevo_expediente.id),
                     "expediente_id": str(nuevo_expediente.id),
@@ -556,13 +548,25 @@ async def procesar_masivo(
                     "ruta_word": ruta_salida,
                     "plantilla_seleccionada": plantilla
                 })
+                conteo_exitosos += 1
+
             except Exception as e_grupo:
                 db.rollback()
-                print(f"ERROR AISLADO al procesar el grupo {prefijo}: {e_grupo}")
-                # Omitido intencionalmente: No se manda a resultados para evitar tarjetas rojas en la UI.
+                print(f"ERROR al procesar el grupo {prefijo}: {e_grupo}")
+                # Se mantiene la tarjeta roja de error en los detalles para que aparezca en la UI
+                nombre_archivo_erroneo = grupo[0][2] if grupo else prefijo
+                resultados.append({
+                    "expediente_id": prefijo,
+                    "archivos_asociados": len(grupo),
+                    "error": str(e_grupo),
+                    "nombre_archivo": nombre_archivo_erroneo
+                })
 
-        print(f"Procesamiento masivo finalizado. Total de expedientes válidos generados: {len(resultados)}")
-        return {"status": "exito", "procesados": len(resultados), "detalles": resultados}
+        return {
+            "status": "exito", 
+            "procesados": conteo_exitosos, 
+            "detalles": resultados
+        }
     except Exception as e:
         print(f"ERROR GLOBAL EN /procesar-masivo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
