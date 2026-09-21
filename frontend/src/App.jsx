@@ -177,6 +177,16 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
   const [archivoPlantilla, setArchivoPlantilla] = useState(null);
   const [selectedBatchIndices, setSelectedBatchIndices] = useState([]);
 
+  // Estados para la paginación
+const [paginaActual, setPaginaActual] = React.useState(1);
+const elementosPorPagina = 15;
+
+// Calcular elementos de la página actual
+const indiceUltimoItem = paginaActual * elementosPorPagina;
+const indicePrimerItem = indiceUltimoItem - elementosPorPagina;
+const elementosVisibles = batchResults.slice(indicePrimerItem, indiceUltimoItem);
+const totalPaginas = Math.ceil(batchResults.length / elementosPorPagina);
+
   // Validar sesión activa al recargar la página (F5)
 useEffect(() => {
   const checkAuth = async () => {
@@ -754,56 +764,71 @@ const handleToggleSelectBatch = (index) => {
   }
 };
 
-  const handleUploadBatch = async () => {
-    if (batchFiles.length === 0) return;
-    setBatchLoading(true);
-    setProgressBatch(5);
-    setError('');
+const handleUploadBatch = async () => {
+  if (batchFiles.length === 0) return;
+  setBatchLoading(true);
+  setProgressBatch(5);
+  setError('');
 
-    const interval = setInterval(() => {
-      setProgressBatch((prev) => (prev < 90 ? prev + 10 : prev));
+  const chunkSize = 15; // Tamaño de cada lote para proteger el servidor ante concurrencia
+  const totalFiles = batchFiles.length;
+  let processedFiles = 0;
+  let resultadosTotales = [];
+
+  try {
+    // Recorrer los archivos divididos en bloques
+    for (let i = 0; i < totalFiles; i += chunkSize) {
+      const chunk = batchFiles.slice(i, i + chunkSize);
+      const formData = new FormData();
+      
+      // Adjuntar los archivos del bloque actual
+      chunk.forEach((f) => formData.append('files', f));
+      formData.append('usuario_propietario', currentUser.username);
+      formData.append('plantilla', selectedPlantilla);
+
+      // Enviar el bloque al backend
+      const res = await api.post('/expedientes/procesar-masivo', formData);
+
+      // Normalizar los resultados de este bloque
+      const detallesNormalizados = (res.data.detalles || []).map((item) => {
+        const raw = item.datos_extraidos || {};
+        return {
+          ...item,
+          plantilla_seleccionada: selectedPlantilla,
+          datos_extraidos: {
+            acreditado: raw.acreditado || raw.nombre_acreditado || '',
+            monto: raw.monto || raw.monto_credito || '',
+            numero_credito: raw.numero_credito || '',
+            ...raw
+          }
+        };
+      });
+
+      // Acumular los resultados en la tabla de forma progresiva
+      resultadosTotales = [...resultadosTotales, ...detallesNormalizados];
+      setBatchResults(resultadosTotales);
+
+      // Calcular el porcentaje de progreso real basado en los archivos procesados
+      processedFiles += chunk.length;
+      const porcentajeReal = Math.round((processedFiles / totalFiles) * 95);
+      setProgressBatch(porcentajeReal);
+    }
+
+    // Finalizar proceso al 100%
+    setProgressBatch(100);
+    setTimeout(() => {
+      if (resultadosTotales.length > 0) {
+        setOpenAccordion({ 0: true });
+      }
+      setUnlockedFields({});
+      setBatchLoading(false);
     }, 300);
 
-    const formData = new FormData();
-    batchFiles.forEach((f) => formData.append('files', f));
-    formData.append('usuario_propietario', currentUser.username);
-    // Inyección de la plantilla notarial seleccionada
-    formData.append('plantilla', selectedPlantilla);
-
-    try {
-      const res = await api.post('/expedientes/procesar-masivo', formData);
-      clearInterval(interval);
-      setProgressBatch(100);
-      // Dentro de handleUploadBatch, reemplaza el bloque setTimeout:
-setTimeout(() => {
-  const detallesNormalizados = (res.data.detalles || []).map((item) => {
-    const raw = item.datos_extraidos || {};
-    return {
-      ...item,
-      // Asigna la plantilla global como valor inicial para esta fila
-      plantilla_seleccionada: selectedPlantilla,
-      datos_extraidos: {
-        acreditado: raw.acreditado || raw.nombre_acreditado || '',
-        monto: raw.monto || raw.monto_credito || '',
-        numero_credito: raw.numero_credito || '',
-        ...raw
-      }
-    };
-  });
-
-  setBatchResults(detallesNormalizados);
-  if (detallesNormalizados.length > 0) {
-    setOpenAccordion({ 0: true });
+  } catch (err) {
+    setError(err.response?.data?.detail || 'Error al procesar el lote de archivos.');
+    setBatchLoading(false);
   }
-  setUnlockedFields({});
-  setBatchLoading(false);
-}, 500);
-    } catch (err) {
-      clearInterval(interval);
-      setError(err.response?.data?.detail || 'Error al procesar el lote.');
-      setBatchLoading(false);
-    }
-  };
+};
 
  const handleDownloadWord = async (id, datosActuales) => {
   try {

@@ -4,7 +4,7 @@ import zipfile
 import re
 import uuid
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Body, Query, Header
+from fastapi import FastAPI, UploadFile, BackgroundTasks, File, Form, Depends, HTTPException, Body, Query, Header
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -53,6 +53,45 @@ PLANTILLAS_CATALOGO = {
     "EDOMEX_MUTUO_M_CASADA": "EDOMEX_MUTUO_M_CASADA.docx",
     "EDOMEX_MUTUO_M_SOLTERA": "EDOMEX_MUTUO_M_SOLTERA.docx",
 }
+
+def eliminar_archivo_temporal(ruta: str):
+    """Elimina el archivo ZIP del servidor de manera segura después de la descarga."""
+    if os.path.exists(ruta):
+        try:
+            os.remove(ruta)
+        except Exception as e:
+            print(f"Error al eliminar archivo temporal: {e}")
+
+@app.post("/api/expedientes/descargar-zip")
+def descargar_zip(
+    expediente_ids: List[str] = Body(...), 
+    background_tasks: BackgroundTasks = None, 
+    db: Session = Depends(get_db)
+):
+    os.makedirs("uploads/zips", exist_ok=True)
+    ruta_zip = f"uploads/zips/Cancelaciones_Lote_{uuid.uuid4()}.uuid" # Usar un nombre único por petición evita colisiones si dos usuarios descargan al mismo tiempo
+    ruta_zip = "uploads/zips/Cancelaciones_Lote.zip" # O puedes mantener tu ruta estática si manejas UUIDs únicos
+    
+    with zipfile.ZipFile(ruta_zip, 'w') as zipf:
+        for exp_id in expediente_ids:
+            try:
+                uuid_val = uuid.UUID(str(exp_id))
+            except ValueError:
+                continue 
+            
+            exp = db.query(models.Expediente).filter(models.Expediente.id == uuid_val).first()
+            if exp and exp.ruta_word_generado and os.path.exists(exp.ruta_word_generado):
+                nombre_archivo = os.path.basename(exp.ruta_word_generado)
+                zipf.write(exp.ruta_word_generado, arcname=nombre_archivo)
+
+    # Programar la tarea de limpieza para que borre el ZIP en cuanto termine la respuesta HTTP
+    background_tasks.add_task(eliminar_archivo_temporal, ruta_zip)
+
+    return FileResponse(
+        path=ruta_zip,
+        filename="Cancelaciones_Lote.zip",
+        media_type="application/zip"
+    )
 
 def resolver_ruta_plantilla(nombre_o_clave: Optional[str]) -> str:
     """Resuelve la ruta física del archivo .docx admitiendo clave o nombre directo."""
