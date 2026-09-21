@@ -2386,6 +2386,44 @@ const filteredHistorial = (historial || []).filter((item) => {
   </div>
 )}
 
+{/* VISTA DE CARGA EXCEL / LOTE */}
+{activeTab === 'excel' && (
+  <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+    <h3 style={{ color: theme.textPrimary, marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Carga Masiva mediante Excel o CSV</h3>
+    
+    <form onSubmit={handleExcelSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ border: `2px dashed ${theme.border}`, padding: '32px', borderRadius: '12px', textAlign: 'center', backgroundColor: theme.subtleBg }}>
+        <input
+          type="file"
+          accept=".xlsx, .xls, .csv"
+          onChange={e => setArchivoExcel(e.target.files[0])}
+          style={{ display: 'none' }}
+          id="excel-file-input"
+        />
+        <label htmlFor="excel-file-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+          <FileSpreadsheet size={36} color={theme.accent} />
+          <span style={{ color: theme.textPrimary, fontWeight: '600' }}>
+            {archivoExcel ? archivoExcel.name : 'Haz clic para seleccionar tu archivo Excel o arrástralo aquí'}
+          </span>
+          <span style={{ fontSize: '12px', color: theme.textSecondary }}>Formatos permitidos: .xlsx, .xls, .csv</span>
+        </label>
+      </div>
+
+      <div style={{ padding: '12px 16px', backgroundColor: isDarkMode ? '#1e293b' : '#eff6ff', borderRadius: '8px', border: `1px solid ${isDarkMode ? '#334155' : '#dbeafe'}`, fontSize: '13px', color: isDarkMode ? '#93c5fd' : '#1e40af' }}>
+        <strong>Estructura requerida:</strong> Asegúrate de que tu hoja de cálculo incluya columnas con los nombres de encabezado como <code>numero_credito</code>, <code>nombre_acreditado</code> y <code>monto_credito</code>.
+      </div>
+
+      <button
+        type="submit"
+        disabled={cargando}
+        style={{ padding: '12px', backgroundColor: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+      >
+        {cargando ? 'Procesando Lote en Servidor...' : 'Procesar Carga Masiva Excel'}
+      </button>
+    </form>
+  </div>
+)}
+
 
 {/* TAB: HISTORIAL */}
           {activeTab === 'history' && (
