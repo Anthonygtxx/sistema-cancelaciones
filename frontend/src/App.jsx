@@ -187,17 +187,6 @@ const indicePrimerItem = indiceUltimoItem - elementosPorPagina;
 const elementosVisibles = batchResults.slice(indicePrimerItem, indiceUltimoItem);
 const totalPaginas = Math.ceil(batchResults.length / elementosPorPagina);
 
-const [cartasFiles, setCartasFiles] = useState([]);
-const [constanciasFiles, setConstanciasFiles] = useState([]);
-
-const handleCartasFileChange = (e) => {
-  if (e.target.files) setCartasFiles(Array.from(e.target.files));
-};
-
-const handleConstanciasFileChange = (e) => {
-  if (e.target.files) setConstanciasFiles(Array.from(e.target.files));
-};
-
   // Validar sesión activa al recargar la página (F5)
 useEffect(() => {
   const checkAuth = async () => {
@@ -655,36 +644,6 @@ useEffect(() => {
   }
 };
 
-// Manejadores para Cartas de Instrucción
-const handleDropCartas = (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
-  setCartaFiles(files);
-};
-
-const handleCartaFileChange = (e) => {
-  if (e.target.files) {
-    const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
-    setCartaFiles(files);
-  }
-};
-
-// Manejadores para Constancias de Folio
-const handleDropConstancias = (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
-  setConstanciaFiles(files);
-};
-
-const handleConstanciaFileChange = (e) => {
-  if (e.target.files) {
-    const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
-    setConstanciaFiles(files);
-  }
-};
-
   const handleBatchFileChange = (e) => {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
@@ -806,36 +765,31 @@ const handleToggleSelectBatch = (index) => {
 };
 
 const handleUploadBatch = async () => {
-  if (cartaFiles.length === 0 || constanciaFiles.length === 0) {
-    alert("Debes cargar archivos tanto en Cartas de Instrucción como en Constancias de Folio.");
-    return;
-  }
-
+  if (batchFiles.length === 0) return;
   setBatchLoading(true);
   setProgressBatch(5);
   setError('');
 
-  const chunkSize = 15; // Tamaño del lote
-  const totalLotes = Math.ceil(Math.max(cartaFiles.length, constanciaFiles.length) / chunkSize);
+  const chunkSize = 15; // Tamaño de cada lote para proteger el servidor ante concurrencia
+  const totalFiles = batchFiles.length;
+  let processedFiles = 0;
   let resultadosTotales = [];
 
   try {
-    for (let i = 0; i < totalLotes; i++) {
-      const chunkCartas = cartaFiles.slice(i * chunkSize, (i + 1) * chunkSize);
-      const chunkConstancias = constanciaFiles.slice(i * chunkSize, (i + 1) * chunkSize);
-
+    // Recorrer los archivos divididos en bloques
+    for (let i = 0; i < totalFiles; i += chunkSize) {
+      const chunk = batchFiles.slice(i, i + chunkSize);
       const formData = new FormData();
       
-      // Adjuntar cartas
-      chunkCartas.forEach((f) => formData.append('cartas', f));
-      // Adjuntar constancias
-      chunkConstancias.forEach((f) => formData.append('constancias', f));
-      
+      // Adjuntar los archivos del bloque actual
+      chunk.forEach((f) => formData.append('files', f));
       formData.append('usuario_propietario', currentUser.username);
       formData.append('plantilla', selectedPlantilla);
 
+      // Enviar el bloque al backend
       const res = await api.post('/expedientes/procesar-masivo', formData);
 
+      // Normalizar los resultados de este bloque
       const detallesNormalizados = (res.data.detalles || []).map((item) => {
         const raw = item.datos_extraidos || {};
         return {
@@ -850,13 +804,17 @@ const handleUploadBatch = async () => {
         };
       });
 
+      // Acumular los resultados en la tabla de forma progresiva
       resultadosTotales = [...resultadosTotales, ...detallesNormalizados];
       setBatchResults(resultadosTotales);
 
-      const porcentajeReal = Math.round(((i + 1) / totalLotes) * 95);
+      // Calcular el porcentaje de progreso real basado en los archivos procesados
+      processedFiles += chunk.length;
+      const porcentajeReal = Math.round((processedFiles / totalFiles) * 95);
       setProgressBatch(porcentajeReal);
     }
 
+    // Finalizar proceso al 100%
     setProgressBatch(100);
     setTimeout(() => {
       if (resultadosTotales.length > 0) {
@@ -1709,93 +1667,6 @@ const filteredHistorial = (historial || []).filter((item) => {
         </label>
       </div>
 
-      {/* SECCIÓN: SUBIDA DE CARPETAS DE CARTAS Y CONSTANCIAS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-        {/* CARPETA DE CARTAS */}
-        <div 
-          onDragOver={handleDragOver}
-          onDrop={handleDropCartas}
-          style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '20px 16px', textAlign: 'center', cursor: 'pointer' }}
-        >
-          <FileText size={32} color={theme.accent} style={{ margin: '0 auto 8px auto' }} />
-          <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: '600', color: theme.textPrimary }}>
-            Carpeta de Cartas
-          </p>
-          <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: theme.textSecondary }}>Arrastra o selecciona la carpeta</p>
-          <input
-            type="file"
-            multiple
-            accept=".pdf"
-            webkitdirectory="true"
-            onChange={handleCartasFileChange}
-            style={{ display: 'none' }}
-            id="cartas-file-input"
-          />
-          <label htmlFor="cartas-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
-            Buscar Cartas
-          </label>
-        </div>
-
-        {/* CARPETA DE CONSTANCIAS */}
-        <div 
-          onDragOver={handleDragOver}
-          onDrop={handleDropConstancias}
-          style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '20px 16px', textAlign: 'center', cursor: 'pointer' }}
-        >
-          <FileText size={32} color={theme.accent} style={{ margin: '0 auto 8px auto' }} />
-          <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: '600', color: theme.textPrimary }}>
-            Carpeta de Constancias
-          </p>
-          <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: theme.textSecondary }}>Arrastra o selecciona la carpeta</p>
-          <input
-            type="file"
-            multiple
-            accept=".pdf"
-            webkitdirectory="true"
-            onChange={handleConstanciasFileChange}
-            style={{ display: 'none' }}
-            id="constancias-file-input"
-          />
-          <label htmlFor="constancias-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
-            Buscar Constancias
-          </label>
-        </div>
-      </div>
-
-      {/* ARCHIVOS DETECTADOS DE CARTAS */}
-      {cartasFiles.length > 0 && (
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: theme.textSecondary }}>
-            Cartas Detectadas ({cartasFiles.length}):
-          </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '100px', overflowY: 'auto' }}>
-            {cartasFiles.map((f, i) => (
-              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '4px', fontSize: '12px', color: theme.textPrimary }}>
-                <FileText size={12} color={theme.textSecondary} />
-                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* ARCHIVOS DETECTADOS DE CONSTANCIAS */}
-      {constanciasFiles.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: theme.textSecondary }}>
-            Constancias Detectadas ({constanciasFiles.length}):
-          </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '100px', overflowY: 'auto' }}>
-            {constanciasFiles.map((f, i) => (
-              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '4px', fontSize: '12px', color: theme.textPrimary }}>
-                <FileText size={12} color={theme.textSecondary} />
-                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {batchFiles.length > 0 && (
         <div style={{ marginBottom: '20px' }}>
           <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textSecondary }}>
@@ -2258,6 +2129,7 @@ const filteredHistorial = (historial || []).filter((item) => {
     )}
   </div>
 )}
+
 
 {/* TAB: HISTORIAL */}
           {activeTab === 'history' && (

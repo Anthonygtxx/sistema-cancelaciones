@@ -4,7 +4,7 @@ import zipfile
 import re
 import uuid
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, UploadFile, BackgroundTasks, File, Form, Depends, HTTPException, Body, Query, Header
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Body, Query, Header
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -413,26 +413,24 @@ async def procesar_documento(
 # --- PROCESAMIENTO MASIVO ---
 @app.post("/api/expedientes/procesar-masivo")
 async def procesar_masivo(
-    cartas: List[UploadFile] = File(...),
-    constancias: List[UploadFile] = File(...),
+    files: List[UploadFile] = File(...),
     usuario_propietario: Optional[str] = Form(None),
     plantilla: Optional[str] = Form("plantilla_manera2.docx"),
     db: Session = Depends(get_db)
 ):
     try:
-        # Unimos ambos grupos de archivos en una sola lista para que el resto de tu lógica funcione igual
-        files = cartas + constancias
-        
         propietario_final = usuario_propietario if usuario_propietario else "admin"
 
         os.makedirs("uploads", exist_ok=True)
         os.makedirs("uploads/generados", exist_ok=True)
         
+        # Selección dinámica de plantilla usando el resolvedor
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
+
         agrupados_por_credito = {}
 
         print(f"\n================ [PROCESAMIENTO MASIVO EN CURSO] ================")
-        print(f"Total de archivos recibidos (Cartas + Constancias): {len(files)}")
+        print(f"Total de archivos recibidos: {len(files)}")
         print(f"Plantilla seleccionada: {ruta_plantilla}")
 
         for file in files:
@@ -445,14 +443,20 @@ async def procesar_masivo(
 
             try:
                 datos = services.extraer_datos_pdf(ruta_guardado)
+                
+                # Validación extra: Si no encontró número de crédito o está vacío, forzamos un error
                 if not datos or datos.get("numero_credito") == "NO_ENCONTRADO":
                     raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
+                    
             except Exception as e_file:
                 print(f"Error al extraer datos del archivo individual {file.filename}: {e_file}")
                 datos = {"error_extraccion": str(e_file)}
             
-            # Agrupación por prefijo del nombre de archivo (ej. "1505068636_Carta.pdf" -> "1505068636")
+            # --- MODIFICACIÓN CLAVE ---
+            # Agrupamos estrictamente por el prefijo del nombre del archivo (antes del guion bajo)
+            # Ej: "1505068636_Carta.pdf" -> "1505068636"
             prefijo = file.filename.split('_')[0]
+            # Limpiamos por si acaso el archivo no tiene guion (ej. "1505068636.pdf")
             prefijo = prefijo.replace('.pdf', '').replace('.PDF', '')
 
             if prefijo not in agrupados_por_credito:
@@ -465,11 +469,14 @@ async def procesar_masivo(
             try:
                 lista_datos = [item[1] for item in grupo]
                 
+                # 🛑 VALIDACIÓN CLAVE: Si algún archivo del grupo tiene error de extracción, lanzamos la excepción para la tarjeta roja
                 if any("error_extraccion" in d for d in lista_datos):
                     raise ValueError("El archivo PDF está corrupto, vacío o no contiene datos legibles.")
 
+                # Esta función de tu archivo services ya junta los textos de ambos PDFs
                 datos_raw = services.combinar_datos_pareja(lista_datos)
                 
+                # Si el texto interno no traía número de crédito, usamos el del nombre del archivo
                 num_credito = datos_raw.get("numero_credito")
                 if not num_credito or num_credito == "NO_ENCONTRADO":
                     num_credito = prefijo
@@ -497,16 +504,16 @@ async def procesar_masivo(
                     "archivos_asociados": len(grupo),
                     "datos": datos_finales,
                     "datos_extraidos": datos_finales,
-                    "ruta_word": ruta_salida,
-                    "plantilla_seleccionada": plantilla 
+                    "ruta_word": ruta_salida
                 })
             except Exception as e_grupo:
+                # Si un grupo específico falla, hacemos rollback y mandamos el error al frontend para que pinte la tarjeta roja
                 db.rollback()
                 print(f"ERROR AISLADO al procesar el expediente/crédito {prefijo}: {e_grupo}")
                 resultados.append({
                     "expediente_id": prefijo,
                     "archivos_asociados": len(grupo),
-                    "error": str(e_grupo)
+                    "error": str(e_grupo) # 👈 Esto es lo que lee el frontend para mostrar la alerta roja
                 })
 
         return {"status": "exito", "procesados": len([r for r in resultados if "error" not in r]), "detalles": resultados}
