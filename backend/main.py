@@ -479,6 +479,13 @@ async def procesar_masivo(
                 match_nombre = re.search(r'\d{8,12}', file.filename)
                 num_credito_interno = match_nombre.group(0) if match_nombre else file.filename.replace('.pdf', '')
 
+            # --- NORMALIZACIÓN OBLIGATORIA PARA EVITAR CLAVES SEPARADAS ---
+            match_limpio = re.search(r'\d{8,12}', str(num_credito_interno))
+            if match_limpio:
+                num_credito_interno = match_limpio.group(0)
+            else:
+                num_credito_interno = str(num_credito_interno).strip()
+
             # --- AGRUPACIÓN INTELIGENTE Y UNIFICADA ---
             # Todos los archivos que pertenezcan al mismo número de crédito (leído del PDF o del nombre)
             # caerán estrictamente en la misma lista, evitando duplicados o múltiples resultados.
