@@ -440,19 +440,23 @@ async def procesar_masivo(
         # Selección dinámica de plantilla usando el resolvedor
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
 
-        print(f"\n================ [PROCESAMIENTO MASIVO INTELIGENTE] ================")
-        print(f"Total de archivos recibidos: {len(files)}")
-        print(f"Plantilla seleccionada: {ruta_plantilla}")
+        print(f"\n================ [PROCESAMIENTO MASIVO LIMPIO] ================")
+        print(f"Total de archivos recibidos brutos: {len(files)}")
 
         archivos_procesados = []
 
-        # 1. Guardar y extraer datos preliminares de cada PDF individualmente
         for file in files:
-            nombre_limpio_archivo = file.filename.replace('\\', '/').split('/')[-1]
+            nombre_archivo_bruto = file.filename or ""
+            nombre_limpio_archivo = nombre_archivo_bruto.replace('\\', '/').split('/')[-1]
 
+            # --- 1. FILTRADO ESTRICTO DE ARCHIVOS BASURA Y SISTEMA ---
             if not nombre_limpio_archivo.lower().endswith('.pdf'):
                 continue
-                
+            if nombre_limpio_archivo.startswith('.') or nombre_limpio_archivo.startswith('~$'):
+                continue
+            if nombre_limpio_archivo.lower() in ['thumbs.db', 'desktop.ini', '.ds_store']:
+                continue
+
             ruta_guardado = os.path.join("uploads", nombre_limpio_archivo)
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
@@ -460,9 +464,9 @@ async def procesar_masivo(
             try:
                 datos = services.extraer_datos_pdf(ruta_guardado)
                 if not datos or (datos.get("numero_credito") == "NO_ENCONTRADO" and not datos.get("texto_raw")):
-                    raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
+                    raise ValueError("PDF sin datos legibles.")
             except Exception as e_file:
-                print(f"Error al extraer datos del archivo individual {nombre_limpio_archivo}: {e_file}")
+                print(f"Archivo individual con error (ignorado): {nombre_limpio_archivo} -> {e_file}")
                 datos = {"error_extraccion": str(e_file), "numero_credito": "NO_ENCONTRADO"}
 
             archivos_procesados.append({
@@ -471,7 +475,7 @@ async def procesar_masivo(
                 "datos": datos
             })
 
-        # 2. Agrupación inteligente basada en el contenido extraído Y respaldo por nombre
+        # --- 2. AGRUPACIÓN INTELIGENTE ---
         agrupados_por_credito = {}
 
         for item in archivos_procesados:
@@ -479,45 +483,42 @@ async def procesar_masivo(
             nombre = item["nombre"]
             datos = item["datos"]
 
-            # Intentamos obtener el crédito del contenido interno del PDF
             credito_extraido = datos.get("numero_credito")
             credito_key = None
 
             if credito_extraido and credito_extraido != "NO_ENCONTRADO":
                 credito_key = re.sub(r'\D', '', str(credito_extraido))
 
-            # Si el PDF no traía el crédito adentro, lo buscamos en el nombre del archivo
             if not credito_key or len(credito_key) < 8:
                 match_nombre = re.search(r'\d{8,12}', nombre)
                 if match_nombre:
                     credito_key = re.sub(r'\D', '', match_nombre.group(0))
 
-            # Último respaldo si de plano no hay números
-            if not credito_key:
-                credito_key = re.sub(r'\D', '', nombre)
-                if not credito_key:
-                    credito_key = pathlib.Path(nombre).stem
+            # Si el archivo no tiene un número de crédito válido, lo descartamos para que no genere basura
+            if not credito_key or len(credito_key) < 8:
+                print(f"Descartando archivo sin número de crédito válido: {nombre}")
+                continue
 
             if credito_key not in agrupados_por_credito:
                 agrupados_por_credito[credito_key] = []
             
             agrupados_por_credito[credito_key].append((ruta, datos))
 
-        # 3. Procesamiento y generación de documentos por cada grupo consolidado
+        # --- 3. GENERACIÓN DE RESULTADOS (SOLO EXITOSOS) ---
         resultados = []
         for prefijo, grupo in agrupados_por_credito.items():
             try:
                 lista_datos = [item[1] for item in grupo]
                 
-                # Si todos los archivos del grupo fallaron
+                # Si todos los archivos del grupo fallaron, omitimos este grupo silenciosamente
                 if all("error_extraccion" in d for d in lista_datos):
-                    raise ValueError("Los archivos PDF de este crédito están corruptos, vacíos o no contienen datos legibles.")
+                    print(f"Omitiendo grupo {prefijo} por errores de lectura.")
+                    continue
 
                 lista_datos_validos = [d for d in lista_datos if "error_extraccion" not in d]
                 if not lista_datos_validos:
                     lista_datos_validos = lista_datos
 
-                # Fusionamos los textos de ambos PDFs de la pareja
                 datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
                 num_credito = datos_raw.get("numero_credito")
@@ -545,6 +546,7 @@ async def procesar_masivo(
                 db.commit()
                 db.refresh(nuevo_expediente)
 
+                # SOLO se añaden a resultados los expedientes reales y exitosos
                 resultados.append({
                     "id": str(nuevo_expediente.id),
                     "expediente_id": str(nuevo_expediente.id),
@@ -556,14 +558,11 @@ async def procesar_masivo(
                 })
             except Exception as e_grupo:
                 db.rollback()
-                print(f"ERROR AISLADO al procesar el expediente/crédito {prefijo}: {e_grupo}")
-                resultados.append({
-                    "expediente_id": prefijo,
-                    "archivos_asociados": len(grupo),
-                    "error": str(e_grupo)
-                })
+                print(f"ERROR AISLADO al procesar el grupo {prefijo}: {e_grupo}")
+                # Omitido intencionalmente: No se manda a resultados para evitar tarjetas rojas en la UI.
 
-        return {"status": "exito", "procesados": len([r for r in resultados if "error" not in r]), "detalles": resultados}
+        print(f"Procesamiento masivo finalizado. Total de expedientes válidos generados: {len(resultados)}")
+        return {"status": "exito", "procesados": len(resultados), "detalles": resultados}
     except Exception as e:
         print(f"ERROR GLOBAL EN /procesar-masivo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
