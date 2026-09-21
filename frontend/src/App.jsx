@@ -2252,7 +2252,7 @@ const filteredHistorial = (historial || []).filter((item) => {
   </div>
 )}
 
-{/* VISTA DE CAPTURA MANUAL CON SELECTOR 2026 Y VISTA PREVIA */}
+{/* VISTA DE CAPTURA MANUAL CON TODOS LOS CAMPOS, SELECTOR 2026 Y VISTA PREVIA */}
 {activeTab === 'manual' && (
   <div style={{ display: 'grid', gridTemplateColumns: manualPreviewActive ? '1fr 1fr' : '1fr', gap: '24px', alignItems: 'start' }}>
     
@@ -2264,17 +2264,22 @@ const filteredHistorial = (historial || []).filter((item) => {
         e.preventDefault();
         setCargando(true);
         try {
+          // Recuperar token de autenticación si lo guardas en localStorage (para evitar el error 401)
+          const token = localStorage.getItem('token') || '';
+
           const res = await fetch('https://sistema-cancelaciones-production.up.railway.net/api/expedientes/generar-manual', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'plantilla_manera2.docx' })
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'CDMX_AP_H_SOLTERO' })
           });
           const data = await res.json();
           if (res.ok && data.status === 'exito') {
             alert('¡Expediente manual generado con éxito!');
             setManualPreviewActive(true);
             
-            // Si el backend te devuelve el archivo en base64 o blob para previsualizar:
             if (data.archivo_base64 && manualPreviewRef.current) {
               const binaryString = window.atob(data.archivo_base64);
               const len = binaryString.length;
@@ -2282,7 +2287,6 @@ const filteredHistorial = (historial || []).filter((item) => {
               for (let i = 0; i < len; i++) {
                 bytes[i] = binaryString.charCodeAt(i);
               }
-              // Renderizar usando docx-preview
               await window.docx.renderAsync(bytes.buffer, manualPreviewRef.current, null, {
                 className: "docx-wrapper",
                 inWrapper: true,
@@ -2303,10 +2307,10 @@ const filteredHistorial = (historial || []).filter((item) => {
         } finally {
           setCargando(false);
         }
-      }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+      }} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
         
-        {/* SELECTOR DE PLANTILLA NOTARIAL 2026 */}
-        <div style={{ gridColumn: '1 / -1', marginBottom: '8px' }}>
+        {/* SELECTOR DE PLANTILLA NOTARIAL 2026 (Ocupa todo el ancho) */}
+        <div style={{ gridColumn: '1 / -1', marginBottom: '4px' }}>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: theme.textPrimary, marginBottom: '8px' }}>
             📜 Selecciona la Plantilla Notarial (Modelo 2026):
           </label>
@@ -2359,7 +2363,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           </select>
         </div>
 
-        {/* TUS CAMPOS DE FORMULARIO */}
+        {/* TODOS LOS CAMPOS DEL FORMULARIO MANUAL */}
         <div>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Número de Crédito *</label>
           <input
@@ -2384,7 +2388,98 @@ const filteredHistorial = (historial || []).filter((item) => {
           />
         </div>
 
-        {/* (Resto de tus inputs de manera similar...) */}
+        <div>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Monto del Crédito</label>
+          <input
+            type="text"
+            placeholder="Ej. 150000.00"
+            value={formData.monto_credito}
+            onChange={e => setFormData({...formData, monto_credito: e.target.value})}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Oficina Registral</label>
+          <input
+            type="text"
+            placeholder="Ej. TOLUCA"
+            value={formData.oficina_registral}
+            onChange={e => setFormData({...formData, oficina_registral: e.target.value})}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Número de Carta</label>
+          <input
+            type="text"
+            value={formData.numero_carta}
+            onChange={e => setFormData({...formData, numero_carta: e.target.value})}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Entidad Financiera (Banco)</label>
+          <input
+            type="text"
+            placeholder="Ej. INFONAVIT"
+            value={formData.entidad_financiera}
+            onChange={e => setFormData({...formData, entidad_financiera: e.target.value})}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Fecha de Liquidación</label>
+          <input
+            type="text"
+            value={formData.fecha_liquidacion}
+            onChange={e => setFormData({...formData, fecha_liquidacion: e.target.value})}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Folio Real</label>
+          <input
+            type="text"
+            value={formData.folio_real}
+            onChange={e => setFormData({...formData, folio_real: e.target.value})}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Fecha de Expedición</label>
+          <input
+            type="text"
+            value={formData.fecha_expedicion}
+            onChange={e => setFormData({...formData, fecha_expedicion: e.target.value})}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Crédito a Salario</label>
+          <input
+            type="text"
+            value={formData.credito_a_salario}
+            onChange={e => setFormData({...formData, credito_a_salario: e.target.value})}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+          />
+        </div>
+
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Datos del Inmueble</label>
+          <textarea
+            rows="2"
+            value={formData.datos_inmueble}
+            onChange={e => setFormData({...formData, datos_inmueble: e.target.value})}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none', resize: 'vertical' }}
+          />
+        </div>
 
         <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
           <button
@@ -2398,7 +2493,7 @@ const filteredHistorial = (historial || []).filter((item) => {
       </form>
     </div>
 
-    {/* COLUMNA DERECHA: PANEL DE VISTA PREVIA MANUAL (Idéntico al masivo) */}
+    {/* COLUMNA DERECHA: PANEL DE VISTA PREVIA MANUAL */}
     {manualPreviewActive && (
       <div style={{ 
         backgroundColor: theme.cardBg, 
