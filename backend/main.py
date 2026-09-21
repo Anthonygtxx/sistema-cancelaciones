@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import create_engine
+import pandas as pd
 
 import models, services
 from database import get_db, SessionLocal, engine
@@ -779,3 +780,182 @@ async def actualizar_plantilla(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
         
     return {"status": "exito", "mensaje": f"Plantilla '{file.filename}' subida correctamente"}
+
+
+# ==============================================================================
+# 1. ENDPOINT PARA CAPTURA MANUAL INDIVIDUAL (Formulario suelto)
+# ==============================================================================
+@app.post("/api/expedientes/generar-manual")
+def generar_expediente_manual(
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        usuario = payload.get("usuario_propietario", "admin")
+        plantilla = payload.get("plantilla") or payload.get("plantilla_seleccionada") or "plantilla_manera2.docx"
+        
+        num_credito = payload.get("numero_credito")
+        if not num_credito:
+            raise HTTPException(status_code=400, detail="El número de crédito es obligatorio")
+
+        # Limpiar y preparar datos asegurando formato formal y letras en montos
+        datos_limpios = limpiar_datos_para_plantilla(payload, num_credito)
+        datos_limpios["plantilla_seleccionada"] = plantilla
+
+        # Resolver ruta física de la plantilla notarial
+        ruta_plantilla = resolver_ruta_plantilla(plantilla)
+        os.makedirs("uploads/generados", exist_ok=True)
+        ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
+        
+        # Generar documento Word
+        exito = services.generar_word_cancelacion(ruta_plantilla, datos_limpios, ruta_salida)
+        if not exito:
+            raise HTTPException(status_code=500, detail="Error al generar el documento Word con la plantilla seleccionada")
+
+        # Guardar registro en PostgreSQL (Railway)
+        nuevo_expediente = models.Expediente(
+            usuario_propietario=usuario,
+            numero_credito=num_credito,
+            datos_extraidos=datos_limpios,
+            ruta_pdf_constancia="Generado manualmente (Sin PDF)",
+            ruta_word_generado=ruta_salida
+        )
+        db.add(nuevo_expediente)
+        db.commit()
+        db.refresh(nuevo_expediente)
+
+        return {
+            "status": "exito",
+            "mensaje": "Expediente manual generado correctamente",
+            "id": str(nuevo_expediente.id),
+            "expediente_id": str(nuevo_expediente.id),
+            "datos_extraidos": datos_limpios,
+            "ruta_word": ruta_salida,
+            "plantilla_seleccionada": plantilla
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR EN /generar-manual: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==============================================================================
+# 2. ENDPOINT PARA CARGA MASIVA MEDIANTE EXCEL O CSV
+# ==============================================================================
+@app.post("/api/expedientes/procesar-excel")
+async def procesar_excel(
+    file: UploadFile = File(...),
+    usuario_propietario: Optional[str] = Form("admin"),
+    plantilla: Optional[str] = Form("plantilla_manera2.docx"),
+    db: Session = Depends(get_db)
+):
+    try:
+        if not file.filename.lower().endswith(('.xlsx', '.xls', '.csv')):
+            raise HTTPException(status_code=400, detail="El archivo debe ser un Excel válido (.xlsx, .xls) o CSV.")
+
+        os.makedirs("uploads", exist_ok=True)
+        os.makedirs("uploads/generados", exist_ok=True)
+        
+        ruta_temp = os.path.join("uploads", file.filename)
+        with open(ruta_temp, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Cargar el archivo mediante pandas
+        if file.filename.lower().endswith('.csv'):
+            df = pd.read_csv(ruta_temp)
+        else:
+            df = pd.read_excel(ruta_temp)
+
+        ruta_plantilla = resolver_ruta_plantilla(plantilla)
+        resultados = []
+        conteo_exitosos = 0
+
+        # Iterar fila por fila de la hoja de cálculo
+        for index, row in df.iterrows():
+            try:
+                fila_dict = row.to_dict()
+                # Normalizar nombres de columnas a minúsculas eliminando espacios extra
+                fila_normalizada = {str(k).strip().lower(): v for k, v in fila_dict.items() if pd.notna(v)}
+
+                num_credito = str(
+                    fila_normalizada.get('numero_credito') or 
+                    fila_normalizada.get('credito') or 
+                    fila_normalizada.get('número de crédito') or 
+                    f"EXCEL_{index+1}"
+                ).strip()
+
+                if not num_credito or num_credito.lower() == "nan":
+                    continue
+
+                acreditado = str(fila_normalizada.get('nombre_acreditado') or fila_normalizada.get('acreditado') or fila_normalizada.get('nombre') or '').strip()
+                monto = str(fila_normalizada.get('monto_credito') or fila_normalizada.get('monto') or '').strip()
+                oficina = str(fila_normalizada.get('oficina_registral') or fila_normalizada.get('oficina') or '').strip()
+                carta = str(fila_normalizada.get('numero_carta') or fila_normalizada.get('carta') or '').strip()
+                entidad = str(fila_normalizada.get('entidad_financiera') or fila_normalizada.get('banco') or '').strip()
+                fecha = str(fila_normalizada.get('fecha_liquidacion') or fila_normalizada.get('fecha') or '').strip()
+                folio = str(fila_normalizada.get('folio_real') or fila_normalizada.get('folio') or '').strip()
+                inmueble = str(fila_normalizada.get('datos_inmueble') or fila_normalizada.get('inmueble') or '').strip()
+                fecha_exp = str(fila_normalizada.get('fecha_expedicion') or '').strip()
+                credito_salario = str(fila_normalizada.get('credito_a_salario') or '').strip()
+
+                datos_brutos = {
+                    "nombre_acreditado": acreditado,
+                    "monto_credito": monto,
+                    "numero_credito": num_credito,
+                    "oficina_registral": oficina,
+                    "numero_carta": carta,
+                    "entidad_financiera": entidad,
+                    "fecha_liquidacion": fecha,
+                    "folio_real": folio,
+                    "datos_inmueble": inmueble,
+                    "fecha_expedicion": fecha_exp,
+                    "credito_a_salario": credito_salario,
+                }
+
+                datos_finales = limpiar_datos_para_plantilla(datos_brutos, num_credito)
+                datos_finales["plantilla_seleccionada"] = plantilla
+
+                ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
+                exito = services.generar_word_cancelacion(ruta_plantilla, datos_finales, ruta_salida)
+                
+                if not exito:
+                    raise ValueError(f"No se pudo generar el documento Word para el crédito {num_credito}")
+
+                nuevo_expediente = models.Expediente(
+                    usuario_propietario=usuario_propietario,
+                    numero_credito=num_credito,
+                    datos_extraidos=datos_finales,
+                    ruta_pdf_constancia=f"Generado por Excel: {file.filename}",
+                    ruta_word_generado=ruta_salida
+                )
+                db.add(nuevo_expediente)
+                db.commit()
+                db.refresh(nuevo_expediente)
+
+                resultados.append({
+                    "id": str(nuevo_expediente.id),
+                    "expediente_id": str(nuevo_expediente.id),
+                    "archivos_asociados": 1,
+                    "datos": datos_finales,
+                    "datos_extraidos": datos_finales,
+                    "ruta_word": ruta_salida,
+                    "plantilla_seleccionada": plantilla
+                })
+                conteo_exitosos += 1
+
+            except Exception as e_row:
+                db.rollback()
+                print(f"Error procesando fila {index+1} del Excel: {e_row}")
+                resultados.append({
+                    "expediente_id": f"Fila_{index+1}",
+                    "error": str(e_row)
+                })
+
+        return {
+            "status": "exito",
+            "procesados": conteo_exitosos,
+            "detalles": resultados
+        }
+    except Exception as e:
+        print(f"ERROR EN /procesar-excel: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

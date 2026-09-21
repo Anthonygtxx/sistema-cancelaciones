@@ -6,7 +6,7 @@ import {
   Search, FileArchive, FolderPlus, Lock, Unlock,
   LogOut, User, Loader2, ChevronDown, ChevronUp, Users, Settings,
   Plus, Trash2, Edit, Save, FileCode, Check, Calendar, Clock, DollarSign,
-  Sun, Moon, ArrowUpDown, Filter, Eye
+  Sun, Moon, ArrowUpDown, Filter, Eye, Edit3, FileSpreadsheet,
 } from 'lucide-react';
 
 // Configuración producción / Railway
@@ -1168,115 +1168,156 @@ const filteredHistorial = (historial || []).filter((item) => {
             </div>
           </header>
 
-          {/* NAVEGACIÓN TABS */}
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '16px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setActiveTab('single')}
-              style={{
-                padding: '10px 18px',
-                borderRadius: '10px',
-                border: 'none',
-                backgroundColor: activeTab === 'single' ? theme.accent : theme.subtleBg,
-                color: activeTab === 'single' ? '#fff' : theme.textSecondary,
-                fontWeight: '600',
-                fontSize: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <FileText size={16} /> Caso Individual
-            </button>
+{/* NAVEGACIÓN TABS */}
+<div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '16px', flexWrap: 'wrap' }}>
+  <button
+    onClick={() => setActiveTab('single')}
+    style={{
+      padding: '10px 18px',
+      borderRadius: '10px',
+      border: 'none',
+      backgroundColor: activeTab === 'single' ? theme.accent : theme.subtleBg,
+      color: activeTab === 'single' ? '#fff' : theme.textSecondary,
+      fontWeight: '600',
+      fontSize: '14px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}
+  >
+    <FileText size={16} /> Caso Individual
+  </button>
 
-            <button
-              onClick={() => setActiveTab('batch')}
-              style={{
-                padding: '10px 18px',
-                borderRadius: '10px',
-                border: 'none',
-                backgroundColor: activeTab === 'batch' ? theme.accent : theme.subtleBg,
-                color: activeTab === 'batch' ? '#fff' : theme.textSecondary,
-                fontWeight: '600',
-                fontSize: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <FolderPlus size={16} /> Carga Masiva
-            </button>
+  <button
+    onClick={() => setActiveTab('batch')}
+    style={{
+      padding: '10px 18px',
+      borderRadius: '10px',
+      border: 'none',
+      backgroundColor: activeTab === 'batch' ? theme.accent : theme.subtleBg,
+      color: activeTab === 'batch' ? '#fff' : theme.textSecondary,
+      fontWeight: '600',
+      fontSize: '14px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}
+  >
+    <FolderPlus size={16} /> Carga Masiva (PDFs)
+  </button>
 
-            <button
-              onClick={() => setActiveTab('history')}
-              style={{
-                padding: '10px 18px',
-                borderRadius: '10px',
-                border: 'none',
-                backgroundColor: activeTab === 'history' ? theme.accent : theme.subtleBg,
-                color: activeTab === 'history' ? '#fff' : theme.textSecondary,
-                fontWeight: '600',
-                fontSize: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <History size={16} /> Mi Historial
-            </button>
+  {/* --- NUEVA PESTAÑA: CAPTURA MANUAL --- */}
+  <button
+    onClick={() => setActiveTab('manual')}
+    style={{
+      padding: '10px 18px',
+      borderRadius: '10px',
+      border: 'none',
+      backgroundColor: activeTab === 'manual' ? theme.accent : theme.subtleBg,
+      color: activeTab === 'manual' ? '#fff' : theme.textSecondary,
+      fontWeight: '600',
+      fontSize: '14px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}
+  >
+    <Edit3 size={16} /> Captura Manual
+  </button>
 
-            {esAdmin && (
-              <>
-                <button
-                  onClick={() => setActiveTab('users')}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    backgroundColor: activeTab === 'users' ? theme.accent : theme.subtleBg,
-                    color: activeTab === 'users' ? '#fff' : theme.textSecondary,
-                    fontWeight: '600',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <Users size={16} /> Usuarios
-                </button>
+  {/* --- NUEVA PESTAÑA: CARGA EXCEL --- */}
+  <button
+    onClick={() => setActiveTab('excel')}
+    style={{
+      padding: '10px 18px',
+      borderRadius: '10px',
+      border: 'none',
+      backgroundColor: activeTab === 'excel' ? theme.accent : theme.subtleBg,
+      color: activeTab === 'excel' ? '#fff' : theme.textSecondary,
+      fontWeight: '600',
+      fontSize: '14px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}
+  >
+    <FileSpreadsheet size={16} /> Carga Excel / Lote
+  </button>
 
-                <button
-                  onClick={() => setActiveTab('templates')}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    backgroundColor: activeTab === 'templates' ? theme.accent : theme.subtleBg,
-                    color: activeTab === 'templates' ? '#fff' : theme.textSecondary,
-                    fontWeight: '600',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <Settings size={16} /> Configuración Notarial
-                </button>
-              </>
-            )}
-          </div>
+  <button
+    onClick={() => setActiveTab('history')}
+    style={{
+      padding: '10px 18px',
+      borderRadius: '10px',
+      border: 'none',
+      backgroundColor: activeTab === 'history' ? theme.accent : theme.subtleBg,
+      color: activeTab === 'history' ? '#fff' : theme.textSecondary,
+      fontWeight: '600',
+      fontSize: '14px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    }}
+  >
+    <History size={16} /> Mi Historial
+  </button>
 
-          {/* NOTIFICACIÓN DE ERROR */}
-          {error && (
-            <div style={{ backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2', borderLeft: '4px solid #ef4444', color: isDarkMode ? '#fca5a5' : '#991b1b', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <AlertCircle size={20} />
-              <span>{error}</span>
-            </div>
-          )}
+  {esAdmin && (
+    <>
+      <button
+        onClick={() => setActiveTab('users')}
+        style={{
+          padding: '10px 18px',
+          borderRadius: '10px',
+          border: 'none',
+          backgroundColor: activeTab === 'users' ? theme.accent : theme.subtleBg,
+          color: activeTab === 'users' ? '#fff' : theme.textSecondary,
+          fontWeight: '600',
+          fontSize: '14px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}
+      >
+        <Users size={16} /> Usuarios
+      </button>
+
+      <button
+        onClick={() => setActiveTab('templates')}
+        style={{
+          padding: '10px 18px',
+          borderRadius: '10px',
+          border: 'none',
+          backgroundColor: activeTab === 'templates' ? theme.accent : theme.subtleBg,
+          color: activeTab === 'templates' ? '#fff' : theme.textSecondary,
+          fontWeight: '600',
+          fontSize: '14px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}
+      >
+        <Settings size={16} /> Configuración Notarial
+      </button>
+    </>
+  )}
+</div>
+
+{/* NOTIFICACIÓN DE ERROR */}
+{error && (
+  <div style={{ backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2', borderLeft: '4px solid #ef4444', color: isDarkMode ? '#fca5a5' : '#991b1b', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <AlertCircle size={20} />
+    <span>{error}</span>
+  </div>
+)}
+
 
  {/* TAB: CASO INDIVIDUAL */}
 {activeTab === 'single' && (
@@ -2127,6 +2168,129 @@ const filteredHistorial = (historial || []).filter((item) => {
 
       </div>
     )}
+  </div>
+)}
+
+{/* VISTA DE CAPTURA MANUAL */}
+{activeTab === 'manual' && (
+  <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+    <h3 style={{ color: theme.textPrimary, marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Generación Manual de Caso Individual</h3>
+    
+    <form onSubmit={handleManualSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+      <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Número de Crédito *</label>
+        <input
+          type="text"
+          required
+          placeholder="Ej. 0903066392"
+          value={formData.numero_credito}
+          onChange={e => setFormData({...formData, numero_credito: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Nombre del Acreditado *</label>
+        <input
+          type="text"
+          required
+          placeholder="Ej. MARIA IDALIA CARRASCO BARDALES"
+          value={formData.nombre_acreditado}
+          onChange={e => setFormData({...formData, nombre_acreditado: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Monto del Crédito</label>
+        <input
+          type="text"
+          placeholder="Ej. 150000.00"
+          value={formData.monto_credito}
+          onChange={e => setFormData({...formData, monto_credito: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Oficina Registral</label>
+        <input
+          type="text"
+          placeholder="Ej. TOLUCA"
+          value={formData.oficina_registral}
+          onChange={e => setFormData({...formData, oficina_registral: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Número de Carta</label>
+        <input
+          type="text"
+          value={formData.numero_carta}
+          onChange={e => setFormData({...formData, numero_carta: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Folio Real</label>
+        <input
+          type="text"
+          value={formData.folio_real}
+          onChange={e => setFormData({...formData, folio_real: e.target.value})}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
+        />
+      </div>
+
+      <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
+        <button
+          type="submit"
+          disabled={cargando}
+          style={{ width: '100%', padding: '12px', backgroundColor: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+        >
+          {cargando ? 'Generando Documento...' : 'Generar Word Manual'}
+        </button>
+      </div>
+    </form>
+  </div>
+)}
+
+{/* VISTA DE CARGA EXCEL */}
+{activeTab === 'excel' && (
+  <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+    <h3 style={{ color: theme.textPrimary, marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Carga Masiva mediante Excel o CSV</h3>
+    
+    <form onSubmit={handleExcelSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ border: `2px dashed ${theme.border}`, padding: '32px', borderRadius: '12px', textAlign: 'center', backgroundColor: theme.subtleBg }}>
+        <input
+          type="file"
+          accept=".xlsx, .xls, .csv"
+          onChange={e => setArchivoExcel(e.target.files[0])}
+          style={{ display: 'none' }}
+          id="excel-file-input"
+        />
+        <label htmlFor="excel-file-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+          <FileSpreadsize size={36} color={theme.accent} />
+          <span style={{ color: theme.textPrimary, fontWeight: '600' }}>
+            {archivoExcel ? archivoExcel.name : 'Haz clic para seleccionar tu archivo Excel o arrástralo aquí'}
+          </span>
+          <span style={{ fontSize: '12px', color: theme.textSecondary }}>Formatos permitidos: .xlsx, .xls, .csv</span>
+        </label>
+      </div>
+
+      <div style={{ padding: '12px 16px', backgroundColor: isDarkMode ? '#1e293b' : '#eff6ff', borderRadius: '8px', border: `1px solid ${isDarkMode ? '#334155' : '#dbeafe'}`, fontSize: '13px', color: isDarkMode ? '#93c5fd' : '#1e40af' }}>
+        <strong>Estructura requerida:</strong> Asegúrate de que tu hoja de cálculo incluya columnas con los nombres de encabezado como <code>numero_credito</code>, <code>nombre_acreditado</code> y <code>monto_credito</code>.
+      </div>
+
+      <button
+        type="submit"
+        disabled={cargando}
+        style={{ padding: '12px', backgroundColor: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+      >
+        {cargando ? 'Procesando Lote en Servidor...' : 'Procesar Carga Masiva Excel'}
+      </button>
+    </form>
   </div>
 )}
 
