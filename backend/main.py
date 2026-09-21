@@ -4,7 +4,7 @@ import zipfile
 import re
 import uuid
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Body, Query, Header
+from fastapi import FastAPI, UploadFile, BackgroundTasks, File, Form, Depends, HTTPException, Body, Query, Header
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
