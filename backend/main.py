@@ -452,22 +452,18 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
+            # --- AGRUPACIÓN ESTRICTA POR EL NOMBRE DEL ARCHIVO ---
+            # Tomamos los 8 a 12 dígitos del nombre del archivo como llave única e indiscutible
+            match_nombre = re.search(r'\d{8,12}', file.filename)
+            if match_nombre:
+                num_credito_grupo = match_nombre.group(0)
+            else:
+                num_credito_grupo = file.filename.replace('.pdf', '').replace('.PDF', '').strip()
+
             try:
-                # 1. Extraemos los datos del PDF para leer el contenido interno
+                # Extraemos los datos del PDF individual
                 datos = services.extraer_datos_pdf(ruta_guardado)
                 
-                # 2. Obtenemos el número de crédito directamente del texto extraído
-                num_credito_interno = datos.get("numero_credito")
-                
-                # 3. Si el texto interno no lo trae, aplicamos la regla de respaldo buscando 
-                # los 8 a 12 dígitos en el nombre del archivo (Siguiendo la convención del personal)
-                if not num_credito_interno or num_credito_interno == "NO_ENCONTRADO":
-                    match_nombre = re.search(r'\d{8,12}', file.filename)
-                    if match_nombre:
-                        num_credito_interno = match_nombre.group(0)
-                    else:
-                        num_credito_interno = file.filename.replace('.pdf', '').replace('.PDF', '').strip()
-                        
                 # Validación de archivo completamente vacío o corrupto
                 if not datos or (datos.get("numero_credito") == "NO_ENCONTRADO" and not datos.get("texto_raw")):
                     raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
@@ -475,24 +471,12 @@ async def procesar_masivo(
             except Exception as e_file:
                 print(f"Error al extraer datos del archivo individual {file.filename}: {e_file}")
                 datos = {"error_extraccion": str(e_file)}
-                # Respaldo por nombre ante cualquier fallo de extracción individual
-                match_nombre = re.search(r'\d{8,12}', file.filename)
-                num_credito_interno = match_nombre.group(0) if match_nombre else file.filename.replace('.pdf', '')
 
-            # --- NORMALIZACIÓN OBLIGATORIA PARA EVITAR CLAVES SEPARADAS ---
-            match_limpio = re.search(r'\d{8,12}', str(num_credito_interno))
-            if match_limpio:
-                num_credito_interno = match_limpio.group(0)
-            else:
-                num_credito_interno = str(num_credito_interno).strip()
-
-            # --- AGRUPACIÓN INTELIGENTE Y UNIFICADA ---
-            # Todos los archivos que pertenezcan al mismo número de crédito (leído del PDF o del nombre)
-            # caerán estrictamente en la misma lista, evitando duplicados o múltiples resultados.
-            if num_credito_interno not in agrupados_por_credito:
-                agrupados_por_credito[num_credito_interno] = []
+            # Agrupamos obligatoriamente por el número de crédito del nombre del archivo
+            if num_credito_grupo not in agrupados_por_credito:
+                agrupados_por_credito[num_credito_grupo] = []
             
-            agrupados_por_credito[num_credito_interno].append((ruta_guardado, datos))
+            agrupados_por_credito[num_credito_grupo].append((ruta_guardado, datos))
 
         resultados = []
         for prefijo, grupo in agrupados_por_credito.items():
@@ -511,7 +495,7 @@ async def procesar_masivo(
                 # Fusionamos los textos de ambos PDFs de la pareja
                 datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
-                # Asignamos el número de crédito definitivo
+                # Asignamos el número de crédito definitivo (si el texto no lo trajo, usamos el prefijo del nombre)
                 num_credito = datos_raw.get("numero_credito")
                 if not num_credito or num_credito == "NO_ENCONTRADO":
                     num_credito = prefijo
