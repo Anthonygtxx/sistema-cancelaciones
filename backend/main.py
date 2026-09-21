@@ -422,6 +422,8 @@ import re
 #   - 0903066392_Carta.pdf / 0903066392_Constancia.pdf
 #   - 0903066392 VIG.pdf   / 0903066392.pdf
 # ==============================================================================
+import re
+
 @app.post("/api/expedientes/procesar-masivo")
 async def procesar_masivo(
     files: List[UploadFile] = File(...),
@@ -445,10 +447,9 @@ async def procesar_masivo(
         print(f"Plantilla seleccionada: {ruta_plantilla}")
 
         for file in files:
-            # --- CORRECCIÓN MULTIPLATAFORMA (WINDOWS vs LINUX) ---
-            # Reemplazamos las barras de Windows (\) por barras normales (/) para que os.path.basename funcione perfectamente
-            nombre_seguro = file.filename.replace('\\', '/')
-            nombre_limpio_archivo = os.path.basename(nombre_seguro)
+            # --- LIMPIEZA UNIVERSAL A PRUEBA DE WINDOWS Y LINUX ---
+            # Reemplaza cualquier barra (\ o /) y extrae estrictamente el nombre final del archivo
+            nombre_limpio_archivo = file.filename.replace('\\', '/').split('/')[-1]
 
             if not nombre_limpio_archivo.lower().endswith('.pdf'):
                 continue
@@ -457,12 +458,14 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            # --- AGRUPACIÓN INFALIBLE POR LOS DÍGITOS DEL NOMBRE LIMPIO ---
+            # --- NORMALIZACIÓN ESTRICTA DE DÍGITOS ---
             match_nombre = re.search(r'\d{8,12}', nombre_limpio_archivo)
             if match_nombre:
-                num_credito_grupo = match_nombre.group(0)
+                num_credito_grupo = re.sub(r'\D', '', match_nombre.group(0))
             else:
-                num_credito_grupo = nombre_limpio_archivo.replace('.pdf', '').replace('.PDF', '').strip()
+                num_credito_grupo = re.sub(r'\D', '', nombre_limpio_archivo)
+                if not num_credito_grupo:
+                    num_credito_grupo = nombre_limpio_archivo.strip()
 
             try:
                 # Extraemos los datos del PDF individual
@@ -476,7 +479,7 @@ async def procesar_masivo(
                 print(f"Error al extraer datos del archivo individual {nombre_limpio_archivo}: {e_file}")
                 datos = {"error_extraccion": str(e_file)}
 
-            # Agrupamos obligatoriamente por el número de crédito limpio del nombre
+            # Agrupamos de forma 100% segura usando la llave limpia de puros dígitos
             if num_credito_grupo not in agrupados_por_credito:
                 agrupados_por_credito[num_credito_grupo] = []
             
@@ -503,6 +506,10 @@ async def procesar_masivo(
                 num_credito = datos_raw.get("numero_credito")
                 if not num_credito or num_credito == "NO_ENCONTRADO":
                     num_credito = prefijo
+                else:
+                    num_credito = re.sub(r'\D', '', str(num_credito))
+                    if not num_credito:
+                        num_credito = prefijo
                 
                 datos_finales = limpiar_datos_para_plantilla(datos_raw, num_credito)
 
