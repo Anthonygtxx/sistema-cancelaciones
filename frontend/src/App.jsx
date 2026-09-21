@@ -1671,95 +1671,138 @@ const filteredHistorial = (historial || []).filter((item) => {
 {/* TAB: CARGA MASIVA */}
 {activeTab === 'batch' && (
   <div>
-    {/* SECCIÓN SUPERIOR: FORMULARIOS DE CARGA SEPARADOS */}
+    {/* SECCIÓN SUPERIOR: FORMULARIO DE CARGA */}
     <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, marginBottom: '24px' }}>
       <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <FolderPlus size={20} color={theme.accent} /> Carga Masiva de Expedientes (Cartas y Constancias)
+        <FolderPlus size={20} color={theme.accent} /> Carga Masiva de Expedientes
       </h2>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-        
-        {/* ZONA 1: CARTAS */}
-        <div>
-          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textPrimary }}>
-            1. Archivos de Cartas
-          </div>
-          <div 
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
-              setCartasFiles(prev => [...prev, ...files]);
-            }}
-            style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '24px 16px', textAlign: 'center', cursor: 'pointer', minHeight: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}
-          >
-            <FileArchive size={32} color={theme.accent} style={{ marginBottom: '8px' }} />
-            <p style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: '600', color: theme.textPrimary }}>
-              Arrastra aquí las Cartas PDF
-            </p>
-            <input
-              type="file"
-              multiple
-              accept=".pdf"
-              onChange={(e) => {
-                const files = Array.from(e.target.files);
-                setCartasFiles(prev => [...prev, ...files]);
-              }}
-              style={{ display: 'none' }}
-              id="cartas-file-input"
-            />
-            <label htmlFor="cartas-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
-              Buscar Cartas
-            </label>
-          </div>
-          {cartasFiles.length > 0 && (
-            <div style={{ marginTop: '8px', fontSize: '12px', color: theme.textSecondary }}>
-              ✅ {cartasFiles.length} carta(s) seleccionada(s)
-            </div>
-          )}
-        </div>
-
-        {/* ZONA 2: CONSTANCIAS */}
-        <div>
-          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textPrimary }}>
-            2. Archivos de Constancias
-          </div>
-          <div 
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
-              setConstanciasFiles(prev => [...prev, ...files]);
-            }}
-            style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '24px 16px', textAlign: 'center', cursor: 'pointer', minHeight: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}
-          >
-            <FileArchive size={32} color={theme.accent} style={{ marginBottom: '8px' }} />
-            <p style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: '600', color: theme.textPrimary }}>
-              Arrastra aquí las Constancias PDF
-            </p>
-            <input
-              type="file"
-              multiple
-              accept=".pdf"
-              onChange={(e) => {
-                const files = Array.from(e.target.files);
-                setConstanciasFiles(prev => [...prev, ...files]);
-              }}
-              style={{ display: 'none' }}
-              id="constancias-file-input"
-            />
-            <label htmlFor="constancias-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
-              Buscar Constancias
-            </label>
-          </div>
-          {constanciasFiles.length > 0 && (
-            <div style={{ marginTop: '8px', fontSize: '12px', color: theme.textSecondary }}>
-              ✅ {constanciasFiles.length} constancia(s) seleccionada(s)
-            </div>
-          )}
-        </div>
-
+      <div 
+        onDragOver={handleDragOver}
+        onDrop={handleDropBatch}
+        style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '32px 20px', textAlign: 'center', marginBottom: '20px', cursor: 'pointer' }}
+      >
+        <FileArchive size={40} color={theme.accent} style={{ margin: '0 auto 12px auto' }} />
+        <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>
+          Arrastra aquí tu carpeta o múltiples archivos PDF
+        </p>
+        <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: theme.textSecondary }}>se escanearán subcarpetas automáticamente</p>
+        <input
+          type="file"
+          multiple
+          accept=".pdf"
+          webkitdirectory="true"
+          onChange={handleBatchFileChange}
+          style={{ display: 'none' }}
+          id="batch-file-input"
+        />
+        <label htmlFor="batch-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
+          Buscar Carpeta / Archivos
+        </label>
       </div>
+
+      {/* SECCIÓN: SUBIDA DE CARPETAS DE CARTAS Y CONSTANCIAS */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+        {/* CARPETA DE CARTAS */}
+        <div 
+          onDragOver={handleDragOver}
+          onDrop={handleDropCartas}
+          style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '20px 16px', textAlign: 'center', cursor: 'pointer' }}
+        >
+          <FileText size={32} color={theme.accent} style={{ margin: '0 auto 8px auto' }} />
+          <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: '600', color: theme.textPrimary }}>
+            Carpeta de Cartas
+          </p>
+          <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: theme.textSecondary }}>Arrastra o selecciona la carpeta</p>
+          <input
+            type="file"
+            multiple
+            accept=".pdf"
+            webkitdirectory="true"
+            onChange={handleCartasFileChange}
+            style={{ display: 'none' }}
+            id="cartas-file-input"
+          />
+          <label htmlFor="cartas-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
+            Buscar Cartas
+          </label>
+        </div>
+
+        {/* CARPETA DE CONSTANCIAS */}
+        <div 
+          onDragOver={handleDragOver}
+          onDrop={handleDropConstancias}
+          style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '20px 16px', textAlign: 'center', cursor: 'pointer' }}
+        >
+          <FileText size={32} color={theme.accent} style={{ margin: '0 auto 8px auto' }} />
+          <p style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: '600', color: theme.textPrimary }}>
+            Carpeta de Constancias
+          </p>
+          <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: theme.textSecondary }}>Arrastra o selecciona la carpeta</p>
+          <input
+            type="file"
+            multiple
+            accept=".pdf"
+            webkitdirectory="true"
+            onChange={handleConstanciasFileChange}
+            style={{ display: 'none' }}
+            id="constancias-file-input"
+          />
+          <label htmlFor="constancias-file-input" style={{ backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', color: theme.textPrimary, cursor: 'pointer' }}>
+            Buscar Constancias
+          </label>
+        </div>
+      </div>
+
+      {/* ARCHIVOS DETECTADOS DE CARTAS */}
+      {cartasFiles.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: theme.textSecondary }}>
+            Cartas Detectadas ({cartasFiles.length}):
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '100px', overflowY: 'auto' }}>
+            {cartasFiles.map((f, i) => (
+              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '4px', fontSize: '12px', color: theme.textPrimary }}>
+                <FileText size={12} color={theme.textSecondary} />
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* ARCHIVOS DETECTADOS DE CONSTANCIAS */}
+      {constanciasFiles.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: theme.textSecondary }}>
+            Constancias Detectadas ({constanciasFiles.length}):
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '100px', overflowY: 'auto' }}>
+            {constanciasFiles.map((f, i) => (
+              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '4px', fontSize: '12px', color: theme.textPrimary }}>
+                <FileText size={12} color={theme.textSecondary} />
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {batchFiles.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: theme.textSecondary }}>
+            Archivos Detectados ({batchFiles.length}):
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '150px', overflowY: 'auto' }}>
+            {batchFiles.map((f, i) => (
+              <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderRadius: '6px', backgroundColor: theme.subtleBg, marginBottom: '6px', fontSize: '13px', color: theme.textPrimary }}>
+                <FileText size={14} color={theme.textSecondary} />
+                <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {batchLoading && (
         <div style={{ marginBottom: '20px' }}>
@@ -1774,22 +1817,18 @@ const filteredHistorial = (historial || []).filter((item) => {
       )}
 
       <button
-        onClick={() => {
-          // Combinamos ambos estados al enviar para mantener compatibilidad con el backend
-          const todosLosArchivos = [...cartasFiles, ...constanciasFiles];
-          handleUploadBatchCustom(todosLosArchivos);
-        }}
-        disabled={(cartasFiles.length === 0 && constanciasFiles.length === 0) || batchLoading}
+        onClick={handleUploadBatch}
+        disabled={batchFiles.length === 0 || batchLoading}
         style={{
           width: '100%',
-          backgroundColor: (cartasFiles.length === 0 && constanciasFiles.length === 0) || batchLoading ? theme.subtleBg : theme.accent,
-          color: (cartasFiles.length === 0 && constanciasFiles.length === 0) || batchLoading ? theme.textSecondary : '#fff',
+          backgroundColor: batchFiles.length === 0 || batchLoading ? theme.subtleBg : theme.accent,
+          color: batchFiles.length === 0 || batchLoading ? theme.textSecondary : '#fff',
           border: 'none',
           padding: '12px',
           borderRadius: '10px',
           fontWeight: '600',
           fontSize: '14px',
-          cursor: (cartasFiles.length === 0 && constanciasFiles.length === 0) || batchLoading ? 'not-allowed' : 'pointer',
+          cursor: batchFiles.length === 0 || batchLoading ? 'not-allowed' : 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -1797,7 +1836,7 @@ const filteredHistorial = (historial || []).filter((item) => {
         }}
       >
         {batchLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <FolderPlus size={16} />}
-        Procesar Carga Masiva ({cartasFiles.length + constanciasFiles.length} archivos totales)
+        Procesar Carga Masiva
       </button>
     </div>
 
@@ -2211,7 +2250,6 @@ const filteredHistorial = (historial || []).filter((item) => {
     )}
   </div>
 )}
-
 
 {/* TAB: HISTORIAL */}
           {activeTab === 'history' && (
