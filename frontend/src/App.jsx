@@ -187,8 +187,16 @@ const indicePrimerItem = indiceUltimoItem - elementosPorPagina;
 const elementosVisibles = batchResults.slice(indicePrimerItem, indiceUltimoItem);
 const totalPaginas = Math.ceil(batchResults.length / elementosPorPagina);
 
-const [cartaFiles, setCartaFiles] = useState([]);
-const [constanciaFiles, setConstanciaFiles] = useState([]);
+const [cartasFiles, setCartasFiles] = useState([]);
+const [constanciasFiles, setConstanciasFiles] = useState([]);
+
+const handleCartasFileChange = (e) => {
+  if (e.target.files) setCartasFiles(Array.from(e.target.files));
+};
+
+const handleConstanciasFileChange = (e) => {
+  if (e.target.files) setConstanciasFiles(Array.from(e.target.files));
+};
 
   // Validar sesión activa al recargar la página (F5)
 useEffect(() => {
