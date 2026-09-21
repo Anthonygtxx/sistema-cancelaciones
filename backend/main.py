@@ -437,25 +437,22 @@ async def procesar_masivo(
         os.makedirs("uploads", exist_ok=True)
         os.makedirs("uploads/generados", exist_ok=True)
         
+        # Selección dinámica de plantilla usando el resolvedor
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
 
-        print(f"\n================ [PROCESAMIENTO MASIVO INTELIGENTE CRUZADO] ================")
+        print(f"\n================ [PROCESAMIENTO MASIVO INTELIGENTE] ================")
         print(f"Total de archivos recibidos: {len(files)}")
+        print(f"Plantilla seleccionada: {ruta_plantilla}")
 
         archivos_procesados = []
 
-        # PASO 1: Guardar y extraer datos preliminares de TODOS los archivos
+        # 1. Guardar y extraer datos preliminares de cada PDF individualmente
         for file in files:
-            nombre_archivo_bruto = file.filename or ""
-            nombre_limpio_archivo = nombre_archivo_bruto.replace('\\', '/').split('/')[-1]
+            nombre_limpio_archivo = file.filename.replace('\\', '/').split('/')[-1]
 
             if not nombre_limpio_archivo.lower().endswith('.pdf'):
                 continue
-            if nombre_limpio_archivo.startswith('.') or nombre_limpio_archivo.startswith('~$'):
-                continue
-            if nombre_limpio_archivo.lower() in ['thumbs.db', 'desktop.ini', '.ds_store']:
-                continue
-
+                
             ruta_guardado = os.path.join("uploads", nombre_limpio_archivo)
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
@@ -463,82 +460,64 @@ async def procesar_masivo(
             try:
                 datos = services.extraer_datos_pdf(ruta_guardado)
                 if not datos or (datos.get("numero_credito") == "NO_ENCONTRADO" and not datos.get("texto_raw")):
-                    raise ValueError("PDF sin datos legibles.")
+                    raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
             except Exception as e_file:
-                print(f"Error en archivo individual {nombre_limpio_archivo}: {e_file}")
+                print(f"Error al extraer datos del archivo individual {nombre_limpio_archivo}: {e_file}")
                 datos = {"error_extraccion": str(e_file), "numero_credito": "NO_ENCONTRADO"}
-
-            # Crédito interno extraído del contenido del PDF
-            credito_interno = datos.get("numero_credito")
-            limpio_interno = re.sub(r'\D', '', str(credito_interno)) if credito_interno and credito_interno != "NO_ENCONTRADO" else None
-
-            # Todos los números de 8 a 12 dígitos encontrados en el nombre del archivo
-            nums_en_nombre = re.findall(r'\d{8,12}', nombre_limpio_archivo)
 
             archivos_procesados.append({
                 "ruta": ruta_guardado,
                 "nombre": nombre_limpio_archivo,
-                "datos": datos,
-                "credito_interno": limpio_interno if limpio_interno and len(limpio_interno) >= 8 else None,
-                "nums_nombre": nums_en_nombre
+                "datos": datos
             })
 
-        # PASO 2: Recopilar todos los créditos válidos descubiertos en el lote (para correlación)
-        creditos_conocidos = set(item["credito_interno"] for item in archivos_procesados if item["credito_interno"])
-
-        # PASO 3: Asignar una llave unificada a cada archivo mediante cruce inteligente
+        # 2. Agrupación inteligente basada en el contenido extraído Y respaldo por nombre
         agrupados_por_credito = {}
 
         for item in archivos_procesados:
+            ruta = item["ruta"]
+            nombre = item["nombre"]
+            datos = item["datos"]
+
+            # Intentamos obtener el crédito del contenido interno del PDF
+            credito_extraido = datos.get("numero_credito")
             credito_key = None
 
-            # 1. Prioridad: Crédito interno del PDF
-            if item["credito_interno"]:
-                credito_key = item["credito_interno"]
-            
-            # 2. Si no hay interno, buscamos en los números del nombre si alguno coincide con un crédito ya conocido del lote
-            if not credito_key and item["nums_nombre"]:
-                for num in item["nums_nombre"]:
-                    limpio_num = re.sub(r'\D', '', num)
-                    if limpio_num in creditos_conocidos:
-                        credito_key = limpio_num
-                        break
-                # Si ninguno coincide pero hay un número de 8-12 dígitos, lo usamos
-                if not credito_key:
-                    for num in item["nums_nombre"]:
-                        limpio_num = re.sub(r'\D', '', num)
-                        if len(limpio_num) >= 8:
-                            credito_key = limpio_num
-                            break
+            if credito_extraido and credito_extraido != "NO_ENCONTRADO":
+                credito_key = re.sub(r'\D', '', str(credito_extraido))
 
-            # 3. Si de plano no tiene ningún número de crédito, se va a errores
+            # Si el PDF no traía el crédito adentro, lo buscamos en el nombre del archivo
+            if not credito_key or len(credito_key) < 8:
+                match_nombre = re.search(r'\d{8,12}', nombre)
+                if match_nombre:
+                    credito_key = re.sub(r'\D', '', match_nombre.group(0))
+
+            # Último respaldo si de plano no hay números
             if not credito_key:
-                credito_key = "DESCONOCIDO_" + item["nombre"]
+                credito_key = re.sub(r'\D', '', nombre)
+                if not credito_key:
+                    credito_key = pathlib.Path(nombre).stem
 
             if credito_key not in agrupados_por_credito:
                 agrupados_por_credito[credito_key] = []
             
-            agrupados_por_credito[credito_key].append((item["ruta"], item["datos"], item["nombre"]))
+            agrupados_por_credito[credito_key].append((ruta, datos))
 
+        # 3. Procesamiento y generación de documentos por cada grupo consolidado
         resultados = []
-        conteo_exitosos = 0
-
-        # PASO 4: Procesar cada grupo unificado
         for prefijo, grupo in agrupados_por_credito.items():
             try:
-                if prefijo.startswith("DESCONOCIDO_"):
-                    raise ValueError(f"El archivo {grupo[0][2]} no contiene un número de crédito válido.")
-
                 lista_datos = [item[1] for item in grupo]
                 
+                # Si todos los archivos del grupo fallaron
                 if all("error_extraccion" in d for d in lista_datos):
-                    raise ValueError(f"Los archivos PDF del crédito {prefijo} están corruptos o vacíos.")
+                    raise ValueError("Los archivos PDF de este crédito están corruptos, vacíos o no contienen datos legibles.")
 
                 lista_datos_validos = [d for d in lista_datos if "error_extraccion" not in d]
                 if not lista_datos_validos:
                     lista_datos_validos = lista_datos
 
-                # Fusionar datos de la pareja (Carta + Constancia) en una sola tarjeta
+                # Fusionamos los textos de ambos PDFs de la pareja
                 datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
                 num_credito = datos_raw.get("numero_credito")
@@ -575,24 +554,16 @@ async def procesar_masivo(
                     "ruta_word": ruta_salida,
                     "plantilla_seleccionada": plantilla
                 })
-                conteo_exitosos += 1
-
             except Exception as e_grupo:
                 db.rollback()
-                print(f"ERROR al procesar el grupo {prefijo}: {e_grupo}")
-                nombre_archivo_erroneo = grupo[0][2] if grupo else prefijo
+                print(f"ERROR AISLADO al procesar el expediente/crédito {prefijo}: {e_grupo}")
                 resultados.append({
                     "expediente_id": prefijo,
                     "archivos_asociados": len(grupo),
-                    "error": str(e_grupo),
-                    "nombre_archivo": nombre_archivo_erroneo
+                    "error": str(e_grupo)
                 })
 
-        return {
-            "status": "exito", 
-            "procesados": conteo_exitosos, 
-            "detalles": resultados
-        }
+        return {"status": "exito", "procesados": len([r for r in resultados if "error" not in r]), "detalles": resultados}
     except Exception as e:
         print(f"ERROR GLOBAL EN /procesar-masivo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
