@@ -437,20 +437,18 @@ async def procesar_masivo(
         os.makedirs("uploads", exist_ok=True)
         os.makedirs("uploads/generados", exist_ok=True)
         
-        # Selección dinámica de plantilla usando el resolvedor
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
 
-        print(f"\n================ [PROCESAMIENTO MASIVO DEFINITIVO] ================")
+        print(f"\n================ [PROCESAMIENTO MASIVO INTELIGENTE CRUZADO] ================")
         print(f"Total de archivos recibidos: {len(files)}")
 
-        agrupados_por_credito = {}
+        archivos_procesados = []
 
-        # 1. Recorrer todos los archivos y agruparlos ESTRICTAMENTE por el número de crédito de su nombre
+        # PASO 1: Guardar y extraer datos preliminares de TODOS los archivos
         for file in files:
             nombre_archivo_bruto = file.filename or ""
             nombre_limpio_archivo = nombre_archivo_bruto.replace('\\', '/').split('/')[-1]
 
-            # Filtrar basura del sistema y archivos no PDF
             if not nombre_limpio_archivo.lower().endswith('.pdf'):
                 continue
             if nombre_limpio_archivo.startswith('.') or nombre_limpio_archivo.startswith('~$'):
@@ -462,23 +460,6 @@ async def procesar_masivo(
             with open(ruta_guardado, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            # FUENTE DE VERDAD: Extraer la llave de crédito directamente del nombre del archivo
-            match_nombre = re.search(r'\d{8,12}', nombre_limpio_archivo)
-            if match_nombre:
-                credito_key = re.sub(r'\D', '', match_nombre.group(0))
-            else:
-                # Si el nombre no lo tiene, intentamos leerlo del contenido como respaldo
-                try:
-                    datos_temp = services.extraer_datos_pdf(ruta_guardado)
-                    credito_ext = datos_temp.get("numero_credito")
-                    if credito_ext and credito_ext != "NO_ENCONTRADO":
-                        credito_key = re.sub(r'\D', '', str(credito_ext))
-                    else:
-                        credito_key = "DESCONOCIDO_" + nombre_limpio_archivo
-                except:
-                    credito_key = "DESCONOCIDO_" + nombre_limpio_archivo
-
-            # Extraer datos individuales del PDF
             try:
                 datos = services.extraer_datos_pdf(ruta_guardado)
                 if not datos or (datos.get("numero_credito") == "NO_ENCONTRADO" and not datos.get("texto_raw")):
@@ -487,23 +468,69 @@ async def procesar_masivo(
                 print(f"Error en archivo individual {nombre_limpio_archivo}: {e_file}")
                 datos = {"error_extraccion": str(e_file), "numero_credito": "NO_ENCONTRADO"}
 
+            # Crédito interno extraído del contenido del PDF
+            credito_interno = datos.get("numero_credito")
+            limpio_interno = re.sub(r'\D', '', str(credito_interno)) if credito_interno and credito_interno != "NO_ENCONTRADO" else None
+
+            # Todos los números de 8 a 12 dígitos encontrados en el nombre del archivo
+            nums_en_nombre = re.findall(r'\d{8,12}', nombre_limpio_archivo)
+
+            archivos_procesados.append({
+                "ruta": ruta_guardado,
+                "nombre": nombre_limpio_archivo,
+                "datos": datos,
+                "credito_interno": limpio_interno if limpio_interno and len(limpio_interno) >= 8 else None,
+                "nums_nombre": nums_en_nombre
+            })
+
+        # PASO 2: Recopilar todos los créditos válidos descubiertos en el lote (para correlación)
+        creditos_conocidos = set(item["credito_interno"] for item in archivos_procesados if item["credito_interno"])
+
+        # PASO 3: Asignar una llave unificada a cada archivo mediante cruce inteligente
+        agrupados_por_credito = {}
+
+        for item in archivos_procesados:
+            credito_key = None
+
+            # 1. Prioridad: Crédito interno del PDF
+            if item["credito_interno"]:
+                credito_key = item["credito_interno"]
+            
+            # 2. Si no hay interno, buscamos en los números del nombre si alguno coincide con un crédito ya conocido del lote
+            if not credito_key and item["nums_nombre"]:
+                for num in item["nums_nombre"]:
+                    limpio_num = re.sub(r'\D', '', num)
+                    if limpio_num in creditos_conocidos:
+                        credito_key = limpio_num
+                        break
+                # Si ninguno coincide pero hay un número de 8-12 dígitos, lo usamos
+                if not credito_key:
+                    for num in item["nums_nombre"]:
+                        limpio_num = re.sub(r'\D', '', num)
+                        if len(limpio_num) >= 8:
+                            credito_key = limpio_num
+                            break
+
+            # 3. Si de plano no tiene ningún número de crédito, se va a errores
+            if not credito_key:
+                credito_key = "DESCONOCIDO_" + item["nombre"]
+
             if credito_key not in agrupados_por_credito:
                 agrupados_por_credito[credito_key] = []
             
-            agrupados_por_credito[credito_key].append((ruta_guardado, datos, nombre_limpio_archivo))
+            agrupados_por_credito[credito_key].append((item["ruta"], item["datos"], item["nombre"]))
 
         resultados = []
         conteo_exitosos = 0
 
-        # 2. Procesar cada grupo unificado de crédito
+        # PASO 4: Procesar cada grupo unificado
         for prefijo, grupo in agrupados_por_credito.items():
             try:
                 if prefijo.startswith("DESCONOCIDO_"):
-                    raise ValueError(f"El archivo {grupo[0][2]} no contiene un número de crédito válido en su nombre.")
+                    raise ValueError(f"El archivo {grupo[0][2]} no contiene un número de crédito válido.")
 
                 lista_datos = [item[1] for item in grupo]
                 
-                # Si todos los archivos del grupo fallaron
                 if all("error_extraccion" in d for d in lista_datos):
                     raise ValueError(f"Los archivos PDF del crédito {prefijo} están corruptos o vacíos.")
 
@@ -511,7 +538,7 @@ async def procesar_masivo(
                 if not lista_datos_validos:
                     lista_datos_validos = lista_datos
 
-                # Fusionar datos de la pareja (Carta + Constancia)
+                # Fusionar datos de la pareja (Carta + Constancia) en una sola tarjeta
                 datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
                 num_credito = datos_raw.get("numero_credito")
@@ -553,7 +580,6 @@ async def procesar_masivo(
             except Exception as e_grupo:
                 db.rollback()
                 print(f"ERROR al procesar el grupo {prefijo}: {e_grupo}")
-                # Se mantiene la tarjeta roja de error en los detalles para que aparezca en la UI
                 nombre_archivo_erroneo = grupo[0][2] if grupo else prefijo
                 resultados.append({
                     "expediente_id": prefijo,
