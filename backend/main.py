@@ -799,9 +799,6 @@ def obtener_plantillas_admin():
     ]
     return {"plantillas": sorted(archivos)}
 
-# ==============================================================================
-# 1. ENDPOINT PARA CAPTURA MANUAL INDIVIDUAL (Formulario suelto)
-# ==============================================================================
 @app.post("/api/expedientes/generar-manual")
 def generar_expediente_manual(
     payload: Dict[str, Any] = Body(...),
@@ -841,19 +838,17 @@ def generar_expediente_manual(
         db.commit()
         db.refresh(nuevo_expediente)
 
-        return {
-            "status": "exito",
-            "mensaje": "Expediente manual generado correctamente",
-            "id": str(nuevo_expediente.id),
-            "expediente_id": str(nuevo_expediente.id),
-            "datos_extraidos": datos_limpios,
-            "ruta_word": ruta_salida,
-            "plantilla_seleccionada": plantilla
-        }
+        # Devolver el archivo Word directamente para que la vista previa y el frontend lo lean bien
+        return FileResponse(
+            path=ruta_salida,
+            filename=f"Cancelacion_{num_credito}.docx",
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        
     except Exception as e:
-        # Esto imprimirá el error exacto y la línea de código que falló en los logs de Railway
-        traceback.print_exc() 
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+        db.rollback()
+        print(f"ERROR EN /generar-manual: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ==============================================================================
