@@ -27,6 +27,10 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
 
+# --- ARCHIVOS ESTÁTICOS ---
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # --- CATÁLOGO DE LAS 20 PLANTILLAS NOTARIALES 2026 ---
 TEMPLATES_DIR = "templates"
 
@@ -821,35 +825,35 @@ def generar_expediente_manual(
         os.makedirs("uploads/generados", exist_ok=True)
         ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
         
-        # Generar documento Word
+        # Generar el documento Word
         exito = services.generar_word_cancelacion(ruta_plantilla, datos_limpios, ruta_salida)
         if not exito:
-            raise HTTPException(status_code=500, detail="Error al generar el documento Word con la plantilla seleccionada")
+            raise HTTPException(status_code=500, detail="Error al reescribir la plantilla Word")
 
-        # Guardar registro en PostgreSQL (Railway)
+        # Guardar el registro en la base de datos
         nuevo_expediente = models.Expediente(
             usuario_propietario=usuario,
             numero_credito=num_credito,
             datos_extraidos=datos_limpios,
-            ruta_pdf_constancia="Generado manualmente (Sin PDF)",
             ruta_word_generado=ruta_salida
         )
         db.add(nuevo_expediente)
         db.commit()
         db.refresh(nuevo_expediente)
-
-        # Devolver el archivo Word directamente para que la vista previa y el frontend lo lean bien
-        return FileResponse(
-            path=ruta_salida,
-            filename=f"Cancelacion_{num_credito}.docx",
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
         
+        # Retornar JSON (evita el error de sintaxis en el frontend y permite mostrar la vista previa)
+        return {
+            "status": "exito",
+            "id": str(nuevo_expediente.id),
+            "expediente_id": str(nuevo_expediente.id),
+            "ruta_word": ruta_salida,
+            "datos_extraidos": datos_limpios
+        }
     except Exception as e:
         db.rollback()
         print(f"ERROR EN /generar-manual: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 
 # ==============================================================================
 # 2. ENDPOINT PARA CARGA MASIVA MEDIANTE EXCEL O CSV
