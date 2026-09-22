@@ -119,30 +119,37 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
     }
   };
 
-  const toggleTheme = () => setIsDarkMode(!isDarkMode);
-
-  // --- ESTADO DE SESIÓN Y USUARIO ACTIVO ---
+ // --- 1. ESTADOS DE TEMA Y SESIÓN ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  const previewContainerRef = useRef(null);
-  const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
-  const [cargandoPreview, setCargandoPreview] = useState(false);
-  
+  // --- 2. ESTADOS DE AUTENTICACIÓN / LOGIN ---
   const [loginUser, setLoginUser] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // --- NAVEGACIÓN ---
+  // --- 3. NAVEGACIÓN Y TABS ---
   const [activeTab, setActiveTab] = useState('single');
-  
-  // Mapa de desbloqueo: clave única `key` -> boolean
+
+  // --- 4. REFS Y VISTAS PREVIAS ---
+  const previewContainerRef = useRef(null);
+  const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
+  const [cargandoPreview, setCargandoPreview] = useState(false);
+
+  const [batchPreviewIndex, setBatchPreviewIndex] = useState(null);
+  const batchPreviewRef = useRef(null);
+
+  const [manualPreviewActive, setManualPreviewActive] = useState(false);
+  const [cargandoManualPreview, setCargandoManualPreview] = useState(false);
+  const manualPreviewRef = useRef(null);
+
+  // --- 5. MAPA DE DESBLOQUEO ---
   const [unlockedFields, setUnlockedFields] = useState({});
 
-  // ESTADOS - Caso Individual
+  // --- 6. ESTADOS - Caso Individual ---
   const [singleFiles, setSingleFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [progressSingle, setProgressSingle] = useState(0);
@@ -150,14 +157,15 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState('');
 
-  // ESTADOS - Carga Masiva
+  // --- 7. ESTADOS - Carga Masiva ---
   const [batchFiles, setBatchFiles] = useState([]);
   const [batchLoading, setBatchLoading] = useState(false);
   const [progressBatch, setProgressBatch] = useState(0);
   const [batchResults, setBatchResults] = useState([]);
   const [openAccordion, setOpenAccordion] = useState({});
+  const [selectedBatchIndices, setSelectedBatchIndices] = useState([]);
 
-  // ESTADOS - Historial & Filtros Dinámicos
+  // --- 8. ESTADOS - Historial & Filtros Dinámicos ---
   const [historial, setHistorial] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('all'); // 'all', 'day', 'week', 'month', 'year'
@@ -167,60 +175,130 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
   const [selectedDay, setSelectedDay] = useState('all'); // 'all', 1 .. 31
   const [sortAscending, setSortAscending] = useState(true);
 
-  // ESTADOS - Panel de Administración
+  // --- 9. ESTADOS - Panel de Administración y Usuarios ---
   const [usuariosLista, setUsuariosLista] = useState([]);
   const [nuevoUsuario, setNuevoUsuario] = useState({ username: '', password: '', role: 'operador', es_admin: false });
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
 
-  // ESTADOS - Plantillas
-  const [Plantillas, setPlantillas] = useState([]);
+  // --- 10. ESTADOS - Plantillas, Excel y Formulario Manual ---
+  const [plantillas, setPlantillas] = useState([]);
   const [archivoPlantilla, setArchivoPlantilla] = useState(null);
-  const [selectedBatchIndices, setSelectedBatchIndices] = useState([]);
+  const [archivoExcel, setArchivoExcel] = useState(null);
+  const [cargando, setCargando] = useState(false);
+  const [expedientes, setExpedientes] = useState([]);
+  const [formData, setFormData] = useState({
+    numero_credito: '',
+    nombre_acreditado: '',
+    monto_credito: '',
+    oficina_registral: '',
+    numero_carta: '',
+    entidad_financiera: '',
+    fecha_liquidacion: '',
+    folio_real: '',
+    datos_inmueble: '',
+    fecha_expedicion: '',
+    credito_a_salario: ''
+  });
 
-  // Estados para la paginación
-const [paginaActual, setPaginaActual] = React.useState(1);
-const elementosPorPagina = 15;
+  // --- 11. ESTADOS - Paginación ---
+  const [paginaActual, setPaginaActual] = useState(1);
+  const elementosPorPagina = 15;
 
-// Calcular elementos de la página actual
-const indiceUltimoItem = paginaActual * elementosPorPagina;
-const indicePrimerItem = indiceUltimoItem - elementosPorPagina;
-const elementosVisibles = batchResults.slice(indicePrimerItem, indiceUltimoItem);
-const totalPaginas = Math.ceil(batchResults.length / elementosPorPagina);
+  // Calcular elementos de la página actual
+  const indiceUltimoItem = paginaActual * elementosPorPagina;
+  const indicePrimerItem = indiceUltimoItem - elementosPorPagina;
+  const elementosVisibles = batchResults.slice(indicePrimerItem, indiceUltimoItem);
+  const totalPaginas = Math.ceil(batchResults.length / elementosPorPagina);
 
-// --- ESTADOS - Formulario Manual y Vista Previa ---
-const [manualPreviewActive, setManualPreviewActive] = useState(false);
-const [cargandoManualPreview, setCargandoManualPreview] = useState(false);
-const manualPreviewRef = useRef(null);
+
+  // ==========================================
+  // --- EFECTOS (USEEFFECT) ---
+  // ==========================================
 
   // Validar sesión activa al recargar la página (F5)
-useEffect(() => {
-  const checkAuth = async () => {
-    try {
-      // 1. Apuntamos a /api/auth/me (o a través de tu instancia 'api' si ya tiene el baseURL '/api')
-      // 2. Forzamos withCredentials: true para asegurar el envío de la cookie session_id
-      const response = await api.get('/auth/me', { withCredentials: true });
-      
-      if (response.data && response.data.user) {
-        setIsAuthenticated(true);
-        setCurrentUser(response.data.user);
-      } else {
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await api.get('/auth/me', { withCredentials: true });
+        if (response.data && response.data.user) {
+          setIsAuthenticated(true);
+          setCurrentUser(response.data.user);
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error("Error verificando sesión al recargar:", error);
         setIsAuthenticated(false);
+        setCurrentUser(null);
+      } finally {
+        setIsCheckingAuth(false);
       }
-    } catch (error) {
-      console.error("Error verificando sesión al recargar:", error);
-      setIsAuthenticated(false);
-      setCurrentUser(null);
-    } finally {
-      setIsCheckingAuth(false);
-    }
-  };
-
-  checkAuth();
-}, []);
+    };
+    checkAuth();
+  }, []);
 
   useEffect(() => {
     verificarSesion();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (activeTab === 'history') cargarHistorialUsuario();
+      if (activeTab === 'users' && (currentUser?.es_admin || currentUser?.role === 'admin')) cargarUsuarios();
+      if (activeTab === 'templates' && (currentUser?.es_admin || currentUser?.role === 'admin')) cargarPlantillas();
+    }
+  }, [activeTab, isAuthenticated, currentUser]);
+
+  // Actualización en tiempo real con debounce al editar datos individuales
+  useEffect(() => {
+    if (!mostrarVistaPrevia || !datos || !expedienteId) return;
+    const timer = setTimeout(() => {
+      actualizarVistaPreviaTiempoReal();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [datos, mostrarVistaPrevia]);
+
+  // Hook para actualización en tiempo real cuando se modifican los datos del lote
+  useEffect(() => {
+    if (batchPreviewIndex === null || !batchResults[batchPreviewIndex]) return;
+    const timer = setTimeout(() => {
+      actualizarVistaPreviaMasivaTiempoReal(batchPreviewIndex);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [batchResults, batchPreviewIndex]);
+
+  // Neutralizar navegación por historial del navegador
+  useEffect(() => {
+    if (isAuthenticated) {
+      window.history.replaceState(null, "", window.location.href);
+      window.history.pushState(null, "", window.location.href);
+
+      const handlePopState = (e) => {
+        window.history.pushState(null, "", window.location.href);
+      };
+
+      window.addEventListener("popstate", handlePopState);
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+      };
+    }
+  }, [isAuthenticated]);
+
+  // Efecto en tiempo real (debounce) para el formulario manual
+  useEffect(() => {
+    if (!manualPreviewActive) return;
+    const timer = setTimeout(() => {
+      generarVistaPreviaManual();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [formData, selectedPlantilla, manualPreviewActive]);
+
+
+  // ==========================================
+  // --- FUNCIONES Y MANEJADORES ---
+  // ==========================================
+
+  const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   const verificarSesion = async () => {
     try {
@@ -249,14 +327,14 @@ useEffect(() => {
       });
 
       if (res.data?.status === 'ok') {
-      setCurrentUser(res.data.user);
-      setIsAuthenticated(true);
-      window.history.replaceState(null, "", window.location.href); // <--- AGREGAR ESTA LÍNEA
-      setLoginPassword('');
-      setSingleFiles([]);
-      setDatos(null);
-      setBatchResults([]);
-    }
+        setCurrentUser(res.data.user);
+        setIsAuthenticated(true);
+        window.history.replaceState(null, "", window.location.href);
+        setLoginPassword('');
+        setSingleFiles([]);
+        setDatos(null);
+        setBatchResults([]);
+      }
     } catch (err) {
       setLoginError(err.response?.data?.detail || 'Error al iniciar sesión.');
     } finally {
@@ -281,14 +359,6 @@ useEffect(() => {
     }
   };
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      if (activeTab === 'history') cargarHistorialUsuario();
-      if (activeTab === 'users' && (currentUser?.es_admin || currentUser?.role === 'admin')) cargarUsuarios();
-      if (activeTab === 'templates' && (currentUser?.es_admin || currentUser?.role === 'admin')) cargarPlantillas();
-    }
-  }, [activeTab, isAuthenticated, currentUser]);
-
   const cargarHistorialUsuario = async () => {
     try {
       const res = await api.get('/expedientes', {
@@ -300,204 +370,116 @@ useEffect(() => {
     }
   };
 
-const handleGenerarVistaPrevia = async () => {
-  if (!expedienteId || !datos) return;
-  
-  setCargandoPreview(true);
-  setMostrarVistaPrevia(true);
+  const handleGenerarVistaPrevia = async () => {
+    if (!expedienteId || !datos) return;
+    
+    setCargandoPreview(true);
+    setMostrarVistaPrevia(true);
 
-  try {
-    const response = await api.post(
-      `/expedientes/${expedienteId}/generar-word`, 
-      {
-        plantilla: selectedPlantilla, // Utiliza la plantilla dinámicamente seleccionada
-        datos: datos
-      },
-      { 
-        responseType: 'arraybuffer' 
-      }
-    );
+    try {
+      const response = await api.post(
+        `/expedientes/${expedienteId}/generar-word`, 
+        {
+          plantilla: selectedPlantilla,
+          datos: datos
+        },
+        { responseType: 'arraybuffer' }
+      );
 
-    const arrayBuffer = response.data;
+      const arrayBuffer = response.data;
+      setCargandoPreview(false);
 
-    // Desactivar estado de carga para montar el contenedor del ref en el DOM
-    setCargandoPreview(false);
+      setTimeout(async () => {
+        if (previewContainerRef.current) {
+          previewContainerRef.current.innerHTML = ""; 
+          await renderAsync(arrayBuffer, previewContainerRef.current);
+        }
+      }, 50);
 
-    // Renderizar con docx-preview tras un breve retardo de montaje
-    setTimeout(async () => {
+    } catch (error) {
+      console.error("Error al renderizar vista previa:", error);
+      setCargandoPreview(false);
+    }
+  };
+
+  const actualizarVistaPreviaTiempoReal = async () => {
+    try {
+      const response = await api.post(
+        `/expedientes/${expedienteId}/generar-word`,
+        {
+          plantilla: selectedPlantilla,
+          datos: datos
+        },
+        { responseType: 'arraybuffer' }
+      );
+
       if (previewContainerRef.current) {
-        previewContainerRef.current.innerHTML = ""; 
-        await renderAsync(arrayBuffer, previewContainerRef.current);
+        const tempContainer = document.createElement('div');
+        tempContainer.className = "docx-container-scroll";
+
+        await renderAsync(response.data, tempContainer);
+        previewContainerRef.current.innerHTML = tempContainer.innerHTML;
       }
-    }, 50);
-
-  } catch (error) {
-    console.error("Error al renderizar vista previa:", error);
-    setCargandoPreview(false);
-  }
-};
-
-// Actualización en tiempo real con debounce al editar datos
-useEffect(() => {
-  // Solo se ejecuta si la vista previa está visible y existen los datos requeridos
-  if (!mostrarVistaPrevia || !datos || !expedienteId) return;
-
-  // Espera00ms tras dejar de escribir antes de enviar la petición
-  const timer = setTimeout(() => {
-    actualizarVistaPreviaTiempoReal();
-  }, 0);
-
-  return () => clearTimeout(timer);
-}, [datos, mostrarVistaPrevia]);
-
-
-const actualizarVistaPreviaTiempoReal = async () => {
-  try {
-    const response = await api.post(
-      `/expedientes/${expedienteId}/generar-word`,
-      {
-        plantilla: selectedPlantilla, // <-- Cambiado a selectedPlantilla
-        datos: datos
-      },
-      { responseType: 'arraybuffer' }
-    );
-
-    if (previewContainerRef.current) {
-      const tempContainer = document.createElement('div');
-      tempContainer.className = "docx-container-scroll";
-
-      await renderAsync(response.data, tempContainer);
-      previewContainerRef.current.innerHTML = tempContainer.innerHTML;
+    } catch (error) {
+      console.error("Error al actualizar la vista previa en tiempo real:", error);
     }
-  } catch (error) {
-    console.error("Error al actualizar la vista previa en tiempo real:", error);
-  }
-};
+  };
 
-// Estado recomendado para controlar qué expediente del lote se está previsualizando
- const [batchPreviewIndex, setBatchPreviewIndex] = useState(null);
- const batchPreviewRef = useRef(null);
+  const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
+    try {
+      const item = batchResults[index];
+      if (!item) return;
 
-// Hook para actualización en tiempo real cuando se modifican los datos del lote
-useEffect(() => {
-  if (batchPreviewIndex === null || !batchResults[batchPreviewIndex]) return;
+      const response = await api.post(
+        `/expedientes/${item.expediente_id}/generar-word`,
+        {
+          plantilla: item.plantilla_seleccionada || selectedPlantilla, 
+          datos: item.datos_extraidos
+        },
+        { responseType: 'arraybuffer' }
+      );
 
-  const timer = setTimeout(() => {
-    actualizarVistaPreviaMasivaTiempoReal(batchPreviewIndex);
-  }, 0);
+      if (batchPreviewRef.current) {
+        const tempContainer = document.createElement('div');
+        tempContainer.className = "docx-container-scroll";
 
-  return () => clearTimeout(timer);
-}, [batchResults, batchPreviewIndex]);
-
-const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
-  try {
-    const item = batchResults[index];
-    if (!item) return;
-
-    const response = await api.post(
-      `/expedientes/${item.expediente_id}/generar-word`,
-      {
-        // Utiliza la plantilla de la fila
-        plantilla: item.plantilla_seleccionada || selectedPlantilla, 
-        datos: item.datos_extraidos
-      },
-      { responseType: 'arraybuffer' }
-    );
-
-    if (batchPreviewRef.current) {
-      const tempContainer = document.createElement('div');
-      tempContainer.className = "docx-container-scroll";
-
-      await renderAsync(response.data, tempContainer);
-      batchPreviewRef.current.innerHTML = tempContainer.innerHTML;
-    }
-  } catch (error) {
-    console.error("Error al actualizar la vista previa masiva:", error);
-  }
-};
-
-// Neutralizar navegación por historial del navegador
-useEffect(() => {
-  if (isAuthenticated) {
-    // 1. Limpia el historial previo sustituyendo la entrada actual
-    window.history.replaceState(null, "", window.location.href);
-    
-    // 2. Empuja un estado ficticio
-    window.history.pushState(null, "", window.location.href);
-
-    const handlePopState = (e) => {
-      // Al presionar la flecha, vuelve a inyectar la posición actual
-      window.history.pushState(null, "", window.location.href);
-    };
-
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }
-}, [isAuthenticated]);
-
-// Función para generar y renderizar el documento del formulario manual
-const generarVistaPreviaManual = async () => {
-  try {
-    setCargandoManualPreview(true);
-    
-    // Usamos el cliente 'api' y la ruta que ya utilizas para el formulario manual
-    const response = await api.post(
-      '/expedientes/generar-manual',
-      {
-        ...formData,
-        plantilla: selectedPlantilla || 'plantilla_manera2.docx'
-      },
-      { 
-        // Si tu endpoint devuelve base64 o arraybuffer, ajústalo según tu backend. 
-        // Aquí asumimos el estándar que retorna arraybuffer o base64.
-        responseType: 'arraybuffer' 
+        await renderAsync(response.data, tempContainer);
+        batchPreviewRef.current.innerHTML = tempContainer.innerHTML;
       }
-    );
-
-    let arrayBuffer = response.data;
-
-    // Si tu backend devuelve un objeto JSON con { archivo_base64: '...' }, usa esto en su lugar:
-    /*
-    const data = response.data;
-    if (data.archivo_base64) {
-      const binaryString = window.atob(data.archivo_base64);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) { bytes[i] = binaryString.charCodeAt(i); }
-      arrayBuffer = bytes.buffer;
+    } catch (error) {
+      console.error("Error al actualizar la vista previa masiva:", error);
     }
-    */
+  };
 
-    if (manualPreviewRef.current && arrayBuffer) {
-      const tempContainer = document.createElement('div');
-      tempContainer.className = "docx-container-scroll";
+  const generarVistaPreviaManual = async () => {
+    try {
+      setCargandoManualPreview(true);
+      
+      const response = await api.post(
+        '/expedientes/generar-manual',
+        {
+          ...formData,
+          plantilla: selectedPlantilla || 'plantilla_manera2.docx'
+        },
+        { responseType: 'arraybuffer' }
+      );
 
-      await renderAsync(arrayBuffer, tempContainer);
-      manualPreviewRef.current.innerHTML = tempContainer.innerHTML;
+      let arrayBuffer = response.data;
+
+      if (manualPreviewRef.current && arrayBuffer) {
+        const tempContainer = document.createElement('div');
+        tempContainer.className = "docx-container-scroll";
+
+        await renderAsync(arrayBuffer, tempContainer);
+        manualPreviewRef.current.innerHTML = tempContainer.innerHTML;
+      }
+    } catch (error) {
+      console.error("Error al generar la vista previa manual:", error);
+    } finally {
+      setCargandoManualPreview(false);
     }
-  } catch (error) {
-    console.error("Error al generar la vista previa manual:", error);
-  } finally {
-    setCargandoManualPreview(false);
-  }
-};
+  };
 
-// --- EFECTO EN TIEMPO REAL (DEBOUNCE) PARA EL FORMULARIO MANUAL ---
-useEffect(() => {
-  if (!manualPreviewActive) return;
-
-  // Espera 0ms tras dejar de escribir o cambiar inputs para actualizar en tiempo real
-  const timer = setTimeout(() => {
-    generarVistaPreviaManual();
-  }, 0);
-
-  return () => clearTimeout(timer);
-}, [formData, selectedPlantilla, manualPreviewActive]);
-
-  // --- FUNCIÓN PARA ENVÍO MANUAL ---
   const handleManualSubmit = async (e) => {
     e.preventDefault();
     setCargando(true);
@@ -548,12 +530,12 @@ useEffect(() => {
   const handleCrearUsuario = async (e) => {
     e.preventDefault();
     try {
-      const formData = new FormData();
-      formData.append('username', nuevoUsuario.username);
-      formData.append('password', nuevoUsuario.password);
-      formData.append('es_admin', nuevoUsuario.es_admin);
+      const formDataObj = new FormData();
+      formDataObj.append('username', nuevoUsuario.username);
+      formDataObj.append('password', nuevoUsuario.password);
+      formDataObj.append('es_admin', nuevoUsuario.es_admin);
 
-      await api.post('/admin/usuarios', formData);
+      await api.post('/admin/usuarios', formDataObj);
       setNuevoUsuario({ username: '', password: '', role: 'operador', es_admin: false });
       cargarUsuarios();
     } catch (err) {
@@ -562,77 +544,68 @@ useEffect(() => {
   };
 
   const handleEliminarUsuario = async (param1, param2) => {
-  // Evitar conflictos si React envía el evento como primer argumento
-  if (param1 && param1.preventDefault) {
-    param1.preventDefault();
-  }
+    if (param1 && param1.preventDefault) {
+      param1.preventDefault();
+    }
 
-  // Asegurar obtener el ID correcto sin importar el orden de parámetros
-  const usuarioId = typeof param1 === 'string' ? param1 : param2;
+    const usuarioId = typeof param1 === 'string' ? param1 : param2;
 
-  if (!usuarioId || typeof usuarioId !== 'string') {
-    alert('ID de usuario no válido');
-    return;
-  }
+    if (!usuarioId || typeof usuarioId !== 'string') {
+      alert('ID de usuario no válido');
+      return;
+    }
 
-  if (!window.confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
-    return;
-  }
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
+      return;
+    }
 
-  // Obtener token guardado en la sesión
-  const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Sesión no válida o expirada. Por favor, vuelve a iniciar sesión.');
+      return;
+    }
 
-  if (!token) {
-    alert('Sesión no válida o expirada. Por favor, vuelve a iniciar sesión.');
-    return;
-  }
-
-  try {
-    const response = await fetch(
-      `https://sistema-cancelaciones-production.up.railway.app/api/admin/usuarios/${usuarioId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+    try {
+      const response = await fetch(
+        `https://sistema-cancelaciones-production.up.railway.app/api/admin/usuarios/${usuarioId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
         }
+      );
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        alert('Sesión no válida o expirada. Por favor, inicia sesión nuevamente.');
+        return;
       }
-    );
 
-    const data = await response.json();
+      if (!response.ok) {
+        alert(data.detail || 'Error al eliminar usuario');
+        return;
+      }
 
-    if (response.status === 401) {
-      alert('Sesión no válida o expirada. Por favor, inicia sesión nuevamente.');
-      // Opcional: redirigir a login o cerrar sesión
-      return;
+      alert('Usuario eliminado correctamente');
+      cargarUsuarios();
+    } catch (error) {
+      console.error('Error al borrar usuario:', error);
+      alert('Error de conexión al eliminar usuario');
     }
-
-    if (!response.ok) {
-      alert(data.detail || 'Error al eliminar usuario');
-      return;
-    }
-
-    alert('Usuario eliminado correctamente');
-    
-    // Si tienes una función para recargar la lista de usuarios, llámala aquí:
-    if (typeof fetchUsuarios === 'function') {
-      fetchUsuarios();
-    }
-  } catch (error) {
-    console.error('Error al borrar usuario:', error);
-    alert('Error de conexión al eliminar usuario');
-  }
-};
+  };
 
   const handleSubirPlantilla = async (e) => {
     e.preventDefault();
     if (!archivoPlantilla) return;
 
-    const formData = new FormData();
-    formData.append('file', archivoPlantilla);
+    const formDataObj = new FormData();
+    formDataObj.append('file', archivoPlantilla);
 
     try {
-      await api.post('/admin/plantilla', formData);
+      await api.post('/admin/plantilla', formDataObj);
       setArchivoPlantilla(null);
       cargarPlantillas();
       alert('Plantilla subida correctamente.');
@@ -641,7 +614,6 @@ useEffect(() => {
     }
   };
 
-  // --- TOGGLE DIRECTO DEL CANDADO SIN CONTRASEÑA ---
   const handleToggleUnlock = (fieldKey) => {
     setUnlockedFields((prev) => ({
       ...prev,
@@ -720,20 +692,17 @@ useEffect(() => {
   };
 
   const handleSingleFileChange = (e) => {
-  if (e.target.files) {
-    const filesArray = Array.from(e.target.files);
-    
-    // Validar que no se suban más de 2 archivos en el trámite individual
-    if (filesArray.length > 2) {
-      alert("⚠️ Solo se permite un máximo de 2 archivos para el trámite individual.");
-      e.target.value = ""; // Limpia el input para que no se queden seleccionados
-      return;
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      if (filesArray.length > 2) {
+        alert("⚠️ Solo se permite un máximo de 2 archivos para el trámite individual.");
+        e.target.value = "";
+        return;
+      }
+      setSingleFiles(filesArray);
+      setDatos(null);
     }
-
-    setSingleFiles(filesArray);
-    setDatos(null);
-  }
-};
+  };
 
   const handleBatchFileChange = (e) => {
     if (e.target.files) {
@@ -753,14 +722,13 @@ useEffect(() => {
       setProgressSingle((prev) => (prev < 90 ? prev + 15 : prev));
     }, 200);
 
-    const formData = new FormData();
-    singleFiles.forEach((f) => formData.append('files', f));
-    formData.append('usuario_propietario', currentUser.username);
-    // Inyección del parámetro de la plantilla elegida
-    formData.append('plantilla', selectedPlantilla);
+    const formDataObj = new FormData();
+    singleFiles.forEach((f) => formDataObj.append('files', f));
+    formDataObj.append('usuario_propietario', currentUser.username);
+    formDataObj.append('plantilla', selectedPlantilla);
 
     try {
-      const res = await api.post('/expedientes/procesar', formData);
+      const res = await api.post('/expedientes/procesar', formDataObj);
       clearInterval(interval);
       setProgressSingle(100);
       setTimeout(() => {
@@ -782,44 +750,40 @@ useEffect(() => {
     }
   };
 
- const handleApplyTemplateToSelected = async (plantillaElegida) => {
-  if (!plantillaElegida || selectedBatchIndices.length === 0) return;
+  const handleApplyTemplateToSelected = async (plantillaElegida) => {
+    if (!plantillaElegida || selectedBatchIndices.length === 0) return;
 
-  // 1. Actualizar el estado visual en la tabla para todos los seleccionados
-  setBatchResults(prev => {
-    const updated = [...prev];
-    selectedBatchIndices.forEach(index => {
-      if (updated[index]) {
-        updated[index].plantilla_seleccionada = plantillaElegida;
-      }
+    setBatchResults(prev => {
+      const updated = [...prev];
+      selectedBatchIndices.forEach(index => {
+        if (updated[index]) {
+          updated[index].plantilla_seleccionada = plantillaElegida;
+        }
+      });
+      return updated;
     });
-    return updated;
-  });
 
-  // 2. Enviar la orden al backend para regenerar el documento de CADA uno de los seleccionados
-  for (const index of selectedBatchIndices) {
-    await actualizarVistaPreviaMasivaTiempoReal(index);
-  }
+    for (const index of selectedBatchIndices) {
+      await actualizarVistaPreviaMasivaTiempoReal(index);
+    }
 
-  // 3. Limpiar selección después de aplicar
-  setSelectedBatchIndices([]);
-};
-
-const handleSelectAllBatch = (e) => {
-  if (e.target.checked) {
-    const allIndices = batchResults.map((_, i) => i);
-    setSelectedBatchIndices(allIndices);
-  } else {
     setSelectedBatchIndices([]);
-  }
-};
+  };
 
-const handleToggleSelectBatch = (index) => {
-  setSelectedBatchIndices(prev => 
-    prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
-  );
-};
+  const handleSelectAllBatch = (e) => {
+    if (e.target.checked) {
+      const allIndices = batchResults.map((_, i) => i);
+      setSelectedBatchIndices(allIndices);
+    } else {
+      setSelectedBatchIndices([]);
+    }
+  };
 
+  const handleToggleSelectBatch = (index) => {
+    setSelectedBatchIndices(prev => 
+      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+    );
+  };
 
   const handleInputChange = (field, value) => {
     setDatos((prev) => ({ ...prev, [field]: value }));
@@ -840,107 +804,79 @@ const handleToggleSelectBatch = (index) => {
   };
 
   const handleBatchPlantillaChange = (index, nuevaPlantilla) => {
-  setBatchResults((prev) => {
-    const updated = [...prev];
-    updated[index] = {
-      ...updated[index],
-      plantilla_seleccionada: nuevaPlantilla
-    };
-    return updated;
-  });
+    setBatchResults((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        plantilla_seleccionada: nuevaPlantilla
+      };
+      return updated;
+    });
 
-  // Actualiza la vista previa en tiempo real si ese documento está abierto
-  if (batchPreviewIndex === index) {
-    actualizarVistaPreviaMasivaTiempoReal(index);
-  }
-};
-
-
-const handleUploadBatch = async () => {
-  if (batchFiles.length === 0) return;
-  setBatchLoading(true);
-  setProgressBatch(5);
-  setError('');
-
-  const chunkSize = 15; // Tamaño de cada lote para proteger el servidor ante concurrencia
-  const totalFiles = batchFiles.length;
-  let processedFiles = 0;
-  let resultadosTotales = [];
-
-  try {
-    // Recorrer los archivos divididos en bloques
-    for (let i = 0; i < totalFiles; i += chunkSize) {
-      const chunk = batchFiles.slice(i, i + chunkSize);
-      const formData = new FormData();
-      
-      // Adjuntar los archivos del bloque actual
-      chunk.forEach((f) => formData.append('files', f));
-      formData.append('usuario_propietario', currentUser.username);
-      formData.append('plantilla', selectedPlantilla);
-
-      // Enviar el bloque al backend
-      const res = await api.post('/expedientes/procesar-masivo', formData);
-
-      // Normalizar los resultados de este bloque
-      const detallesNormalizados = (res.data.detalles || []).map((item) => {
-        const raw = item.datos_extraidos || {};
-        return {
-          ...item,
-          plantilla_seleccionada: selectedPlantilla,
-          datos_extraidos: {
-            acreditado: raw.acreditado || raw.nombre_acreditado || '',
-            monto: raw.monto || raw.monto_credito || '',
-            numero_credito: raw.numero_credito || '',
-            ...raw
-          }
-        };
-      });
-
-      // Acumular los resultados en la tabla de forma progresiva
-      resultadosTotales = [...resultadosTotales, ...detallesNormalizados];
-      setBatchResults(resultadosTotales);
-
-      // Calcular el porcentaje de progreso real basado en los archivos procesados
-      processedFiles += chunk.length;
-      const porcentajeReal = Math.round((processedFiles / totalFiles) * 95);
-      setProgressBatch(porcentajeReal);
+    if (batchPreviewIndex === index) {
+      actualizarVistaPreviaMasivaTiempoReal(index);
     }
+  };
 
-    // Finalizar proceso al 100%
-    setProgressBatch(100);
-    setTimeout(() => {
-      if (resultadosTotales.length > 0) {
-        setOpenAccordion({ 0: true });
+  const handleUploadBatch = async () => {
+    if (batchFiles.length === 0) return;
+    setBatchLoading(true);
+    setProgressBatch(5);
+    setError('');
+
+    const chunkSize = 15;
+    const totalFiles = batchFiles.length;
+    let processedFiles = 0;
+    let resultadosTotales = [];
+
+    try {
+      for (let i = 0; i < totalFiles; i += chunkSize) {
+        const chunk = batchFiles.slice(i, i + chunkSize);
+        const formDataObj = new FormData();
+        
+        chunk.forEach((f) => formDataObj.append('files', f));
+        formDataObj.append('usuario_propietario', currentUser.username);
+        formDataObj.append('plantilla', selectedPlantilla);
+
+        const res = await api.post('/expedientes/procesar-masivo', formDataObj);
+
+        const detallesNormalizados = (res.data.detalles || []).map((item) => {
+          const raw = item.datos_extraidos || {};
+          return {
+            ...item,
+            plantilla_seleccionada: selectedPlantilla,
+            datos_extraidos: {
+              acreditado: raw.acreditado || raw.nombre_acreditado || '',
+              monto: raw.monto || raw.monto_credito || '',
+              numero_credito: raw.numero_credito || '',
+              ...raw
+            }
+          };
+        });
+
+        resultadosTotales = [...resultadosTotales, ...detallesNormalizados];
+        setBatchResults(resultadosTotales);
+
+        processedFiles += chunk.length;
+        const porcentajeReal = Math.round((processedFiles / totalFiles) * 95);
+        setProgressBatch(porcentajeReal);
       }
-      setUnlockedFields({});
+
+      setProgressBatch(100);
+      setTimeout(() => {
+        if (resultadosTotales.length > 0) {
+          setOpenAccordion({ 0: true });
+        }
+        setUnlockedFields({});
+        setBatchLoading(false);
+      }, 300);
+
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Error al procesar el lote de archivos.');
       setBatchLoading(false);
-    }, 300);
+    }
+  };
 
-  } catch (err) {
-    setError(err.response?.data?.detail || 'Error al procesar el lote de archivos.');
-    setBatchLoading(false);
-  }
-};
-
-// --- DECLARACIÓN DE ESTADOS REQUERIDOS ---
-  const [cargando, setCargando] = useState(false);
-  const [archivoExcel, setArchivoExcel] = useState(null);
-  const [formData, setFormData] = useState({
-    numero_credito: '',
-    nombre_acreditado: '',
-    monto_credito: '',
-    oficina_registral: '',
-    numero_carta: '',
-    entidad_financiera: '',
-    fecha_liquidacion: '',
-    folio_real: '',
-    datos_inmueble: '',
-    fecha_expedicion: '',
-    credito_a_salario: ''
-  });
-
-
-  // --- FUNCIÓN PARA CARGA DE EXCEL ---
   const handleExcelSubmit = async (e) => {
     e.preventDefault();
     if (!archivoExcel) return alert('Por favor selecciona un archivo Excel (.xlsx o .csv)');
@@ -948,8 +884,8 @@ const handleUploadBatch = async () => {
     setCargando(true);
     const dataForm = new FormData();
     dataForm.append('file', archivoExcel);
-    dataForm.append('plantilla', plantillaSeleccionada || 'plantilla_manera2.docx');
-    dataForm.append('usuario_propietario', 'admin');
+    dataForm.append('plantilla', selectedPlantilla || 'plantilla_manera2.docx');
+    dataForm.append('usuario_propietario', currentUser?.username || 'admin');
 
     try {
       const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/procesar-excel', {
@@ -973,33 +909,32 @@ const handleUploadBatch = async () => {
     }
   };
 
- const handleDownloadWord = async (id, datosActuales) => {
-  try {
-    // Se envían la plantilla seleccionada y los datos en la estructura del payload que espera el backend
-    const payload = {
-      plantilla: selectedPlantilla, // Utiliza la plantilla dinámicamente seleccionada
-      datos: datosActuales || {}
-    };
+  const handleDownloadWord = async (id, datosActuales) => {
+    try {
+      const payload = {
+        plantilla: selectedPlantilla,
+        datos: datosActuales || {}
+      };
 
-    const response = await api.post(
-      `/expedientes/${id}/generar-word`,
-      payload,
-      { responseType: 'blob' }
-    );
+      const response = await api.post(
+        `/expedientes/${id}/generar-word`,
+        payload,
+        { responseType: 'blob' }
+      );
 
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Cancelacion_${datosActuales?.numero_credito || 'expediente'}.docx`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url); // Liberar memoria
-  } catch (err) {
-    console.error("Error al descargar Word:", err);
-    setError('Error al descargar el archivo Word.');
-  }
-};
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Cancelacion_${datosActuales?.numero_credito || 'expediente'}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error al descargar Word:", err);
+      setError('Error al descargar el archivo Word.');
+    }
+  };
 
   const handleDownloadZip = async () => {
     const ids = batchResults.map((r) => r.expediente_id);
@@ -1020,7 +955,6 @@ const handleUploadBatch = async () => {
   const formatLabel = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 
   const esAdmin = currentUser?.es_admin || currentUser?.role === 'admin';
-
   // --- CÁLCULOS DINÁMICOS DE FECHAS, SEMANAS Y DÍAS DEL MES ---
   const getWeekOfMonth = (date) => {
     const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
