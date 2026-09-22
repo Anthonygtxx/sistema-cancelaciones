@@ -4,6 +4,7 @@ import zipfile
 import re
 import pathlib
 import uuid
+from fastapi.staticfiles import StaticFiles
 import traceback
 from fastapi import HTTPException
 from typing import Optional, Dict, Any, List
