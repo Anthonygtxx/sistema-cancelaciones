@@ -497,37 +497,6 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [formData, selectedPlantilla, manualPreviewActive]);
 
-const handleManualSubmit = async (e) => {
-  e.preventDefault();
-  setCargando(true);
-  
-  try {
-    const res = await api.post('/expedientes/generar-manual', {
-      ...formData,
-      plantilla: selectedPlantilla || 'plantilla_manera2.docx'
-    });
-    
-    const data = res.data;
-    if (res.status === 200 && data.status === 'exito') {
-      alert('¡Expediente manual generado con éxito!');
-      
-      // Activar la vista previa automáticamente tras el envío exitoso
-      setManualPreviewActive(true);
-      await generarVistaPreviaManual();
-
-      if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
-        setExpedientes([data, ...expedientes]);
-      }
-    } else {
-      alert('Error: ' + (data.detail || 'No se pudo generar'));
-    }
-  } catch (err) {
-    console.error(err);
-    alert(err.response?.data?.detail || 'Error de conexión con el servidor.');
-  } finally {
-    setCargando(false);
-  }
-};
 
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
