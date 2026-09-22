@@ -4,6 +4,8 @@ import zipfile
 import re
 import pathlib
 import uuid
+import traceback
+from fastapi import HTTPException
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI, UploadFile, BackgroundTasks, File, Form, Depends, HTTPException, Body, Query, Header
 from fastapi.responses import FileResponse
@@ -849,9 +851,9 @@ def generar_expediente_manual(
             "plantilla_seleccionada": plantilla
         }
     except Exception as e:
-        db.rollback()
-        print(f"ERROR EN /generar-manual: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Esto imprimirá el error exacto y la línea de código que falló en los logs de Railway
+        traceback.print_exc() 
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 
 # ==============================================================================
