@@ -4,8 +4,6 @@ import zipfile
 import re
 import pathlib
 import uuid
-import traceback
-from fastapi import HTTPException
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI, UploadFile, BackgroundTasks, File, Form, Depends, HTTPException, Body, Query, Header
 from fastapi.responses import FileResponse
@@ -26,10 +24,6 @@ DATABASE_URL = "postgresql+psycopg://postgres:SHrReilQVtrhgSjEXNDDkbvwOmWZMESa@s
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Sistema de Cancelaciones de Hipotecas")
-
-# --- ARCHIVOS ESTÁTICOS ---
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # --- CATÁLOGO DE LAS 20 PLANTILLAS NOTARIALES 2026 ---
 TEMPLATES_DIR = "templates"
@@ -803,6 +797,9 @@ def obtener_plantillas_admin():
     ]
     return {"plantillas": sorted(archivos)}
 
+# ==============================================================================
+# 1. ENDPOINT PARA CAPTURA MANUAL INDIVIDUAL (Formulario suelto)
+# ==============================================================================
 @app.post("/api/expedientes/generar-manual")
 def generar_expediente_manual(
     payload: Dict[str, Any] = Body(...),
@@ -825,35 +822,37 @@ def generar_expediente_manual(
         os.makedirs("uploads/generados", exist_ok=True)
         ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
         
-        # Generar el documento Word
+        # Generar documento Word
         exito = services.generar_word_cancelacion(ruta_plantilla, datos_limpios, ruta_salida)
         if not exito:
-            raise HTTPException(status_code=500, detail="Error al reescribir la plantilla Word")
+            raise HTTPException(status_code=500, detail="Error al generar el documento Word con la plantilla seleccionada")
 
-        # Guardar el registro en la base de datos
+        # Guardar registro en PostgreSQL (Railway)
         nuevo_expediente = models.Expediente(
             usuario_propietario=usuario,
             numero_credito=num_credito,
             datos_extraidos=datos_limpios,
+            ruta_pdf_constancia="Generado manualmente (Sin PDF)",
             ruta_word_generado=ruta_salida
         )
         db.add(nuevo_expediente)
         db.commit()
         db.refresh(nuevo_expediente)
-        
-        # Retornar JSON (evita el error de sintaxis en el frontend y permite mostrar la vista previa)
+
         return {
             "status": "exito",
+            "mensaje": "Expediente manual generado correctamente",
             "id": str(nuevo_expediente.id),
             "expediente_id": str(nuevo_expediente.id),
+            "datos_extraidos": datos_limpios,
             "ruta_word": ruta_salida,
-            "datos_extraidos": datos_limpios
+            "plantilla_seleccionada": plantilla
         }
     except Exception as e:
         db.rollback()
         print(f"ERROR EN /generar-manual: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-        
+
 
 # ==============================================================================
 # 2. ENDPOINT PARA CARGA MASIVA MEDIANTE EXCEL O CSV
