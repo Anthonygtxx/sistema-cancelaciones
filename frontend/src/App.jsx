@@ -488,31 +488,32 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
     }
   };
 
- // --- FUNCIÓN PARA ENVÍO MANUAL ---
-const handleManualSubmit = async (e) => {
+ const handleManualSubmit = async (e) => {
   e.preventDefault();
   setCargando(true);
   
-  const API_URL = import.meta.env.VITE_API_URL || 'https://sistema-cancelaciones-production.up.railway.app';
-  
   try {
-    const res = await fetch(`${API_URL}/api/expedientes/generar-manual`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'plantilla_manera2.docx' })
+    const API_URL = import.meta.env.VITE_API_URL || 'https://sistema-cancelaciones-production.up.railway.app';
+    
+    // Usamos axios en lugar de fetch para mantener la consistencia con el resto de la app
+    const response = await axios.post(`${API_URL}/api/expedientes/generar-manual`, {
+      ...formData,
+      plantilla: selectedPlantilla || 'plantilla_manera2.docx'
+    }, {
+      headers: { 'Content-Type': 'application/json' }
     });
-    const data = await res.json();
-    if (res.ok && data.status === 'exito') {
+
+    const data = response.data;
+    if (data.status === 'exito') {
       alert('¡Expediente manual generado con éxito!');
       if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
         setExpedientes([data, ...expedientes]);
       }
-    } else {
-      alert('Error: ' + (data.detail || 'No se pudo generar'));
     }
   } catch (err) {
     console.error(err);
-    alert('Error de conexión con el servidor.');
+    const mensajeError = err.response?.data?.detail || 'No se pudo generar el expediente';
+    alert('Error: ' + mensajeError);
   } finally {
     setCargando(false);
   }
