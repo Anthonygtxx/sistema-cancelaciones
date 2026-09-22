@@ -4,7 +4,6 @@ import zipfile
 import re
 import pathlib
 import uuid
-from fastapi.staticfiles import StaticFiles
 import traceback
 from fastapi import HTTPException
 from typing import Optional, Dict, Any, List
@@ -854,7 +853,7 @@ def generar_expediente_manual(
         db.rollback()
         print(f"ERROR EN /generar-manual: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+        
 
 # ==============================================================================
 # 2. ENDPOINT PARA CARGA MASIVA MEDIANTE EXCEL O CSV
