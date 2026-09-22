@@ -464,43 +464,43 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
         { responseType: 'arraybuffer' }
       );
 
-      let arrayBuffer = response.data;
+      // Validar si el backend respondió con un JSON de error en lugar del documento
+      const textDecoder = new TextDecoder();
+      const possibleJson = textDecoder.decode(response.data.slice(0, 100));
+      if (possibleJson.includes('"detail"') || possibleJson.includes('{')) {
+        throw new Error("El servidor devolvió un error en lugar del documento.");
+      }
 
-      if (manualPreviewRef.current && arrayBuffer) {
+      if (manualPreviewRef.current && response.data) {
         const tempContainer = document.createElement('div');
         tempContainer.className = "docx-container-scroll";
 
-        await renderAsync(arrayBuffer, tempContainer);
+        await renderAsync(response.data, tempContainer);
         manualPreviewRef.current.innerHTML = tempContainer.innerHTML;
       }
     } catch (error) {
       console.error("Error al generar la vista previa manual:", error);
+      if (manualPreviewRef.current) {
+        manualPreviewRef.current.innerHTML = `<p style="color: red; padding: 20px; text-align: center;">⚠️ Error al cargar la vista previa. Verifica que los datos obligatorios estén llenos y que la plantilla exista en el servidor.</p>`;
+      }
     } finally {
       setCargandoManualPreview(false);
     }
   };
 
-  const handleManualSubmit = async (e) => {
+ const handleManualSubmit = async (e) => {
     e.preventDefault();
     setCargando(true);
     try {
-      const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'plantilla_manera2.docx' })
+      const res = await api.post('/expedientes/generar-manual', {
+        ...formData,
+        plantilla: selectedPlantilla || 'plantilla_manera2.docx'
       });
-      const data = await res.json();
-      if (res.ok && data.status === 'exito') {
-        alert('¡Expediente manual generado con éxito!');
-        if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
-          setExpedientes([data, ...expedientes]);
-        }
-      } else {
-        alert('Error: ' + (data.detail || 'No se pudo generar'));
-      }
+      alert('¡Expediente manual generado con éxito!');
+      cargarHistorialUsuario(); // Recarga el historial automáticamente para que aparezca en la tabla
     } catch (err) {
       console.error(err);
-      alert('Error de conexión con el servidor.');
+      alert('Error: ' + (err.response?.data?.detail || 'No se pudo generar'));
     } finally {
       setCargando(false);
     }

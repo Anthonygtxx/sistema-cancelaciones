@@ -768,6 +768,7 @@ def eliminar_usuario(
         )
 
 
+# --- MANTENEX EL POST QUE YA TIENES ---
 @app.post("/api/admin/plantilla")
 async def actualizar_plantilla(file: UploadFile = File(...)):
     if not file.filename.endswith(".docx"):
@@ -781,6 +782,20 @@ async def actualizar_plantilla(file: UploadFile = File(...)):
         
     return {"status": "exito", "mensaje": f"Plantilla '{file.filename}' subida correctamente"}
 
+
+# --- AGREGA ESTE GET NUEVO PARA EVITAR EL ERROR 405 ---
+@app.get("/api/admin/plantilla")
+def obtener_plantillas_admin():
+    """Retorna la lista de plantillas disponibles para el panel de administración."""
+    if not os.path.exists("templates"):
+        os.makedirs("templates", exist_ok=True)
+        return {"plantillas": []}
+    
+    archivos = [
+        f for f in os.listdir("templates") 
+        if f.endswith(".docx") and not f.startswith("~$")
+    ]
+    return {"plantillas": sorted(archivos)}
 
 # ==============================================================================
 # 1. ENDPOINT PARA CAPTURA MANUAL INDIVIDUAL (Formulario suelto)
