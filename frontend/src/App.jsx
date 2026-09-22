@@ -489,31 +489,34 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
   };
 
  // --- FUNCIÓN PARA ENVÍO MANUAL ---
-  const handleManualSubmit = async (e) => {
-    e.preventDefault();
-    setCargando(true);
-    try {
-      const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'plantilla_manera2.docx' })
-      });
-      const data = await res.json();
-      if (res.ok && data.status === 'exito') {
-        alert('¡Expediente manual generado con éxito!');
-        if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
-          setExpedientes([data, ...expedientes]);
-        }
-      } else {
-        alert('Error: ' + (data.detail || 'No se pudo generar'));
+const handleManualSubmit = async (e) => {
+  e.preventDefault();
+  setCargando(true);
+  
+  const API_URL = import.meta.env.VITE_API_URL || 'https://sistema-cancelaciones-production.up.railway.app';
+  
+  try {
+    const res = await fetch(`${API_URL}/api/expedientes/generar-manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'plantilla_manera2.docx' })
+    });
+    const data = await res.json();
+    if (res.ok && data.status === 'exito') {
+      alert('¡Expediente manual generado con éxito!');
+      if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
+        setExpedientes([data, ...expedientes]);
       }
-    } catch (err) {
-      console.error(err);
-      alert('Error de conexión con el servidor.');
-    } finally {
-      setCargando(false);
+    } else {
+      alert('Error: ' + (data.detail || 'No se pudo generar'));
     }
-  };
+  } catch (err) {
+    console.error(err);
+    alert('Error de conexión con el servidor.');
+  } finally {
+    setCargando(false);
+  }
+};
 
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
