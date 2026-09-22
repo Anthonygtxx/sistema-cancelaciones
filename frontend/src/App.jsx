@@ -2252,9 +2252,15 @@ const filteredHistorial = (historial || []).filter((item) => {
   </div>
 )}
 
-{/* VISTA DE CAPTURA MANUAL CON TODOS LOS CAMPOS, SELECTOR 2026 Y VISTA PREVIA*/}
+{/* VISTA DE CAPTURA MANUAL CON TODOS LOS CAMPOS, SELECTOR 2026 Y VISTA PREVIA */}
 {activeTab === 'manual' && (
-  <div style={{ display: 'grid', gridTemplateColumns: manualPreviewActive ? '1fr 1fr' : '1fr', gap: '24px', alignItems: 'start' }}>
+  <div style={{ 
+    display: 'grid', 
+    gridTemplateColumns: manualPreviewActive ? '1.2fr 1fr' : '1fr', 
+    gap: '24px', 
+    alignItems: 'start',
+    transition: 'all 0.3s ease'
+  }}>
     
     {/* COLUMNA IZQUIERDA: FORMULARIO */}
     <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
@@ -2356,7 +2362,7 @@ const filteredHistorial = (historial || []).filter((item) => {
             </optgroup>
             <optgroup label="EDOMEX - CONTRATO DE MUTUO">
               <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-              <option value="EDOMEX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+              <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
               <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
               <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
             </optgroup>
@@ -2392,7 +2398,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Monto del Crédito</label>
           <input
             type="text"
-            placeholder="Ej. 150000.00"
+            placeholder="Ej. $168,000.00"
             value={formData.monto_credito}
             onChange={e => setFormData({...formData, monto_credito: e.target.value})}
             style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
@@ -2533,6 +2539,13 @@ const filteredHistorial = (historial || []).filter((item) => {
             padding: 16px !important;
             box-sizing: border-box !important;
           }
+          .docx-container-scroll::-webkit-scrollbar {
+            width: 6px;
+          }
+          .docx-container-scroll::-webkit-scrollbar-thumb {
+            background-color: rgba(156, 163, 175, 0.5);
+            border-radius: 8px;
+          }
         `}</style>
 
         <div style={{ 
@@ -2544,7 +2557,8 @@ const filteredHistorial = (historial || []).filter((item) => {
           backgroundColor: theme.subtleBg
         }}>
           <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            👁️ Previa del Documento Manual
+            <Eye size={18} color={theme.accent} /> 
+            Previa del Documento Manual
           </h2>
 
           <button
@@ -2565,11 +2579,14 @@ const filteredHistorial = (historial || []).filter((item) => {
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px'
+              gap: '4px',
+              boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)',
+              transition: 'all 0.2s ease'
             }}
+            title="Cerrar vista previa"
           >
             <span>Cerrar</span>
-            <span style={{ fontSize: '13px', fontWeight: 'bold' }}>✕</span>
+            <span style={{ fontSize: '13px', fontWeight: 'bold', marginLeft: '2px' }}>✕</span>
           </button>
         </div>
 
