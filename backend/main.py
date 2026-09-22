@@ -102,22 +102,19 @@ def descargar_zip(
         media_type="application/zip"
     )
 
-def resolver_ruta_plantilla(nombre_plantilla: str) -> str:
-    # Mapeo de los nombres amigables del select del formulario manual a archivos reales
-    mapeo_plantillas = {
-        "Ap. Crédito - Hombre Soltero": "plantilla_manera2.docx",
-        "Ap. Crédito - Mujer Soltera": "plantilla_manera2.docx",
-    }
-    
-    nombre_archivo = mapeo_plantillas.get(nombre_plantilla, nombre_plantilla or "plantilla_manera2.docx")
-    ruta = os.path.join("templates", nombre_archivo)
-    
-    # Si el archivo exacto no existe, utiliza el archivo por defecto de respaldo
-    if not os.path.exists(ruta):
-        ruta_defecto = os.path.join("templates", "plantilla_manera2.docx")
-        if os.path.exists(ruta_defecto):
-            return ruta_defecto
-    return ruta
+def resolver_ruta_plantilla(nombre_o_clave: Optional[str]) -> str:
+    """Resuelve la ruta física del archivo .docx admitiendo clave o nombre directo."""
+    if not os.path.exists(TEMPLATES_DIR):
+        os.makedirs(TEMPLATES_DIR, exist_ok=True)
+        
+    if not nombre_o_clave:
+        return os.path.join(TEMPLATES_DIR, "plantilla_manera2.docx")
+        
+    # 1. Búsqueda por clave corta de catálogo
+    if nombre_o_clave in PLANTILLAS_CATALOGO:
+        ruta = os.path.join(TEMPLATES_DIR, PLANTILLAS_CATALOGO[nombre_o_clave])
+        if os.path.exists(ruta):
+            return ruta
 
     # 2. Búsqueda por nombre directo de archivo
     nombre_archivo = nombre_o_clave if nombre_o_clave.endswith(".docx") else f"{nombre_o_clave}.docx"
@@ -820,17 +817,21 @@ def generar_expediente_manual(
         if not num_credito:
             raise HTTPException(status_code=400, detail="El número de crédito es obligatorio")
 
+        # Limpiar y preparar datos asegurando formato formal y letras en montos
         datos_limpios = limpiar_datos_para_plantilla(payload, num_credito)
         datos_limpios["plantilla_seleccionada"] = plantilla
 
+        # Resolver ruta física de la plantilla notarial
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
         os.makedirs("uploads/generados", exist_ok=True)
         ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
         
+        # Generar el documento Word
         exito = services.generar_word_cancelacion(ruta_plantilla, datos_limpios, ruta_salida)
         if not exito:
             raise HTTPException(status_code=500, detail="Error al reescribir la plantilla Word")
 
+        # Guardar el registro en la base de datos
         nuevo_expediente = models.Expediente(
             usuario_propietario=usuario,
             numero_credito=num_credito,
@@ -841,24 +842,19 @@ def generar_expediente_manual(
         db.commit()
         db.refresh(nuevo_expediente)
         
-        url_publica = f"/uploads/generados/Cancelacion_{num_credito}.docx"
-        
-        # Se devuelven múltiples variantes de llaves para asegurar que el frontend las lea sin problemas
+        # Retornar JSON (evita el error de sintaxis en el frontend y permite mostrar la vista previa)
         return {
             "status": "exito",
             "id": str(nuevo_expediente.id),
             "expediente_id": str(nuevo_expediente.id),
             "ruta_word": ruta_salida,
-            "path": ruta_salida,
-            "url": url_publica,
-            "file_url": url_publica,
-            "preview_url": url_publica,
             "datos_extraidos": datos_limpios
         }
     except Exception as e:
         db.rollback()
         print(f"ERROR EN /generar-manual: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
 
 # ==============================================================================
 # 2. ENDPOINT PARA CARGA MASIVA MEDIANTE EXCEL O CSV
