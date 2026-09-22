@@ -768,6 +768,61 @@ const handleToggleSelectBatch = (index) => {
   }
 };
 
+// --- ACTUALIZACIÓN EN TIEMPO REAL PARA EL FORMULARIO MANUAL ---
+useEffect(() => {
+  // Solo se activa si el panel de vista previa ya fue abierto por el usuario
+  if (!manualPreviewActive) return;
+
+  // Un debounce de 400ms evita que se sature el servidor por cada letra que escribas
+  const timer = setTimeout(async () => {
+    try {
+      const token = localStorage.getItem('token') || '';
+
+      const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ 
+          ...formData, 
+          plantilla: selectedPlantilla || 'CDMX_AP_H_SOLTERO' 
+        })
+      });
+      
+      const data = await res.json();
+
+      if (res.ok && data.status === 'exito' && data.archivo_base64 && manualPreviewRef.current) {
+        const binaryString = window.atob(data.archivo_base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // Contenedor temporal para renderizar limpio y evitar parpadeos molestos
+        const tempContainer = document.createElement('div');
+        tempContainer.className = "docx-container-scroll";
+
+        await window.docx.renderAsync(bytes.buffer, tempContainer, null, {
+          className: "docx-wrapper",
+          inWrapper: true,
+          ignoreWidth: false,
+          ignoreHeight: false,
+        });
+
+        if (manualPreviewRef.current) {
+          manualPreviewRef.current.innerHTML = tempContainer.innerHTML;
+        }
+      }
+    } catch (err) {
+      console.error("Error al actualizar vista previa manual en tiempo real:", err);
+    }
+  }, 400);
+
+  return () => clearTimeout(timer);
+}, [formData, selectedPlantilla, manualPreviewActive]);
+
 const handleUploadBatch = async () => {
   if (batchFiles.length === 0) return;
   setBatchLoading(true);
@@ -2270,7 +2325,6 @@ const filteredHistorial = (historial || []).filter((item) => {
         e.preventDefault();
         setCargando(true);
         try {
-          // Recuperar token de autenticación si lo guardas en localStorage (para evitar el error 401)
           const token = localStorage.getItem('token') || '';
 
           const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
@@ -2286,6 +2340,7 @@ const filteredHistorial = (historial || []).filter((item) => {
             alert('¡Expediente manual generado con éxito!');
             setManualPreviewActive(true);
             
+            // Renderizado idéntico usando los estilos exactos de la vista previa masiva
             if (data.archivo_base64 && manualPreviewRef.current) {
               const binaryString = window.atob(data.archivo_base64);
               const len = binaryString.length;
@@ -2499,7 +2554,7 @@ const filteredHistorial = (historial || []).filter((item) => {
       </form>
     </div>
 
-    {/* COLUMNA DERECHA: PANEL DE VISTA PREVIA MANUAL */}
+    {/* COLUMNA DERECHA: PANEL DE VISTA PREVIA MANUAL (Idéntica al Lote Masivo) */}
     {manualPreviewActive && (
       <div style={{ 
         backgroundColor: theme.cardBg, 
@@ -2601,7 +2656,6 @@ const filteredHistorial = (historial || []).filter((item) => {
 
   </div>
 )}
-
 
 {/* VISTA DE CARGA EXCEL / LOTE */}
 {activeTab === 'excel' && (
