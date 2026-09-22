@@ -187,8 +187,9 @@ const indicePrimerItem = indiceUltimoItem - elementosPorPagina;
 const elementosVisibles = batchResults.slice(indicePrimerItem, indiceUltimoItem);
 const totalPaginas = Math.ceil(batchResults.length / elementosPorPagina);
 
-// Asegúrate de tener estos estados declarados formulario manual
+// --- ESTADOS - Formulario Manual y Vista Previa ---
 const [manualPreviewActive, setManualPreviewActive] = useState(false);
+const [cargandoManualPreview, setCargandoManualPreview] = useState(false);
 const manualPreviewRef = useRef(null);
 
   // Validar sesión activa al recargar la página (F5)
@@ -341,7 +342,7 @@ useEffect(() => {
   // Solo se ejecuta si la vista previa está visible y existen los datos requeridos
   if (!mostrarVistaPrevia || !datos || !expedienteId) return;
 
-  // Espera 100ms tras dejar de escribir antes de enviar la petición
+  // Espera00ms tras dejar de escribir antes de enviar la petición
   const timer = setTimeout(() => {
     actualizarVistaPreviaTiempoReal();
   }, 0);
@@ -436,6 +437,97 @@ useEffect(() => {
     };
   }
 }, [isAuthenticated]);
+
+// Función para generar y renderizar el documento del formulario manual
+const generarVistaPreviaManual = async () => {
+  try {
+    setCargandoManualPreview(true);
+    
+    // Usamos el cliente 'api' y la ruta que ya utilizas para el formulario manual
+    const response = await api.post(
+      '/expedientes/generar-manual',
+      {
+        ...formData,
+        plantilla: selectedPlantilla || 'plantilla_manera2.docx'
+      },
+      { 
+        // Si tu endpoint devuelve base64 o arraybuffer, ajústalo según tu backend. 
+        // Aquí asumimos el estándar que retorna arraybuffer o base64.
+        responseType: 'arraybuffer' 
+      }
+    );
+
+    let arrayBuffer = response.data;
+
+    // Si tu backend devuelve un objeto JSON con { archivo_base64: '...' }, usa esto en su lugar:
+    /*
+    const data = response.data;
+    if (data.archivo_base64) {
+      const binaryString = window.atob(data.archivo_base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) { bytes[i] = binaryString.charCodeAt(i); }
+      arrayBuffer = bytes.buffer;
+    }
+    */
+
+    if (manualPreviewRef.current && arrayBuffer) {
+      const tempContainer = document.createElement('div');
+      tempContainer.className = "docx-container-scroll";
+
+      await renderAsync(arrayBuffer, tempContainer);
+      manualPreviewRef.current.innerHTML = tempContainer.innerHTML;
+    }
+  } catch (error) {
+    console.error("Error al generar la vista previa manual:", error);
+  } finally {
+    setCargandoManualPreview(false);
+  }
+};
+
+// --- EFECTO EN TIEMPO REAL (DEBOUNCE) PARA EL FORMULARIO MANUAL ---
+useEffect(() => {
+  if (!manualPreviewActive) return;
+
+  // Espera 0ms tras dejar de escribir o cambiar inputs para actualizar en tiempo real
+  const timer = setTimeout(() => {
+    generarVistaPreviaManual();
+  }, 0);
+
+  return () => clearTimeout(timer);
+}, [formData, selectedPlantilla, manualPreviewActive]);
+
+const handleManualSubmit = async (e) => {
+  e.preventDefault();
+  setCargando(true);
+  
+  try {
+    const res = await api.post('/expedientes/generar-manual', {
+      ...formData,
+      plantilla: selectedPlantilla || 'plantilla_manera2.docx'
+    });
+    
+    const data = res.data;
+    if (res.status === 200 && data.status === 'exito') {
+      alert('¡Expediente manual generado con éxito!');
+      
+      // Activar la vista previa automáticamente tras el envío exitoso
+      setManualPreviewActive(true);
+      await generarVistaPreviaManual();
+
+      if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
+        setExpedientes([data, ...expedientes]);
+      }
+    } else {
+      alert('Error: ' + (data.detail || 'No se pudo generar'));
+    }
+  } catch (err) {
+    console.error(err);
+    alert(err.response?.data?.detail || 'Error de conexión con el servidor.');
+  } finally {
+    setCargando(false);
+  }
+};
 
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
@@ -2500,7 +2592,7 @@ const filteredHistorial = (historial || []).filter((item) => {
       </form>
     </div>
 
-    {/* COLUMNA DERECHA: PANEL DE VISTA PREVIA MANUAL (Idéntica al Lote Masivo) */}
+{/* COLUMNA DERECHA: PANEL DE VISTA PREVIA MANUAL (Idéntica al Lote Masivo) */}
     {manualPreviewActive && (
       <div style={{ 
         backgroundColor: theme.cardBg, 
@@ -2560,6 +2652,11 @@ const filteredHistorial = (historial || []).filter((item) => {
           <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Eye size={18} color={theme.accent} /> 
             Previa del Documento Manual
+            {cargandoManualPreview && (
+              <span style={{ fontSize: '12px', fontWeight: 'normal', color: theme.accent, marginLeft: '8px' }}>
+                (Actualizando...)
+              </span>
+            )}
           </h2>
 
           <button
@@ -2591,7 +2688,34 @@ const filteredHistorial = (historial || []).filter((item) => {
           </button>
         </div>
 
-        <div style={{ flex: 1, padding: '12px', overflow: 'hidden', backgroundColor: theme.dropzoneBg }}>
+        <div style={{ flex: 1, padding: '12px', overflow: 'hidden', backgroundColor: theme.dropzoneBg, position: 'relative' }}>
+          {cargandoManualPreview && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10,
+              backdropFilter: 'blur(1px)'
+            }}>
+              <span style={{ 
+                fontSize: '13px', 
+                fontWeight: '600', 
+                color: theme.textPrimary, 
+                backgroundColor: theme.cardBg, 
+                padding: '6px 14px', 
+                borderRadius: '8px', 
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)' 
+              }}>
+                Generando vista previa...
+              </span>
+            </div>
+          )}
           <div 
             ref={manualPreviewRef} 
             className="docx-container-scroll"
@@ -2602,6 +2726,7 @@ const filteredHistorial = (historial || []).filter((item) => {
 
   </div>
 )}
+
 
 {/* VISTA DE CARGA EXCEL / LOTE */}
 {activeTab === 'excel' && (
