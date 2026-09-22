@@ -488,19 +488,28 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
     }
   };
 
- const handleManualSubmit = async (e) => {
+ // --- FUNCIÓN PARA ENVÍO MANUAL ---
+  const handleManualSubmit = async (e) => {
     e.preventDefault();
     setCargando(true);
     try {
-      const res = await api.post('/expedientes/generar-manual', {
-        ...formData,
-        plantilla: selectedPlantilla || 'plantilla_manera2.docx'
+      const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'plantilla_manera2.docx' })
       });
-      alert('¡Expediente manual generado con éxito!');
-      cargarHistorialUsuario(); // Recarga el historial automáticamente para que aparezca en la tabla
+      const data = await res.json();
+      if (res.ok && data.status === 'exito') {
+        alert('¡Expediente manual generado con éxito!');
+        if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
+          setExpedientes([data, ...expedientes]);
+        }
+      } else {
+        alert('Error: ' + (data.detail || 'No se pudo generar'));
+      }
     } catch (err) {
       console.error(err);
-      alert('Error: ' + (err.response?.data?.detail || 'No se pudo generar'));
+      alert('Error de conexión con el servidor.');
     } finally {
       setCargando(false);
     }
@@ -2250,13 +2259,7 @@ const filteredHistorial = (historial || []).filter((item) => {
 
 {/* VISTA DE CAPTURA MANUAL CON TODOS LOS CAMPOS, SELECTOR 2026 Y VISTA PREVIA */}
 {activeTab === 'manual' && (
-  <div style={{ 
-    display: 'grid', 
-    gridTemplateColumns: manualPreviewActive ? '1.2fr 1fr' : '1fr', 
-    gap: '24px', 
-    alignItems: 'start',
-    transition: 'all 0.3s ease'
-  }}>
+  <div style={{ display: 'grid', gridTemplateColumns: manualPreviewActive ? '1fr 1fr' : '1fr', gap: '24px', alignItems: 'start' }}>
     
     {/* COLUMNA IZQUIERDA: FORMULARIO */}
     <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
@@ -2266,9 +2269,10 @@ const filteredHistorial = (historial || []).filter((item) => {
         e.preventDefault();
         setCargando(true);
         try {
+          // Recuperar token de autenticación si lo guardas en localStorage (para evitar el error 401)
           const token = localStorage.getItem('token') || '';
 
-          const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
+          const res = await fetch('https://sistema-cancelaciones-production.up.railway.net/api/expedientes/generar-manual', {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
@@ -2281,7 +2285,6 @@ const filteredHistorial = (historial || []).filter((item) => {
             alert('¡Expediente manual generado con éxito!');
             setManualPreviewActive(true);
             
-            // Renderizado idéntico usando los estilos exactos de la vista previa masiva
             if (data.archivo_base64 && manualPreviewRef.current) {
               const binaryString = window.atob(data.archivo_base64);
               const len = binaryString.length;
@@ -2358,7 +2361,7 @@ const filteredHistorial = (historial || []).filter((item) => {
             </optgroup>
             <optgroup label="EDOMEX - CONTRATO DE MUTUO">
               <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
-              <option value="EDOMEX_MUTUO_H_CASADO"> C. Mutuo - Hombre Casado</option>
+              <option value="EDOMEX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
               <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
               <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
             </optgroup>
@@ -2394,7 +2397,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px' }}>Monto del Crédito</label>
           <input
             type="text"
-            placeholder="Ej. $168,000.00"
+            placeholder="Ej. 150000.00"
             value={formData.monto_credito}
             onChange={e => setFormData({...formData, monto_credito: e.target.value})}
             style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, outline: 'none' }}
@@ -2494,6 +2497,96 @@ const filteredHistorial = (historial || []).filter((item) => {
         </div>
       </form>
     </div>
+
+    {/* COLUMNA DERECHA: PANEL DE VISTA PREVIA MANUAL */}
+    {manualPreviewActive && (
+      <div style={{ 
+        backgroundColor: theme.cardBg, 
+        borderRadius: '16px', 
+        border: `1px solid ${theme.border}`,
+        height: '650px',
+        maxHeight: '650px',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        position: 'sticky',
+        top: '24px'
+      }}>
+        
+        <style>{`
+          .docx-container-scroll {
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow-y: auto !important;
+          }
+          .docx-container-scroll .docx-wrapper {
+            background-color: transparent !important;
+            padding: 12px 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 16px !important;
+          }
+          .docx-container-scroll .docx-wrapper > section {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+            border-radius: 6px !important;
+            margin-bottom: 0 !important;
+            background-color: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 16px !important;
+            box-sizing: border-box !important;
+          }
+        `}</style>
+
+        <div style={{ 
+          padding: '16px 20px', 
+          borderBottom: `1px solid ${theme.border}`, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          backgroundColor: theme.subtleBg
+        }}>
+          <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            👁️ Previa del Documento Manual
+          </h2>
+
+          <button
+            onClick={() => {
+              if (manualPreviewRef.current) {
+                manualPreviewRef.current.innerHTML = "";
+              }
+              setManualPreviewActive(false);
+            }}
+            style={{ 
+              backgroundColor: '#ef4444', 
+              color: '#ffffff', 
+              border: 'none', 
+              padding: '5px 12px', 
+              borderRadius: '20px', 
+              fontWeight: '600', 
+              fontSize: '12px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>Cerrar</span>
+            <span style={{ fontSize: '13px', fontWeight: 'bold' }}>✕</span>
+          </button>
+        </div>
+
+        <div style={{ flex: 1, padding: '12px', overflow: 'hidden', backgroundColor: theme.dropzoneBg }}>
+          <div 
+            ref={manualPreviewRef} 
+            className="docx-container-scroll"
+          />
+        </div>
+      </div>
+    )}
+
   </div>
 )}
 
