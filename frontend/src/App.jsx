@@ -497,6 +497,32 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [formData, selectedPlantilla, manualPreviewActive]);
 
+  // --- FUNCIÓN PARA ENVÍO MANUAL ---
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    setCargando(true);
+    try {
+      const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'plantilla_manera2.docx' })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'exito') {
+        alert('¡Expediente manual generado con éxito!');
+        if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
+          setExpedientes([data, ...expedientes]);
+        }
+      } else {
+        alert('Error: ' + (data.detail || 'No se pudo generar'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de conexión con el servidor.');
+    } finally {
+      setCargando(false);
+    }
+  };
 
   const cargarUsuarios = async () => {
     setLoadingUsuarios(true);
@@ -913,32 +939,6 @@ const handleUploadBatch = async () => {
     credito_a_salario: ''
   });
 
-  // --- FUNCIÓN PARA ENVÍO MANUAL ---
-  const handleManualSubmit = async (e) => {
-    e.preventDefault();
-    setCargando(true);
-    try {
-      const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, plantilla: selectedPlantilla || 'plantilla_manera2.docx' })
-      });
-      const data = await res.json();
-      if (res.ok && data.status === 'exito') {
-        alert('¡Expediente manual generado con éxito!');
-        if (typeof setExpedientes === 'function' && Array.isArray(expedientes)) {
-          setExpedientes([data, ...expedientes]);
-        }
-      } else {
-        alert('Error: ' + (data.detail || 'No se pudo generar'));
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error de conexión con el servidor.');
-    } finally {
-      setCargando(false);
-    }
-  };
 
   // --- FUNCIÓN PARA CARGA DE EXCEL ---
   const handleExcelSubmit = async (e) => {
