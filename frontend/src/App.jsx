@@ -901,7 +901,9 @@ const handlePreviewExcel = async (file) => {
     }
   };
 
- const handleExcelSubmit = async (e) => {
+ // Agrega un estado para las filas si no lo tienes: const [estadoFilas, setEstadoFilas] = useState({});
+
+const handleExcelSubmit = async (e) => {
   e.preventDefault();
   if (!archivoExcel) return alert('Por favor selecciona un archivo Excel (.xlsx o .csv)');
   if (!filasSeleccionadas || filasSeleccionadas.length === 0) {
@@ -911,26 +913,31 @@ const handlePreviewExcel = async (file) => {
   setCargando(true);
   setProgreso(0);
 
-  // Dividir las filas seleccionadas en bloques de 15
-  const tamanoBloque = 15;
-  const bloques = [];
-  for (let i = 0; i < filasSeleccionadas.length; i += tamanoBloque) {
-    bloques.push(filasSeleccionadas.slice(i, i + tamanoBloque));
-  }
+  // Inicializar todas las filas seleccionadas en estado 'pendiente'
+  const nuevosEstados = {};
+  filasSeleccionadas.forEach(idx => {
+    nuevosEstados[idx] = 'pendiente';
+  });
+  setEstadoFilas(nuevosEstados);
 
   let totalExitosos = 0;
   let todosLosDetalles = [];
+  const totalSeleccionadas = filasSeleccionadas.length;
 
   try {
-    for (let index = 0; index < bloques.length; index++) {
-      const bloqueIndices = bloques[index];
-      setTextoProgreso(`Procesando bloque ${index + 1} de ${bloques.length} (${bloqueIndices.length} registros)...`);
+    // Procesamos de uno en uno para tener control visual exacto por documento
+    for (let i = 0; i < filasSeleccionadas.length; i++) {
+      const index = filasSeleccionadas[i];
+      
+      // Marcar fila actual como 'procesando'
+      setEstadoFilas(prev => ({ ...prev, [index]: 'procesando' }));
+      setTextoProgreso(`Procesando documento ${i + 1} de ${totalSeleccionadas} (Registro ${index + 1})...`);
 
       const dataForm = new FormData();
       dataForm.append('file', archivoExcel);
       dataForm.append('plantilla', selectedPlantilla || 'plantilla_manera2.docx');
       dataForm.append('usuario_propietario', currentUser?.username || 'admin');
-      dataForm.append('indices_bloque', JSON.stringify(bloqueIndices)); // Mandamos los índices del bloque
+      dataForm.append('indices_bloque', JSON.stringify([index])); // Mandamos el índice individual
 
       const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/procesar-excel', {
         method: 'POST',
@@ -939,44 +946,36 @@ const handlePreviewExcel = async (file) => {
       const data = await res.json();
 
       if (!res.ok || data.status !== 'exito') {
-        throw new Error(data.detail || `Fallo al procesar el bloque ${index + 1}`);
+        setEstadoFilas(prev => ({ ...prev, [index]: 'error' }));
+        throw new Error(data.detail || `Fallo al procesar el registro ${index + 1}`);
       }
 
+      // Marcar fila como 'completado' (éxito)
+      setEstadoFilas(prev => ({ ...prev, [index]: 'completado' }));
       totalExitosos += data.procesados;
       if (Array.isArray(data.detalles)) {
         todosLosDetalles.push(...data.detalles);
       }
 
-      // Actualizar porcentaje de la barra
-      const porcentajeActual = Math.round(((index + 1) / bloques.length) * 100);
+      // Actualizar porcentaje de la barra de progreso global
+      const porcentajeActual = Math.round(((i + 1) / totalSeleccionadas) * 100);
       setProgreso(porcentajeActual);
     }
 
-    // --- ADIÓS AL ALERT: Mostramos el éxito de manera fluida en la interfaz ---
-    setProgreso(100);
     setTextoProgreso(`¡Lote procesado con éxito! Se generaron ${totalExitosos} documentos.`);
     
     if (typeof setExpedientes === 'function' && Array.isArray(todosLosDetalles)) {
       setExpedientes([...todosLosDetalles, ...expedientes]);
     }
 
-    // Esperar 3 segundos para que el usuario aprecie el 100% y el mensaje, luego limpiar
-    setTimeout(() => {
-      setFilasPreview([]);
-      setArchivoExcel(null);
-      setFilasSeleccionadas([]);
-      setCargando(false);
-      setProgreso(0);
-      setTextoProgreso('');
-    }, 3000);
+    // NOTA: Ya NO limpiamos la vista automáticamente. La tabla se queda fija 
+    // mostrando las palomitas y el usuario usará "Cambiar Archivo" cuando desee.
 
   } catch (err) {
     console.error(err);
     alert('Error en lote: ' + err.message);
-    // En caso de error sí limpiamos de inmediato
+  } finally {
     setCargando(false);
-    setProgreso(0);
-    setTextoProgreso('');
   }
 };
 
@@ -2702,30 +2701,42 @@ const filteredHistorial = (historial || []).filter((item) => {
               </tr>
             </thead>
             <tbody>
-              {filasPreview.map((fila) => {
-                const isSelected = filasSeleccionadas.includes(fila.index);
-                return (
-                  <tr key={fila.index} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: isSelected ? (isDarkMode ? '#1e293b' : '#f8fafc') : 'transparent' }}>
-                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={isSelected}
-                        onChange={() => {
-                          if (isSelected) {
-                            setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
-                          } else {
-                            setFilasSeleccionadas([...filasSeleccionadas, fila.index]);
-                          }
-                        }}
-                      />
-                    </td>
-                    <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>{fila.numero_credito}</td>
-                    <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.nombre_acreditado}</td>
-                    <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.monto_credito}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
+  {filasPreview.map((fila) => {
+    const isSelected = filasSeleccionadas.includes(fila.index);
+    const estadoFila = estadoFilas[fila.index]; // 'pendiente', 'procesando', 'completado', 'error'
+
+    return (
+      <tr key={fila.index} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: isSelected ? (isDarkMode ? '#1e293b' : '#f8fafc') : 'transparent' }}>
+        <td style={{ padding: '12px', textAlign: 'center' }}>
+          {/* Si ya se completó, mostramos una palomita verde fija en lugar del checkbox */}
+          {estadoFila === 'completado' ? (
+            <span title="Documento Generado Exitosamente" style={{ fontSize: '16px' }}>✅</span>
+          ) : estadoFila === 'procesando' ? (
+            <span title="Procesando..." style={{ fontSize: '14px', animation: 'pulse 1s infinite' }}>⏳</span>
+          ) : estadoFila === 'error' ? (
+            <span title="Error al procesar" style={{ fontSize: '16px' }}>❌</span>
+          ) : (
+            <input 
+              type="checkbox" 
+              checked={isSelected}
+              disabled={cargando} // Bloquear selección mientras procesa
+              onChange={() => {
+                if (isSelected) {
+                  setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
+                } else {
+                  setFilasSeleccionadas([...filasSeleccionadas, fila.index]);
+                }
+              }}
+            />
+          )}
+        </td>
+        <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>{fila.numero_credito}</td>
+        <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.nombre_acreditado}</td>
+        <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.monto_credito}</td>
+      </tr>
+    );
+  })}
+</tbody>
           </table>
         </div>
 
