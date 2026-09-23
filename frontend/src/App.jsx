@@ -2496,101 +2496,11 @@ const filteredHistorial = (historial || []).filter((item) => {
             disabled={cargando}
             style={{ width: '100%', padding: '12px', backgroundColor: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
           >
-            {cargando ? 'Generando Documento...' : 'Generar y Previsualizar Word'}
+            {cargando ? 'Generando Documento...' : 'Generar documento en Mi Historial'}
           </button>
         </div>
       </form>
     </div>
-
-    {/* COLUMNA DERECHA: PANEL DE VISTA PREVIA MANUAL */}
-    {manualPreviewActive && (
-      <div style={{ 
-        backgroundColor: theme.cardBg, 
-        borderRadius: '16px', 
-        border: `1px solid ${theme.border}`,
-        height: '650px',
-        maxHeight: '650px',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        position: 'sticky',
-        top: '24px'
-      }}>
-        
-        <style>{`
-          .docx-container-scroll {
-            height: 100% !important;
-            max-height: 100% !important;
-            overflow-y: auto !important;
-          }
-          .docx-container-scroll .docx-wrapper {
-            background-color: transparent !important;
-            padding: 12px 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-            gap: 16px !important;
-          }
-          .docx-container-scroll .docx-wrapper > section {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-            border-radius: 6px !important;
-            margin-bottom: 0 !important;
-            background-color: #ffffff !important;
-            border: 1px solid #e2e8f0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            padding: 16px !important;
-            box-sizing: border-box !important;
-          }
-        `}</style>
-
-        <div style={{ 
-          padding: '16px 20px', 
-          borderBottom: `1px solid ${theme.border}`, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          backgroundColor: theme.subtleBg
-        }}>
-          <h2 style={{ fontSize: '15px', fontWeight: '700', margin: 0, color: theme.textPrimary, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            👁️ Previa del Documento Manual
-          </h2>
-
-          <button
-            onClick={() => {
-              if (manualPreviewRef.current) {
-                manualPreviewRef.current.innerHTML = "";
-              }
-              setManualPreviewActive(false);
-            }}
-            style={{ 
-              backgroundColor: '#ef4444', 
-              color: '#ffffff', 
-              border: 'none', 
-              padding: '5px 12px', 
-              borderRadius: '20px', 
-              fontWeight: '600', 
-              fontSize: '12px', 
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <span>Cerrar</span>
-            <span style={{ fontSize: '13px', fontWeight: 'bold' }}>✕</span>
-          </button>
-        </div>
-
-        <div style={{ flex: 1, padding: '12px', overflow: 'hidden', backgroundColor: theme.dropzoneBg }}>
-          <div 
-            ref={manualPreviewRef} 
-            className="docx-container-scroll"
-          />
-        </div>
-      </div>
-    )}
-
   </div>
 )}
 

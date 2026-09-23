@@ -841,7 +841,7 @@ def generar_expediente_manual(
 
         return {
             "status": "exito",
-            "mensaje": "Expediente manual generado correctamente",
+            "mensaje": "¡Expediente manual generado correctamente, revisa tu Historial!",
             "id": str(nuevo_expediente.id),
             "expediente_id": str(nuevo_expediente.id),
             "datos_extraidos": datos_limpios,
