@@ -217,6 +217,7 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
   const [progreso, setProgreso] = useState(0);
   const [textoProgreso, setTextoProgreso] = useState('');
   const [estadoFilas, setEstadoFilas] = useState({});
+  const [contadoresRemosion, setContadoresRemosion] = useState({});
 
 
   // ==========================================
