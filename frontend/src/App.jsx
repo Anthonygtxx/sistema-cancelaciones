@@ -914,7 +914,6 @@ const handleExcelSubmit = async (e) => {
   setCargando(true);
   setProgreso(0);
 
-  // Inicializar todas las filas seleccionadas en estado 'pendiente'
   const nuevosEstados = {};
   filasSeleccionadas.forEach(idx => {
     nuevosEstados[idx] = 'pendiente';
@@ -926,11 +925,9 @@ const handleExcelSubmit = async (e) => {
   const totalSeleccionadas = filasSeleccionadas.length;
 
   try {
-    // Procesamos de uno en uno para tener control visual exacto por documento
     for (let i = 0; i < filasSeleccionadas.length; i++) {
       const index = filasSeleccionadas[i];
       
-      // Marcar fila actual como 'procesando'
       setEstadoFilas(prev => ({ ...prev, [index]: 'procesando' }));
       setTextoProgreso(`Procesando documento ${i + 1} de ${totalSeleccionadas} (Registro ${index + 1})...`);
 
@@ -938,7 +935,7 @@ const handleExcelSubmit = async (e) => {
       dataForm.append('file', archivoExcel);
       dataForm.append('plantilla', selectedPlantilla || 'plantilla_manera2.docx');
       dataForm.append('usuario_propietario', currentUser?.username || 'admin');
-      dataForm.append('indices_bloque', JSON.stringify([index])); // Mandamos el índice individual
+      dataForm.append('indices_bloque', JSON.stringify([index]));
 
       const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/procesar-excel', {
         method: 'POST',
@@ -951,10 +948,8 @@ const handleExcelSubmit = async (e) => {
         throw new Error(data.detail || `Fallo al procesar el registro ${index + 1}`);
       }
 
-      // Marcar fila como 'completado' (éxito)
+      // Marcar fila como 'completado'
       setEstadoFilas(prev => ({ ...prev, [index]: 'completado' }));
-      
-      // 👈 NUEVO: Lo quitamos de seleccionados para desmarcarlo y bloquearlo automáticamente
       setFilasSeleccionadas(prev => prev.filter(i => i !== index));
 
       totalExitosos += data.procesados;
@@ -962,7 +957,26 @@ const handleExcelSubmit = async (e) => {
         todosLosDetalles.push(...data.detalles);
       }
 
-      // Actualizar porcentaje de la barra de progreso global
+      // 🕒 INICIAR CONTADOR REGRESIVO DE 10 SEGUNDOS PARA ELIMINAR ESTA FILA
+      let segundosRestantes = 10;
+      setContadoresRemosion(prev => ({ ...prev, [index]: segundosRestantes }));
+
+      const timerInterval = setInterval(() => {
+        segundosRestantes -= 1;
+        if (segundosRestantes > 0) {
+          setContadoresRemosion(prev => ({ ...prev, [index]: segundosRestantes }));
+        } else {
+          clearInterval(timerInterval);
+          // Eliminar la fila de la vista previa de la tabla
+          setFilasPreview(prevPreview => prevPreview.filter(f => f.index !== index));
+          setContadoresRemosion(prev => {
+            const copia = { ...prev };
+            delete copia[index];
+            return copia;
+          });
+        }
+      }, 1000);
+
       const porcentajeActual = Math.round(((i + 1) / totalSeleccionadas) * 100);
       setProgreso(porcentajeActual);
     }
@@ -973,9 +987,6 @@ const handleExcelSubmit = async (e) => {
       setExpedientes([...todosLosDetalles, ...expedientes]);
     }
 
-    // NOTA: Ya NO limpiamos la vista automáticamente. La tabla se queda fija 
-    // mostrando las palomitas y el usuario usará "Cambiar Archivo" cuando desee.
-
   } catch (err) {
     console.error(err);
     alert('Error en lote: ' + err.message);
@@ -983,33 +994,6 @@ const handleExcelSubmit = async (e) => {
     setCargando(false);
   }
 };
-
-  const handleDownloadWord = async (id, datosActuales) => {
-    try {
-      const payload = {
-        plantilla: selectedPlantilla,
-        datos: datosActuales || {}
-      };
-
-      const response = await api.post(
-        `/expedientes/${id}/generar-word`,
-        payload,
-        { responseType: 'blob' }
-      );
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Cancelacion_${datosActuales?.numero_credito || 'expediente'}.docx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Error al descargar Word:", err);
-      setError('Error al descargar el archivo Word.');
-    }
-  };
 
   const handleDownloadZip = async () => {
     const ids = batchResults.map((r) => r.expediente_id);
@@ -2762,24 +2746,34 @@ const filteredHistorial = (historial || []).filter((item) => {
 
         {/* 5. Estado (Al final, al lado de Monto) */}
         <td style={{ padding: '12px', textAlign: 'center' }}>
-          {estadoFila === 'completado' ? (
-            <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
-              ✓ Completado
-            </span>
-          ) : estadoFila === 'procesando' ? (
-            <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
-              Procesando...
-            </span>
-          ) : estadoFila === 'error' ? (
-            <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
-              ✕ Error
-            </span>
-          ) : (
-            <span style={{ color: '#94a3b8', fontSize: '12px' }}>
-              Pendiente
-            </span>
-          )}
-        </td>
+  {estadoFila === 'completado' ? (
+    <span style={{ 
+      backgroundColor: '#dcfce7', 
+      color: '#166534', 
+      padding: '4px 10px', 
+      borderRadius: '6px', 
+      fontSize: '11px', 
+      fontWeight: '600',
+      display: 'inline-block'
+    }}>
+      ✓ {contadoresRemosion[fila.index] !== undefined 
+          ? `Espere ${contadoresRemosion[fila.index]}s para quitar` 
+          : 'Completado'}
+    </span>
+  ) : estadoFila === 'procesando' ? (
+    <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
+      Procesando...
+    </span>
+  ) : estadoFila === 'error' ? (
+    <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
+      ✕ Error
+    </span>
+  ) : (
+    <span style={{ color: '#ffa500', fontSize: '12px' }}>
+      Pendiente
+    </span>
+  )}
+</td>
 
       </tr>
     );
