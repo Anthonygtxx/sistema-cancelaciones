@@ -2681,15 +2681,30 @@ const filteredHistorial = (historial || []).filter((item) => {
 
         <div style={{ maxHeight: '350px', overflowY: 'auto', border: `1px solid ${theme.border}`, borderRadius: '8px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-            <thead>
+<thead>
   <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
     <th style={{ padding: '12px', textAlign: 'center', width: '50px' }}>
-      {/* Checkbox general o espacio */}
+      <input 
+        type="checkbox"
+        disabled={cargando || filasPreview.length === 0}
+        checked={filasPreview.length > 0 && filasSeleccionadas.length === filasPreview.length}
+        onChange={(e) => {
+          if (e.target.checked) {
+            // Seleccionar todas las filas de la vista previa
+            const todosLosIndices = filasPreview.map(f => f.index);
+            setFilasSeleccionadas(todosLosIndices);
+          } else {
+            // Deseleccionar todas
+            setFilasSeleccionadas([]);
+          }
+        }}
+        title="Seleccionar todos"
+      />
     </th>
     <th style={{ padding: '12px', textAlign: 'left' }}>No. Crédito</th>
     <th style={{ padding: '12px', textAlign: 'left' }}>Acreditado</th>
     <th style={{ padding: '12px', textAlign: 'left' }}>Monto</th>
-    <th style={{ padding: '12px', textAlign: 'center' }}>Estado</th> {/* <--- NUEVA COLUMNA */}
+    <th style={{ padding: '12px', textAlign: 'center' }}>Estado</th>
   </tr>
 </thead>
            <tbody>
