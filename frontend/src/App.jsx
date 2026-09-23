@@ -443,6 +443,27 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
     }
   };
 
+  // 1. Funciones para manejar el arrastre y soltado correctamente
+
+const handleDrop = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    const archivoArrastrado = e.dataTransfer.files[0];
+    
+    // Validamos que sea un archivo permitido (.xlsx, .xls, .csv)
+    const nombre = archivoArrastrado.name.toLowerCase();
+    if (nombre.endsWith('.xlsx') || nombre.endsWith('.xls') || nombre.endsWith('.csv')) {
+      setArchivoExcel(archivoArrastrado); // Asigna el archivo a tu estado (ej: setArchivoExcel)
+    } else {
+      alert("Por favor, arrastra un archivo Excel o CSV válido.");
+    }
+    
+    e.dataTransfer.clearData();
+  }
+};
+
 
  const handleManualSubmit = async (e) => {
   e.preventDefault();
@@ -2467,7 +2488,26 @@ const filteredHistorial = (historial || []).filter((item) => {
     <h3 style={{ color: theme.textPrimary, marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Carga Masiva mediante Excel o CSV</h3>
     
     <form onSubmit={handleExcelSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ border: `2px dashed ${theme.border}`, padding: '32px', borderRadius: '12px', textAlign: 'center', backgroundColor: theme.subtleBg }}>
+      <div 
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const archivoArrastrado = e.dataTransfer.files[0];
+            const nombre = archivoArrastrado.name.toLowerCase();
+            if (nombre.endsWith('.xlsx') || nombre.endsWith('.xls') || nombre.endsWith('.csv')) {
+              setArchivoExcel(archivoArrastrado);
+            } else {
+              alert("Por favor, arrastra un archivo Excel o CSV válido (.xlsx, .xls, .csv)");
+            }
+          }
+        }}
+        style={{ border: `2px dashed ${theme.border}`, padding: '32px', borderRadius: '12px', textAlign: 'center', backgroundColor: theme.subtleBg, cursor: 'pointer' }}
+      >
         <input
           type="file"
           accept=".xlsx, .xls, .csv"
@@ -2475,7 +2515,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           style={{ display: 'none' }}
           id="excel-file-input"
         />
-        <label htmlFor="excel-file-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+        <label htmlFor="excel-file-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%', height: '100%' }}>
           <FileSpreadsheet size={36} color={theme.accent} />
           <span style={{ color: theme.textPrimary, fontWeight: '600' }}>
             {archivoExcel ? archivoExcel.name : 'Haz clic para seleccionar tu archivo Excel o arrástralo aquí'}

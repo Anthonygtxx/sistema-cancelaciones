@@ -311,46 +311,45 @@ def obtener_historial(
 ):
     usuario_activo = usuario or x_user_id
 
-    if usuario_activo:
-        expedientes = (
-            db.query(models.Expediente)
-            .filter(models.Expediente.usuario_propietario == usuario_activo)
-            .order_by(models.Expediente.fecha_creacion.desc())
-            .all()
-        )
-        
-        resultado = []
-        for exp in expedientes:
-            datos_raw = exp.datos_extraidos or {}
-            datos = limpiar_datos_para_plantilla(datos_raw, exp.numero_credito)
-            
-            fecha_solo = exp.fecha_creacion.strftime("%d-%m-%Y") if exp.fecha_creacion else "N/A"
-            hora_sola = exp.fecha_creacion.strftime("%H:%M") if exp.fecha_creacion else "N/A"
-            
-            acreditado = datos.get("nombre_acreditado") or "N/A"
-            monto = datos.get("monto_credito") or ""
+    # Construimos la consulta base
+    query = db.query(models.Expediente)
 
-            resultado.append({
-                "id": str(exp.id),
-                "expediente_id": str(exp.id),
-                "_id": str(exp.id),
-                "usuario_propietario": exp.usuario_propietario,
-                "numero_credito": exp.numero_credito,
-                "acreditado": acreditado,
-                "monto": monto,
-                "hora": hora_sola,
-                "manera": exp.manera,
-                "estado": exp.estado,
-                "datos_extraidos": datos,
-                "ruta_pdf_constancia": exp.ruta_pdf_constancia,
-                "ruta_pdf_carta": exp.ruta_pdf_carta,
-                "ruta_word_generado": exp.ruta_word_generado,
-                "fecha": fecha_solo,
-                "fecha_creacion": exp.fecha_creacion.isoformat() if exp.fecha_creacion else None
-            })
-        return resultado
-    
-    return []
+    # Si hay un usuario activo, filtramos por él; si no, podemos traer todos o usar un respaldo
+    if usuario_activo:
+        query = query.filter(models.Expediente.usuario_propietario == usuario_activo)
+
+    expedientes = query.order_by(models.Expediente.fecha_creacion.desc()).all()
+        
+    resultado = []
+    for exp in expedientes:
+        datos_raw = exp.datos_extraidos or {}
+        datos = limpiar_datos_para_plantilla(datos_raw, exp.numero_credito)
+        
+        fecha_solo = exp.fecha_creacion.strftime("%d-%m-%Y") if exp.fecha_creacion else "N/A"
+        hora_sola = exp.fecha_creacion.strftime("%H:%M") if exp.fecha_creacion else "N/A"
+        
+        acreditado = datos.get("nombre_acreditado") or "N/A"
+        monto = datos.get("monto_credito") or ""
+
+        resultado.append({
+            "id": str(exp.id),
+            "expediente_id": str(exp.id),
+            "_id": str(exp.id),
+            "usuario_propietario": exp.usuario_propietario,
+            "numero_credito": exp.numero_credito,
+            "acreditado": acreditado,
+            "monto": monto,
+            "hora": hora_sola,
+            "manera": exp.manera,
+            "estado": exp.estado,
+            "datos_extraidos": datos,
+            "ruta_pdf_constancia": exp.ruta_pdf_constancia,
+            "ruta_pdf_carta": exp.ruta_pdf_carta,
+            "ruta_word_generado": exp.ruta_word_generado,
+            "fecha": fecha_solo,
+            "fecha_creacion": exp.fecha_creacion.isoformat() if exp.fecha_creacion else None
+        })
+    return resultado
 
 
 # --- PROCESAMIENTO INDIVIDUAL ---
