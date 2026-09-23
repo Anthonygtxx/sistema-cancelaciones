@@ -2681,59 +2681,88 @@ const filteredHistorial = (historial || []).filter((item) => {
 
         <div style={{ maxHeight: '350px', overflowY: 'auto', border: `1px solid ${theme.border}`, borderRadius: '8px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-            <thead style={{ backgroundColor: theme.subtleBg, position: 'sticky', top: 0, zIndex: 1 }}>
-              <tr>
-                <th style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, width: '40px', textAlign: 'center' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={filasSeleccionadas.length === filasPreview.length && filasPreview.length > 0}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setFilasSeleccionadas(filasPreview.map(f => f.index));
-                      } else {
-                        setFilasSeleccionadas([]);
-                      }
-                    }}
-                  />
-                </th>
-                <th style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>No. Crédito</th>
-                <th style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>Acreditado</th>
-                <th style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>Monto</th>
-              </tr>
-            </thead>
-            <tbody>
+            <thead>
+  <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
+    <th style={{ padding: '12px', textAlign: 'center', width: '50px' }}>
+      {/* Checkbox general o espacio */}
+    </th>
+    <th style={{ padding: '12px', textAlign: 'left' }}>No. Crédito</th>
+    <th style={{ padding: '12px', textAlign: 'left' }}>Acreditado</th>
+    <th style={{ padding: '12px', textAlign: 'left' }}>Monto</th>
+    <th style={{ padding: '12px', textAlign: 'center' }}>Estado</th> {/* <--- NUEVA COLUMNA */}
+  </tr>
+</thead>
+           <tbody>
   {filasPreview.map((fila) => {
     const isSelected = filasSeleccionadas.includes(fila.index);
     const estadoFila = estadoFilas[fila.index]; // 'pendiente', 'procesando', 'completado', 'error'
 
     return (
       <tr key={fila.index} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: isSelected ? (isDarkMode ? '#1e293b' : '#f8fafc') : 'transparent' }}>
+        
+        {/* Columna 1: Checkbox libre de interferencias */}
         <td style={{ padding: '12px', textAlign: 'center' }}>
-          {/* Si ya se completó, mostramos una palomita verde fija en lugar del checkbox */}
+          <input 
+            type="checkbox" 
+            checked={isSelected}
+            disabled={cargando} // Se bloquea solo mientras procesa el lote
+            onChange={() => {
+              if (isSelected) {
+                setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
+              } else {
+                setFilasSeleccionadas([...filasSeleccionadas, fila.index]);
+              }
+            }}
+          />
+        </td>
+
+       {/* Columna de Estado (Al lado de Monto) */}
+        <td style={{ padding: '12px', textAlign: 'center' }}>
           {estadoFila === 'completado' ? (
-            <span title="Documento Generado Exitosamente" style={{ fontSize: '16px' }}>✅</span>
+            <span style={{ 
+              backgroundColor: '#dcfce7', 
+              color: '#166534', 
+              padding: '4px 10px', 
+              borderRadius: '6px', 
+              fontSize: '12px', 
+              fontWeight: '600',
+              display: 'inline-block'
+            }}>
+              ✓ Completado
+            </span>
           ) : estadoFila === 'procesando' ? (
-            <span title="Procesando..." style={{ fontSize: '14px', animation: 'pulse 1s infinite' }}>⏳</span>
+            <span style={{ 
+              backgroundColor: '#e0f2fe', 
+              color: '#0369a1', 
+              padding: '4px 10px', 
+              borderRadius: '6px', 
+              fontSize: '12px', 
+              fontWeight: '600',
+              display: 'inline-block'
+            }}>
+              Procesando...
+            </span>
           ) : estadoFila === 'error' ? (
-            <span title="Error al procesar" style={{ fontSize: '16px' }}>❌</span>
+            <span style={{ 
+              backgroundColor: '#fee2e2', 
+              color: '#991b1b', 
+              padding: '4px 10px', 
+              borderRadius: '6px', 
+              fontSize: '12px', 
+              fontWeight: '600',
+              display: 'inline-block'
+            }}>
+              ✕ Error
+            </span>
           ) : (
-            <input 
-              type="checkbox" 
-              checked={isSelected}
-              disabled={cargando} // Bloquear selección mientras procesa
-              onChange={() => {
-                if (isSelected) {
-                  setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
-                } else {
-                  setFilasSeleccionadas([...filasSeleccionadas, fila.index]);
-                }
-              }}
-            />
+            <span style={{ 
+              color: '#94a3b8', 
+              fontSize: '12px' 
+            }}>
+              Pendiente
+            </span>
           )}
         </td>
-        <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>{fila.numero_credito}</td>
-        <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.nombre_acreditado}</td>
-        <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.monto_credito}</td>
       </tr>
     );
   })}
