@@ -953,6 +953,10 @@ const handleExcelSubmit = async (e) => {
 
       // Marcar fila como 'completado' (éxito)
       setEstadoFilas(prev => ({ ...prev, [index]: 'completado' }));
+      
+      // 👈 NUEVO: Lo quitamos de seleccionados para desmarcarlo y bloquearlo automáticamente
+      setFilasSeleccionadas(prev => prev.filter(i => i !== index));
+
       totalExitosos += data.procesados;
       if (Array.isArray(data.detalles)) {
         todosLosDetalles.push(...data.detalles);
