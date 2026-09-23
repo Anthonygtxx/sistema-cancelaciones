@@ -861,10 +861,12 @@ async def procesar_excel(
     file: UploadFile = File(...),
     usuario_propietario: Optional[str] = Form("admin"),
     plantilla: Optional[str] = Form("plantilla_manera2.docx"),
-    indices_bloque: Optional[str] = Form(None), # <--- Parámetro opcional para recibir el bloque de 15
+    indices_bloque: Optional[str] = Form(None), # Parámetro opcional para recibir el bloque de 15
     db: Session = Depends(get_db)
 ):
     try:
+        import json  # <--- Importación local directa para evitar cualquier error de alcance
+
         if not file.filename.lower().endswith(('.xlsx', '.xls', '.csv')):
             raise HTTPException(status_code=400, detail="El archivo debe ser un Excel válido (.xlsx, .xls) o CSV.")
 
