@@ -2684,23 +2684,27 @@ const filteredHistorial = (historial || []).filter((item) => {
 <thead>
   <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
     <th style={{ padding: '12px', textAlign: 'center', width: '50px' }}>
-      <input 
-        type="checkbox"
-        disabled={cargando || filasPreview.length === 0}
-        checked={filasPreview.length > 0 && filasSeleccionadas.length === filasPreview.length}
-        onChange={(e) => {
-          if (e.target.checked) {
-            // Seleccionar todas las filas de la vista previa
-            const todosLosIndices = filasPreview.map(f => f.index);
-            setFilasSeleccionadas(todosLosIndices);
-          } else {
-            // Deseleccionar todas
-            setFilasSeleccionadas([]);
-          }
-        }}
-        title="Seleccionar todos"
-      />
-    </th>
+  <input 
+    type="checkbox"
+    disabled={cargando || filasPreview.length === 0}
+    checked={filasPreview.length > 0 && filasSeleccionadas.length === filasPreview.length}
+    onChange={(e) => {
+      if (e.target.checked) {
+        const todosLosIndices = filasPreview.map(f => f.index);
+        setFilasSeleccionadas(todosLosIndices);
+      } else {
+        setFilasSeleccionadas([]);
+      }
+    }}
+    title="Seleccionar todos"
+    style={{ 
+      width: '16px', 
+      height: '16px', 
+      cursor: 'pointer', 
+      accentColor: '#2563eb' // <--- Le da el color azul profesional
+    }}
+  />
+</th>
     <th style={{ padding: '12px', textAlign: 'left' }}>No. Crédito</th>
     <th style={{ padding: '12px', textAlign: 'left' }}>Acreditado</th>
     <th style={{ padding: '12px', textAlign: 'left' }}>Monto</th>
@@ -2717,19 +2721,25 @@ const filteredHistorial = (historial || []).filter((item) => {
         
         {/* 1. Checkbox */}
         <td style={{ padding: '12px', textAlign: 'center' }}>
-          <input 
-            type="checkbox" 
-            checked={isSelected}
-            disabled={cargando}
-            onChange={() => {
-              if (isSelected) {
-                setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
-              } else {
-                setFilasSeleccionadas([...filasSeleccionadas, fila.index]);
-              }
-            }}
-          />
-        </td>
+  <input 
+    type="checkbox" 
+    checked={isSelected}
+    disabled={cargando}
+    onChange={() => {
+      if (isSelected) {
+        setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
+      } else {
+        setFilasSeleccionadas([...filasSeleccionadas, fila.index]);
+      }
+    }}
+    style={{ 
+      width: '16px', 
+      height: '16px', 
+      cursor: 'pointer', 
+      accentColor: '#2563eb' // <--- Mismo color estilizado
+    }}
+  />
+</td>
 
         {/* 2. No. Crédito */}
         <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>
