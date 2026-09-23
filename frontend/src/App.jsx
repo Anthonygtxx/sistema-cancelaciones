@@ -349,6 +349,7 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
     } catch (err) {
       console.error('Error al cerrar sesión:', err);
     } finally {
+      // 1. Limpieza de autenticación y modales
       setIsAuthenticated(false);
       setCurrentUser(null);
       setShowLogoutModal(false);
@@ -357,6 +358,15 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
       setDatos(null);
       setBatchResults([]);
       setHistorial([]);
+
+      // 2. 👈 LIMPIEZA DE LOS ESTADOS DE CARGA MASIVA / EXCEL
+      setArchivoExcel(null);
+      setFilasPreview([]);
+      setFilasSeleccionadas([]);
+      setEstadoFilas({});
+      setContadoresRemosion({});
+      setProgreso(0);
+      setTextoProgreso('');
     }
   };
 
