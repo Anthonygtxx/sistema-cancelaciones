@@ -959,7 +959,7 @@ const handleExcelSubmit = async (e) => {
       }
 
       // 🕒 INICIAR CONTADOR REGRESIVO DE 10 SEGUNDOS PARA ELIMINAR ESTA FILA
-      let segundosRestantes = 10;
+      let segundosRestantes = 5;
       setContadoresRemosion(prev => ({ ...prev, [index]: segundosRestantes }));
 
       const timerInterval = setInterval(() => {
@@ -2758,7 +2758,7 @@ const filteredHistorial = (historial || []).filter((item) => {
       display: 'inline-block'
     }}>
       ✓ {contadoresRemosion[fila.index] !== undefined 
-          ? `Espere ${contadoresRemosion[fila.index]}s para quitar` 
+          ? `Quitando fila en ${contadoresRemosion[fila.index]}s` 
           : 'Completado'}
     </span>
   ) : estadoFila === 'procesando' ? (
