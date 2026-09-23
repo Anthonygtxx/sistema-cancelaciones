@@ -2700,12 +2700,12 @@ const filteredHistorial = (historial || []).filter((item) => {
     return (
       <tr key={fila.index} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: isSelected ? (isDarkMode ? '#1e293b' : '#f8fafc') : 'transparent' }}>
         
-        {/* Columna 1: Checkbox libre de interferencias */}
+        {/* 1. Checkbox */}
         <td style={{ padding: '12px', textAlign: 'center' }}>
           <input 
             type="checkbox" 
             checked={isSelected}
-            disabled={cargando} // Se bloquea solo mientras procesa el lote
+            disabled={cargando}
             onChange={() => {
               if (isSelected) {
                 setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
@@ -2716,53 +2716,42 @@ const filteredHistorial = (historial || []).filter((item) => {
           />
         </td>
 
-       {/* Columna de Estado (Al lado de Monto) */}
+        {/* 2. No. Crédito */}
+        <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>
+          {fila.numero_credito || fila.credito || '-'}
+        </td>
+
+        {/* 3. Acreditado */}
+        <td style={{ padding: '12px', color: theme.textPrimary }}>
+          {fila.nombre_acreditado || fila.acreditado || '-'}
+        </td>
+
+        {/* 4. Monto */}
+        <td style={{ padding: '12px', color: theme.textPrimary }}>
+          {fila.monto_credito || fila.monto || '-'}
+        </td>
+
+        {/* 5. Estado (Al final, al lado de Monto) */}
         <td style={{ padding: '12px', textAlign: 'center' }}>
           {estadoFila === 'completado' ? (
-            <span style={{ 
-              backgroundColor: '#dcfce7', 
-              color: '#166534', 
-              padding: '4px 10px', 
-              borderRadius: '6px', 
-              fontSize: '12px', 
-              fontWeight: '600',
-              display: 'inline-block'
-            }}>
+            <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
               ✓ Completado
             </span>
           ) : estadoFila === 'procesando' ? (
-            <span style={{ 
-              backgroundColor: '#e0f2fe', 
-              color: '#0369a1', 
-              padding: '4px 10px', 
-              borderRadius: '6px', 
-              fontSize: '12px', 
-              fontWeight: '600',
-              display: 'inline-block'
-            }}>
+            <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
               Procesando...
             </span>
           ) : estadoFila === 'error' ? (
-            <span style={{ 
-              backgroundColor: '#fee2e2', 
-              color: '#991b1b', 
-              padding: '4px 10px', 
-              borderRadius: '6px', 
-              fontSize: '12px', 
-              fontWeight: '600',
-              display: 'inline-block'
-            }}>
+            <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
               ✕ Error
             </span>
           ) : (
-            <span style={{ 
-              color: '#94a3b8', 
-              fontSize: '12px' 
-            }}>
+            <span style={{ color: '#94a3b8', fontSize: '12px' }}>
               Pendiente
             </span>
           )}
         </td>
+
       </tr>
     );
   })}
