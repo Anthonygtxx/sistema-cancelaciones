@@ -901,7 +901,7 @@ const handlePreviewExcel = async (file) => {
     }
   };
 
-  const handleExcelSubmit = async (e) => {
+ const handleExcelSubmit = async (e) => {
   e.preventDefault();
   if (!archivoExcel) return alert('Por favor selecciona un archivo Excel (.xlsx o .csv)');
   if (!filasSeleccionadas || filasSeleccionadas.length === 0) {
@@ -952,20 +952,28 @@ const handlePreviewExcel = async (file) => {
       setProgreso(porcentajeActual);
     }
 
-    alert(`¡Lote procesado con éxito! Se generaron ${totalExitosos} documentos en total.`);
+    // --- ADIÓS AL ALERT: Mostramos el éxito de manera fluida en la interfaz ---
+    setProgreso(100);
+    setTextoProgreso(`¡Lote procesado con éxito! Se generaron ${totalExitosos} documentos.`);
     
     if (typeof setExpedientes === 'function' && Array.isArray(todosLosDetalles)) {
       setExpedientes([...todosLosDetalles, ...expedientes]);
     }
 
-    // Limpiar vista previa y selección
-    setFilasPreview([]);
-    setArchivoExcel(null);
-    setFilasSeleccionadas([]);
+    // Esperar 3 segundos para que el usuario aprecie el 100% y el mensaje, luego limpiar
+    setTimeout(() => {
+      setFilasPreview([]);
+      setArchivoExcel(null);
+      setFilasSeleccionadas([]);
+      setCargando(false);
+      setProgreso(0);
+      setTextoProgreso('');
+    }, 3000);
+
   } catch (err) {
     console.error(err);
     alert('Error en lote: ' + err.message);
-  } finally {
+    // En caso de error sí limpiamos de inmediato
     setCargando(false);
     setProgreso(0);
     setTextoProgreso('');
