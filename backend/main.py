@@ -973,3 +973,58 @@ async def procesar_excel(
     except Exception as e:
         print(f"ERROR EN /procesar-excel: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ==============================================================================
+# 3. ENDPOINT PARA LEER LOS ARCHIVOS EXCEL DE LA CARGA DE EXCEL
+# ==============================================================================
+
+@app.post("/api/expedientes/previsualizar-excel")
+async def previsualizar_excel(file: UploadFile = File(...)):
+    try:
+        if not file.filename.lower().endswith(('.xlsx', '.xls', '.csv')):
+            raise HTTPException(status_code=400, detail="El archivo debe ser un Excel o CSV válido.")
+
+        os.makedirs("uploads", exist_ok=True)
+        ruta_temp = os.path.join("uploads", file.filename)
+        with open(ruta_temp, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        if file.filename.lower().endswith('.csv'):
+            df = pd.read_csv(ruta_temp)
+        else:
+            df = pd.read_excel(ruta_temp)
+
+        filas_preview = []
+        for index, row in df.iterrows():
+            fila_dict = row.to_dict()
+            fila_normalizada = {str(k).strip().lower(): v for k, v in fila_dict.items() if pd.notna(v)}
+
+            num_credito = str(
+                fila_normalizada.get('numero_credito') or 
+                fila_normalizada.get('credito') or 
+                fila_normalizada.get('número de crédito') or 
+                f"EXCEL_{index+1}"
+            ).strip()
+
+            if not num_credito or num_credito.lower() == "nan":
+                continue
+
+            acreditado = str(fila_normalizada.get('nombre_acreditado') or fila_normalizada.get('acreditado') or fila_normalizada.get('nombre') or '').strip()
+            monto = str(fila_normalizada.get('monto_credito') or fila_normalizada.get('monto') or '').strip()
+
+            filas_preview.append({
+                "index": index,
+                "numero_credito": num_credito,
+                "nombre_acreditado": acreditado or "N/A",
+                "monto_credito": monto or "N/A",
+                "datos_completos": {str(k): str(v) for k, v in fila_dict.items() if pd.notna(v)}
+            })
+
+        return {
+            "status": "exito",
+            "total": len(filas_preview),
+            "filas": filas_preview
+        }
+    except Exception as e:
+        print(f"ERROR EN /previsualizar-excel: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -210,6 +210,11 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
   const elementosVisibles = batchResults.slice(indicePrimerItem, indiceUltimoItem);
   const totalPaginas = Math.ceil(batchResults.length / elementosPorPagina);
 
+  // --- 12. ESTADOS - CARGA EXCEL ---
+
+  const [filasPreview, setFilasPreview] = useState([]);
+  const [filasSeleccionadas, setFilasSeleccionadas] = useState([]);
+
 
   // ==========================================
   // --- EFECTOS (USEEFFECT) ---
@@ -461,6 +466,33 @@ const handleDrop = (e) => {
     }
     
     e.dataTransfer.clearData();
+  }
+};
+
+
+const handlePreviewExcel = async (file) => {
+  setArchivoExcel(file);
+  setCargando(true);
+  const dataForm = new FormData();
+  dataForm.append('file', file);
+
+  try {
+    const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/previsualizar-excel', {
+      method: 'POST',
+      body: dataForm
+    });
+    const data = await res.json();
+    if (res.ok && data.status === 'exito') {
+      setFilasPreview(data.filas);
+      setFilasSeleccionadas(data.filas.map(f => f.index)); // Seleccionados por defecto todos
+    } else {
+      alert('Error al previsualizar: ' + (data.detail || 'Archivo inválido'));
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Error de conexión al leer el Excel.');
+  } finally {
+    setCargando(false);
   }
 };
 
@@ -2487,31 +2519,90 @@ const filteredHistorial = (historial || []).filter((item) => {
   <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '12px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
     <h3 style={{ color: theme.textPrimary, marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Carga Masiva mediante Excel o CSV</h3>
     
-    <form onSubmit={handleExcelSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    {/* SELECTOR DE PLANTILLA (Siempre visible en la parte superior) */}
+    <div style={{ marginBottom: '16px' }}>
+      <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: theme.textPrimary, marginBottom: '8px' }}>
+        📜 Selecciona la Plantilla Notarial (Modelo 2026):
+      </label>
+      <select
+        value={selectedPlantilla}
+        onChange={(e) => setSelectedPlantilla(e.target.value)}
+        style={{
+          width: '100%',
+          padding: '10px 12px',
+          borderRadius: '8px',
+          border: `1px solid ${theme.border}`,
+          backgroundColor: theme.inputBg || '#fff',
+          color: theme.textPrimary,
+          fontSize: '13px',
+          fontWeight: '600',
+          cursor: 'pointer',
+          outline: 'none'
+        }}
+      >
+        <optgroup label="CDMX - APERTURA DE CRÉDITO">
+          <option value="CDMX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+          <option value="CDMX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+          <option value="CDMX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+          <option value="CDMX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+        </optgroup>
+        <optgroup label="CONTRATO DE MUTUO">
+          <option value="CDMX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+          <option value="CDMX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+          <option value="CDMX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+          <option value="CDMX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+        </optgroup>
+        <optgroup label="MODELOS COACREDITADOS">
+          <option value="COAC_CDMX_AP">CDMX - Ap. Crédito</option>
+          <option value="COAC_CDMX_MUTUO">CDMX - C. Mutuo</option>
+          <option value="COAC_EDOMEX_AP">EDOMEX - Ap. Crédito</option>
+          <option value="COAC_EDOMEX_MUTUO">EDOMEX - C. Mutuo</option>
+        </optgroup>
+        <optgroup label="EDOMEX - APERTURA DE CRÉDITO">
+          <option value="EDOMEX_AP_H_SOLTERO">Ap. Crédito - Hombre Soltero</option>
+          <option value="EDOMEX_AP_H_CASADO">Ap. Crédito - Hombre Casado</option>
+          <option value="EDOMEX_AP_M_SOLTERA">Ap. Crédito - Mujer Soltera</option>
+          <option value="EDOMEX_AP_M_CASADA">Ap. Crédito - Mujer Casada</option>
+        </optgroup>
+        <optgroup label="EDOMEX - CONTRATO DE MUTUO">
+          <option value="EDOMEX_MUTUO_H_SOLTERO">C. Mutuo - Hombre Soltero</option>
+          <option value="EDOMEX_MUTUO_H_CASADO">C. Mutuo - Hombre Casado</option>
+          <option value="EDOMEX_MUTUO_M_SOLTERA">C. Mutuo - Mujer Soltera</option>
+          <option value="EDOMEX_MUTUO_M_CASADA">C. Mutuo - Mujer Casada</option>
+        </optgroup>
+      </select>
+    </div>
+
+    {/* ZONA DE ARRASTRE O TABLA DE PREVISUALIZACIÓN */}
+    {!filasPreview || filasPreview.length === 0 ? (
       <div 
         onDragOver={(e) => {
           e.preventDefault();
           e.stopPropagation();
         }}
-        onDrop={(e) => {
+        onDrop={async (e) => {
           e.preventDefault();
           e.stopPropagation();
           if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const archivoArrastrado = e.dataTransfer.files[0];
             const nombre = archivoArrastrado.name.toLowerCase();
             if (nombre.endsWith('.xlsx') || nombre.endsWith('.xls') || nombre.endsWith('.csv')) {
-              setArchivoExcel(archivoArrastrado);
+              await handlePreviewExcel(archivoArrastrado);
             } else {
               alert("Por favor, arrastra un archivo Excel o CSV válido (.xlsx, .xls, .csv)");
             }
           }
         }}
-        style={{ border: `2px dashed ${theme.border}`, padding: '32px', borderRadius: '12px', textAlign: 'center', backgroundColor: theme.subtleBg, cursor: 'pointer' }}
+        style={{ border: `2px dashed ${theme.border}`, padding: '32px', borderRadius: '12px', textAlign: 'center', backgroundColor: theme.subtleBg, cursor: 'pointer', marginBottom: '16px' }}
       >
         <input
           type="file"
           accept=".xlsx, .xls, .csv"
-          onChange={e => setArchivoExcel(e.target.files[0])}
+          onChange={async (e) => {
+            if (e.target.files[0]) {
+              await handlePreviewExcel(e.target.files[0]);
+            }
+          }}
           style={{ display: 'none' }}
           id="excel-file-input"
         />
@@ -2523,19 +2614,84 @@ const filteredHistorial = (historial || []).filter((item) => {
           <span style={{ fontSize: '12px', color: theme.textSecondary }}>Formatos permitidos: .xlsx, .xls, .csv</span>
         </label>
       </div>
+    ) : (
+      /* TABLA CON CHECKBOXES DE LOS REGISTROS DETECTADOS */
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: theme.subtleBg, borderRadius: '8px' }}>
+          <span style={{ color: theme.textPrimary, fontWeight: '600', fontSize: '14px' }}>
+            Archivo: <strong>{archivoExcel?.name}</strong> ({filasPreview.length} registros detectados)
+          </span>
+          <button
+            onClick={() => { setFilasPreview([]); setArchivoExcel(null); setFilasSeleccionadas([]); }}
+            style={{ padding: '6px 12px', backgroundColor: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}
+          >
+            Cambiar Archivo
+          </button>
+        </div>
 
-      <div style={{ padding: '12px 16px', backgroundColor: isDarkMode ? '#1e293b' : '#eff6ff', borderRadius: '8px', border: `1px solid ${isDarkMode ? '#334155' : '#dbeafe'}`, fontSize: '13px', color: isDarkMode ? '#93c5fd' : '#1e40af' }}>
-        <strong>Estructura requerida:</strong> Asegúrate de que tu hoja de cálculo incluya columnas con los nombres de encabezado como <code>numero_credito</code>, <code>nombre_acreditado</code> y <code>monto_credito</code>.
+        <div style={{ maxHeight: '350px', overflowY: 'auto', border: `1px solid ${theme.border}`, borderRadius: '8px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+            <thead style={{ backgroundColor: theme.subtleBg, position: 'sticky', top: 0, zIndex: 1 }}>
+              <tr>
+                <th style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, width: '40px', textAlign: 'center' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={filasSeleccionadas.length === filasPreview.length && filasPreview.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setFilasSeleccionadas(filasPreview.map(f => f.index));
+                      } else {
+                        setFilasSeleccionadas([]);
+                      }
+                    }}
+                  />
+                </th>
+                <th style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>No. Crédito</th>
+                <th style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>Acreditado</th>
+                <th style={{ padding: '12px', borderBottom: `1px solid ${theme.border}`, color: theme.textPrimary }}>Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filasPreview.map((fila) => {
+                const isSelected = filasSeleccionadas.includes(fila.index);
+                return (
+                  <tr key={fila.index} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: isSelected ? (isDarkMode ? '#1e293b' : '#f8fafc') : 'transparent' }}>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isSelected}
+                        onChange={() => {
+                          if (isSelected) {
+                            setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
+                          } else {
+                            setFilasSeleccionadas([...filasSeleccionadas, fila.index]);
+                          }
+                        }}
+                      />
+                    </td>
+                    <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>{fila.numero_credito}</td>
+                    <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.nombre_acreditado}</td>
+                    <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.monto_credito}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <button
+          onClick={handleExcelSubmit}
+          disabled={cargando || filasSeleccionadas.length === 0}
+          style={{ padding: '14px', backgroundColor: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', opacity: filasSeleccionadas.length === 0 ? 0.6 : 1, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+        >
+          {cargando ? 'Procesando Lote en Servidor...' : `Procesar ${filasSeleccionadas.length} Documentos Seleccionados`}
+        </button>
       </div>
+    )}
 
-      <button
-        type="submit"
-        disabled={cargando}
-        style={{ padding: '12px', backgroundColor: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-      >
-        {cargando ? 'Procesando Lote en Servidor...' : 'Procesar Carga Masiva Excel'}
-      </button>
-    </form>
+    <div style={{ padding: '12px 16px', backgroundColor: isDarkMode ? '#1e293b' : '#eff6ff', borderRadius: '8px', border: `1px solid ${isDarkMode ? '#334155' : '#dbeafe'}`, fontSize: '13px', color: isDarkMode ? '#93c5fd' : '#1e40af', marginTop: '16px' }}>
+      <strong>Estructura requerida:</strong> Asegúrate de que tu hoja de cálculo incluya columnas con los nombres de encabezado como <code>numero_credito</code>, <code>nombre_acreditado</code> y <code>monto_credito</code>.
+    </div>
   </div>
 )}
 
