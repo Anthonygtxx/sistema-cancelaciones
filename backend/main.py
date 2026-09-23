@@ -854,13 +854,14 @@ def generar_expediente_manual(
 
 
 # ==============================================================================
-# 2. ENDPOINT PARA CARGA MASIVA MEDIANTE EXCEL O CSV
+# 2. ENDPOINT PARA CARGA MASIVA MEDIANTE EXCEL O CSV (OPTIMIZADO POR BLOQUES)
 # ==============================================================================
 @app.post("/api/expedientes/procesar-excel")
 async def procesar_excel(
     file: UploadFile = File(...),
     usuario_propietario: Optional[str] = Form("admin"),
     plantilla: Optional[str] = Form("plantilla_manera2.docx"),
+    indices_bloque: Optional[str] = Form(None), # <--- Parámetro opcional para recibir el bloque de 15
     db: Session = Depends(get_db)
 ):
     try:
@@ -881,11 +882,18 @@ async def procesar_excel(
             df = pd.read_excel(ruta_temp)
 
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
+        
+        # SI RECIBE BLOQUE: Procesa solo esos índices. SI NO: Procesa todo el archivo por compatibilidad.
+        indices_a_procesar = json.loads(indices_bloque) if indices_bloque else list(df.index)
+        
         resultados = []
         conteo_exitosos = 0
 
-        # Iterar fila por fila de la hoja de cálculo
-        for index, row in df.iterrows():
+        # Iterar únicamente sobre las filas del bloque actual
+        for index in indices_a_procesar:
+            if index >= len(df):
+                continue
+            row = df.iloc[index]
             try:
                 fila_dict = row.to_dict()
                 # Normalizar nombres de columnas a minúsculas eliminando espacios extra

@@ -214,6 +214,8 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
 
   const [filasPreview, setFilasPreview] = useState([]);
   const [filasSeleccionadas, setFilasSeleccionadas] = useState([]);
+  const [progreso, setProgreso] = useState(0);
+  const [textoProgreso, setTextoProgreso] = useState('');
 
 
   // ==========================================
@@ -900,36 +902,75 @@ const handlePreviewExcel = async (file) => {
   };
 
   const handleExcelSubmit = async (e) => {
-    e.preventDefault();
-    if (!archivoExcel) return alert('Por favor selecciona un archivo Excel (.xlsx o .csv)');
-    
-    setCargando(true);
-    const dataForm = new FormData();
-    dataForm.append('file', archivoExcel);
-    dataForm.append('plantilla', selectedPlantilla || 'plantilla_manera2.docx');
-    dataForm.append('usuario_propietario', currentUser?.username || 'admin');
+  e.preventDefault();
+  if (!archivoExcel) return alert('Por favor selecciona un archivo Excel (.xlsx o .csv)');
+  if (!filasSeleccionadas || filasSeleccionadas.length === 0) {
+    return alert('Selecciona al menos una fila en la tabla para procesar.');
+  }
 
-    try {
+  setCargando(true);
+  setProgreso(0);
+
+  // Dividir las filas seleccionadas en bloques de 15
+  const tamanoBloque = 15;
+  const bloques = [];
+  for (let i = 0; i < filasSeleccionadas.length; i += tamanoBloque) {
+    bloques.push(filasSeleccionadas.slice(i, i + tamanoBloque));
+  }
+
+  let totalExitosos = 0;
+  let todosLosDetalles = [];
+
+  try {
+    for (let index = 0; index < bloques.length; index++) {
+      const bloqueIndices = bloques[index];
+      setTextoProgreso(`Procesando bloque ${index + 1} de ${bloques.length} (${bloqueIndices.length} registros)...`);
+
+      const dataForm = new FormData();
+      dataForm.append('file', archivoExcel);
+      dataForm.append('plantilla', selectedPlantilla || 'plantilla_manera2.docx');
+      dataForm.append('usuario_propietario', currentUser?.username || 'admin');
+      dataForm.append('indices_bloque', JSON.stringify(bloqueIndices)); // Mandamos los índices del bloque
+
       const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/procesar-excel', {
         method: 'POST',
         body: dataForm
       });
       const data = await res.json();
-      if (res.ok && data.status === 'exito') {
-        alert(`¡Lote procesado con éxito! Se generaron ${data.procesados} documentos.`);
-        if (typeof setExpedientes === 'function' && Array.isArray(data.detalles)) {
-          setExpedientes([...data.detalles, ...expedientes]);
-        }
-      } else {
-        alert('Error en lote: ' + (data.detail || 'Fallo al procesar el archivo'));
+
+      if (!res.ok || data.status !== 'exito') {
+        throw new Error(data.detail || `Fallo al procesar el bloque ${index + 1}`);
       }
-    } catch (err) {
-      console.error(err);
-      alert('Error de conexión al subir el Excel.');
-    } finally {
-      setCargando(false);
+
+      totalExitosos += data.procesados;
+      if (Array.isArray(data.detalles)) {
+        todosLosDetalles.push(...data.detalles);
+      }
+
+      // Actualizar porcentaje de la barra
+      const porcentajeActual = Math.round(((index + 1) / bloques.length) * 100);
+      setProgreso(porcentajeActual);
     }
-  };
+
+    alert(`¡Lote procesado con éxito! Se generaron ${totalExitosos} documentos en total.`);
+    
+    if (typeof setExpedientes === 'function' && Array.isArray(todosLosDetalles)) {
+      setExpedientes([...todosLosDetalles, ...expedientes]);
+    }
+
+    // Limpiar vista previa y selección
+    setFilasPreview([]);
+    setArchivoExcel(null);
+    setFilasSeleccionadas([]);
+  } catch (err) {
+    console.error(err);
+    alert('Error en lote: ' + err.message);
+  } finally {
+    setCargando(false);
+    setProgreso(0);
+    setTextoProgreso('');
+  }
+};
 
   const handleDownloadWord = async (id, datosActuales) => {
     try {
@@ -2621,6 +2662,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           <span style={{ color: theme.textPrimary, fontWeight: '600', fontSize: '14px' }}>
             Archivo: <strong>{archivoExcel?.name}</strong> ({filasPreview.length} registros detectados)
           </span>
+
           <button
             onClick={() => { setFilasPreview([]); setArchivoExcel(null); setFilasSeleccionadas([]); }}
             style={{ padding: '6px 12px', backgroundColor: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}
@@ -2686,6 +2728,19 @@ const filteredHistorial = (historial || []).filter((item) => {
         >
           {cargando ? 'Procesando Lote en Servidor...' : `Procesar ${filasSeleccionadas.length} Documentos Seleccionados`}
         </button>
+
+        {/* BARRA DE PROGRESO DINÁMICA */}
+        {cargando && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', backgroundColor: theme.subtleBg, borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: theme.textPrimary, fontWeight: '600' }}>
+              <span>{textoProgreso}</span>
+              <span>{progreso}%</span>
+            </div>
+            <div style={{ width: '100%', backgroundColor: theme.border, borderRadius: '8px', overflow: 'hidden', height: '10px' }}>
+              <div style={{ width: `${progreso}%`, backgroundColor: theme.accent, height: '100%', transition: 'width 0.3s ease-in-out' }} />
+            </div>
+          </div>
+        )}
       </div>
     )}
 
