@@ -284,14 +284,6 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
     }
   }, [isAuthenticated]);
 
-  // Efecto en tiempo real (debounce) para el formulario manual
-  useEffect(() => {
-    if (!manualPreviewActive) return;
-    const timer = setTimeout(() => {
-      generarVistaPreviaManual();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [formData, selectedPlantilla, manualPreviewActive]);
 
 
   // ==========================================
@@ -451,42 +443,6 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
     }
   };
 
-  const generarVistaPreviaManual = async () => {
-    try {
-      setCargandoManualPreview(true);
-      
-      const response = await api.post(
-        '/expedientes/generar-manual',
-        {
-          ...formData,
-          plantilla: selectedPlantilla || 'plantilla_manera2.docx'
-        },
-        { responseType: 'arraybuffer' }
-      );
-
-      // Validar si el backend respondió con un JSON de error en lugar del documento
-      const textDecoder = new TextDecoder();
-      const possibleJson = textDecoder.decode(response.data.slice(0, 100));
-      if (possibleJson.includes('"detail"') || possibleJson.includes('{')) {
-        throw new Error("El servidor devolvió un error en lugar del documento.");
-      }
-
-      if (manualPreviewRef.current && response.data) {
-        const tempContainer = document.createElement('div');
-        tempContainer.className = "docx-container-scroll";
-
-        await renderAsync(response.data, tempContainer);
-        manualPreviewRef.current.innerHTML = tempContainer.innerHTML;
-      }
-    } catch (error) {
-      console.error("Error al generar la vista previa manual:", error);
-      if (manualPreviewRef.current) {
-        manualPreviewRef.current.innerHTML = `<p style="color: red; padding: 20px; text-align: center;">⚠️ Error al cargar la vista previa. Verifica que los datos obligatorios estén llenos y que la plantilla exista en el servidor.</p>`;
-      }
-    } finally {
-      setCargandoManualPreview(false);
-    }
-  };
 
  const handleManualSubmit = async (e) => {
   e.preventDefault();
@@ -2261,10 +2217,11 @@ const filteredHistorial = (historial || []).filter((item) => {
   </div>
 )}
 
+
 {/* VISTA DE CAPTURA MANUAL CON TODOS LOS CAMPOS, SELECTOR 2026 Y VISTA PREVIA */}
 {activeTab === 'manual' && (
-  <div style={{ display: 'grid', gridTemplateColumns: manualPreviewActive ? '1fr 1fr' : '1fr', gap: '24px', alignItems: 'start' }}>
-    
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', alignItems: 'start' }}>    
+
     {/* COLUMNA IZQUIERDA: FORMULARIO */}
     <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
       <h3 style={{ color: theme.textPrimary, marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Generación Manual de Caso Individual</h3>
@@ -2286,8 +2243,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           });
           const data = await res.json();
           if (res.ok && data.status === 'exito') {
-            alert('¡Expediente manual generado con éxito!');
-            setManualPreviewActive(true);
+            alert('¡Expediente manual generado con éxito, revisa tu Historial!');
             
             if (data.archivo_base64 && manualPreviewRef.current) {
               const binaryString = window.atob(data.archivo_base64);
