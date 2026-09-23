@@ -2276,7 +2276,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           // Recuperar token de autenticación si lo guardas en localStorage (para evitar el error 401)
           const token = localStorage.getItem('token') || '';
 
-          const res = await fetch('https://sistema-cancelaciones-production.up.railway.net/api/expedientes/generar-manual', {
+          const res = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/generar-manual', {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
