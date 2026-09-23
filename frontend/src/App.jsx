@@ -349,7 +349,6 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
     } catch (err) {
       console.error('Error al cerrar sesión:', err);
     } finally {
-      // 1. Limpieza de autenticación y modales
       setIsAuthenticated(false);
       setCurrentUser(null);
       setShowLogoutModal(false);
@@ -359,7 +358,7 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
       setBatchResults([]);
       setHistorial([]);
 
-      // 2. 👈 LIMPIEZA DE LOS ESTADOS DE CARGA MASIVA / EXCEL
+      // Limpieza de Excel
       setArchivoExcel(null);
       setFilasPreview([]);
       setFilasSeleccionadas([]);
@@ -367,6 +366,9 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
       setContadoresRemosion({});
       setProgreso(0);
       setTextoProgreso('');
+
+      // 👈 NUEVO: Regresar a la pestaña principal por defecto al salir
+      setActiveTab('single'); // Cambia esto por el estado o función que cambie de pestaña en tu app
     }
   };
 
