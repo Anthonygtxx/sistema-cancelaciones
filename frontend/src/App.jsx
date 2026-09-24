@@ -962,7 +962,7 @@ const handleDownloadWord = async (expedienteId, datosParam = null) => {
     const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = downloadUrl;
-    a.download = `Expediente_${expedienteId}.docx`;
+    a.download = `Expediente_${numero_credito}.docx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
