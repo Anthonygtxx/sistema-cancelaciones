@@ -365,35 +365,43 @@ def extraer_datos_pdf(ruta_pdf):
     datos["genero"] = genero
     datos["estado_civil"] = estado_civil
 
-    # 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA (ANTECEDENTE / ORIGEN)
-    match_esc = re.search(r'ESCRITURA\s+(?:P[uú]blica\s+)?N[uú]m[eé]ro\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
+    # ════════════════════════════════════════════════════════════════════════
+    # 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA (ANTECEDENTE / ORIGEN) - GLOBAL
+    # ════════════════════════════════════════════════════════════════════════
+
+    # A. Número de Escritura (Soporta NÚMERO, NUMERO, NO., etc.)
+    match_esc = re.search(r'ESCRITURA\s+(?:P[uú]blica\s+)?(?:N[oº°]|NÚM[EÉ]RO|NUMERO|NO)\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
     if match_esc:
         datos["numero_escritura"] = match_esc.group(1).strip()
 
-    match_f_esc = re.search(r'DE\s+FECHA\s+([0-9A-Za-z\-\/]+)', texto_limpio, re.IGNORECASE)
+    # B. Fecha de Escritura (Soporta múltiples estructuras de fecha)
+    match_f_esc = re.search(r'(?:DE\s+FECHA|FECHA)\s+([0-9A-Za-z\-\/]+)', texto_limpio, re.IGNORECASE)
     if match_f_esc:
         fecha_bruta = match_f_esc.group(1).strip()
         datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
 
+    # C. Notario de Origen (Global: tolera "NOTIARIO" con i, abreviaturas "NO." y diferentes separadores)
     match_not = re.search(
-        r'NOTARIO\s+P[uú]blico\s+(?:LIC\.\s*)?([^,]+?)\s+n[uú]mero\s+(\d+)\s+d[eé][l]?\s+([A-Za-z\sÁÉÍÓÚÑáéíóú]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)',
+        r'(?:LIC\.|LICENCIADO)?\s*([A-ZÁÉÍÓÚÑ\s]+?),\s*NOT[AI]ARIO\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)\s*([0-9A-Z]+)\s+DE[L]?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,\s*CON|\s+EN\s+LA\s+QUE|\s+CONSTA|\.|$)',
         texto_limpio,
         re.IGNORECASE
     )
     
     if match_not:
-        nombre_notario = match_not.group(1).replace("LIC.", "").strip()
+        nombre_notario = match_not.group(1).replace("LIC.", "").replace("LICENCIADO", "").strip()
         num_notaria = match_not.group(2).strip()
         jurisdiccion = match_not.group(3).strip().lower()
         
         datos["notario_origen_completo"] = f"Lic. {nombre_notario} notario público número {num_notaria} de {jurisdiccion}"
     else:
-        match_not_alt = re.search(r'NOTARIO\s+P[uú]blico\s+([^.]+)', texto_limpio, re.IGNORECASE)
+        # Fallback global de respaldo
+        match_not_alt = re.search(r'NOT[AI]ARIO\s+P[uú]blico\s+([^.]+)', texto_limpio, re.IGNORECASE)
         if match_not_alt:
             texto_not = match_not_alt.group(1).strip()
             if "JUAN CARLOS ORTEGA" not in texto_not.upper():
                 datos["notario_origen_completo"] = f"Lic. {texto_not}"
 
+    # D. Si tiene cónyuge (Sí/No)
     tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_limpio, re.IGNORECASE))
     datos["tiene_conyuge"] = "Sí" if tiene_conyuge_match else "No"
 
