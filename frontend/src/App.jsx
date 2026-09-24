@@ -416,54 +416,105 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
     }
   };
 
-  const actualizarVistaPreviaTiempoReal = async () => {
-    try {
-      const response = await api.post(
-        `/expedientes/${expedienteId}/generar-word`,
-        {
-          plantilla: selectedPlantilla,
-          datos: datos
-        },
-        { responseType: 'arraybuffer' }
-      );
+  const handleGenerarVistaPrevia = async () => {
+  if (!expedienteId || !datos) return;
+  
+  setCargandoPreview(true);
+  setMostrarVistaPrevia(true);
 
+  try {
+    const response = await api.post(
+      `/expedientes/${expedienteId}/generar-word`, 
+      {
+        plantilla: selectedPlantilla,
+        datos: datos
+      },
+      { responseType: 'arraybuffer' }
+    );
+
+    // Validación para evitar que un error 502 o texto rompa el render
+    const contentType = response.headers?.['content-type'] || '';
+    if (contentType.includes('application/json') || contentType.includes('text/html') || response.data.byteLength < 500) {
+      console.error("El servidor no pudo generar el Word correctamente.");
+      setCargandoPreview(false);
+      return;
+    }
+
+    const arrayBuffer = response.data;
+    setCargandoPreview(false);
+
+    setTimeout(async () => {
       if (previewContainerRef.current) {
-        const tempContainer = document.createElement('div');
-        tempContainer.className = "docx-container-scroll";
-
-        await renderAsync(response.data, tempContainer);
-        previewContainerRef.current.innerHTML = tempContainer.innerHTML;
+        previewContainerRef.current.innerHTML = ""; 
+        await renderAsync(arrayBuffer, previewContainerRef.current);
       }
-    } catch (error) {
-      console.error("Error al actualizar la vista previa en tiempo real:", error);
+    }, 50);
+
+  } catch (error) {
+    console.error("Error al renderizar vista previa:", error);
+    setCargandoPreview(false);
+  }
+};
+
+const actualizarVistaPreviaTiempoReal = async () => {
+  if (!expedienteId) return;
+  try {
+    const response = await api.post(
+      `/expedientes/${expedienteId}/generar-word`,
+      {
+        plantilla: selectedPlantilla,
+        datos: datos
+      },
+      { responseType: 'arraybuffer' }
+    );
+
+    const contentType = response.headers?.['content-type'] || '';
+    if (contentType.includes('application/json') || contentType.includes('text/html') || response.data.byteLength < 500) {
+      return;
     }
-  };
 
-  const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
-    try {
-      const item = batchResults[index];
-      if (!item) return;
+    if (previewContainerRef.current) {
+      const tempContainer = document.createElement('div');
+      tempContainer.className = "docx-container-scroll";
 
-      const response = await api.post(
-        `/expedientes/${item.expediente_id}/generar-word`,
-        {
-          plantilla: item.plantilla_seleccionada || selectedPlantilla, 
-          datos: item.datos_extraidos
-        },
-        { responseType: 'arraybuffer' }
-      );
-
-      if (batchPreviewRef.current) {
-        const tempContainer = document.createElement('div');
-        tempContainer.className = "docx-container-scroll";
-
-        await renderAsync(response.data, tempContainer);
-        batchPreviewRef.current.innerHTML = tempContainer.innerHTML;
-      }
-    } catch (error) {
-      console.error("Error al actualizar la vista previa masiva:", error);
+      await renderAsync(response.data, tempContainer);
+      previewContainerRef.current.innerHTML = tempContainer.innerHTML;
     }
-  };
+  } catch (error) {
+    console.error("Error al actualizar la vista previa en tiempo real:", error);
+  }
+};
+
+const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
+  try {
+    const item = batchResults[index];
+    if (!item) return;
+
+    const response = await api.post(
+      `/expedientes/${item.expediente_id}/generar-word`,
+      {
+        plantilla: item.plantilla_seleccionada || selectedPlantilla, 
+        datos: item.datos_extraidos
+      },
+      { responseType: 'arraybuffer' }
+    );
+
+    const contentType = response.headers?.['content-type'] || '';
+    if (contentType.includes('application/json') || contentType.includes('text/html') || response.data.byteLength < 500) {
+      return;
+    }
+
+    if (batchPreviewRef.current) {
+      const tempContainer = document.createElement('div');
+      tempContainer.className = "docx-container-scroll";
+
+      await renderAsync(response.data, tempContainer);
+      batchPreviewRef.current.innerHTML = tempContainer.innerHTML;
+    }
+  } catch (error) {
+    console.error("Error al actualizar la vista previa masiva:", error);
+  }
+};
 
   // 1. Funciones para manejar el arrastre y soltado correctamente
 
@@ -915,6 +966,45 @@ const handlePreviewExcel = async (file) => {
       setBatchLoading(false);
     }
   };
+
+  // 📥 Función actualizada para recibir ID y los datos (por si se editó la vista previa)
+const handleDownloadWord = async (expedienteId, datos = null) => {
+  try {
+    if (!expedienteId && !datos) {
+      alert("No hay información suficiente para descargar el documento.");
+      return;
+    }
+
+    // Si pasas datos (como datosExtraidos), idealmente se envían por POST para reflejar cambios en tiempo real
+    const hasData = datos && Object.keys(datos).length > 0;
+    const urlEndpoint = hasData 
+      ? `https://sistema-cancelaciones-production.up.railway.app/api/expedientes/descargar-word`
+      : `https://sistema-cancelaciones-production.up.railway.app/api/expedientes/descargar-word/${expedienteId}`;
+
+    const config = {
+      method: hasData ? 'POST' : 'GET',
+      headers: hasData ? { 'Content-Type': 'application/json' } : undefined,
+      body: hasData ? JSON.stringify({ expediente_id: expedienteId, datos }) : undefined,
+    };
+
+    const res = await fetch(urlEndpoint, config);
+
+    if (!res.ok) throw new Error("Error al descargar el documento Word desde el servidor.");
+
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `Cancelacion_${expedienteId || 'expediente'}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo descargar el archivo Word: " + err.message);
+  }
+};
 
 
 
