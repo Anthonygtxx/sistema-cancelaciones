@@ -218,6 +218,7 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
   const [textoProgreso, setTextoProgreso] = useState('');
   const [estadoFilas, setEstadoFilas] = useState({});
   const [contadoresRemosion, setContadoresRemosion] = useState({});
+  const [plantillasFilas, setPlantillasFilas] = useState({});
 
 
   // ==========================================
@@ -2607,15 +2608,12 @@ const filteredHistorial = (historial || []).filter((item) => {
 
 {/* VISTA DE CARGA EXCEL / LOTE */}
 {activeTab === 'excel' && (() => {
-  // Lógica de paginación para evitar renderizar las 200 filas de golpe
   const filasPorPagina = 10;
-  const [paginaActual, setPaginaActual] = useState(1);
   const totalPaginas = Math.ceil((filasPreview?.length || 0) / filasPorPagina);
   const indiceUltimaFila = paginaActual * filasPorPagina;
   const indicePrimeraFila = indiceUltimaFila - filasPorPagina;
   const filasPaginadas = (filasPreview || []).slice(indicePrimeraFila, indiceUltimaFila);
 
-  // Componente reutilizable para las opciones de plantillas
   const OpcionesPlantillas = () => (
     <>
       <optgroup label="CDMX - APERTURA DE CRÉDITO">
@@ -2655,7 +2653,7 @@ const filteredHistorial = (historial || []).filter((item) => {
     <div style={{ backgroundColor: theme.cardBg, padding: '24px', borderRadius: '16px', border: `1px solid ${theme.border}`, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
       <h3 style={{ color: theme.textPrimary, marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Carga Masiva mediante Excel o CSV</h3>
       
-      {/* SELECTOR DE PLANTILLA GLOBAL (Plantilla por defecto para el lote) */}
+      {/* SELECTOR DE PLANTILLA GLOBAL */}
       <div style={{ marginBottom: '16px' }}>
         <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: theme.textPrimary, marginBottom: '8px' }}>
           📜 Plantilla Notarial Global por Defecto (Modelo 2026):
@@ -2663,18 +2661,7 @@ const filteredHistorial = (historial || []).filter((item) => {
         <select
           value={selectedPlantilla}
           onChange={(e) => setSelectedPlantilla(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '10px 12px',
-            borderRadius: '8px',
-            border: `1px solid ${theme.border}`,
-            backgroundColor: theme.inputBg || '#fff',
-            color: theme.textPrimary,
-            fontSize: '13px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            outline: 'none'
-          }}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, fontSize: '13px', fontWeight: '600', cursor: 'pointer', outline: 'none' }}
         >
           <OpcionesPlantillas />
         </select>
@@ -2721,13 +2708,12 @@ const filteredHistorial = (historial || []).filter((item) => {
           </label>
         </div>
       ) : (
-        /* TABLA CON PAGINACIÓN Y SELECTOR DE PLANTILLA POR FILA */
+        /* TABLA CON PAGINACIÓN Y SELECTOR POR FILA */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', backgroundColor: theme.subtleBg, borderRadius: '8px' }}>
             <span style={{ color: theme.textPrimary, fontWeight: '600', fontSize: '14px' }}>
-              Archivo: <strong>{archivoExcel?.name}</strong> ({filasPreview.length} registros detectados - Mostrando pág. {paginaActual} de {totalPaginas})
+              Archivo: <strong>{archivoExcel?.name}</strong> ({filasPreview.length} registros - Pág. {paginaActual} de {totalPaginas})
             </span>
-
             <button
               onClick={() => { setFilasPreview([]); setArchivoExcel(null); setFilasSeleccionadas([]); setPaginaActual(1); }}
               style={{ padding: '6px 12px', backgroundColor: 'transparent', color: theme.accent, border: `1px solid ${theme.accent}`, borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' }}
@@ -2752,7 +2738,6 @@ const filteredHistorial = (historial || []).filter((item) => {
                           setFilasSeleccionadas([]);
                         }
                       }}
-                      title="Seleccionar todos"
                       style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: theme.accent }}
                     />
                   </th>
@@ -2770,8 +2755,6 @@ const filteredHistorial = (historial || []).filter((item) => {
 
                   return (
                     <tr key={fila.index} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: isSelected ? (isDarkMode ? '#1e293b' : '#f8fafc') : 'transparent' }}>
-                      
-                      {/* Checkbox */}
                       <td style={{ padding: '12px', textAlign: 'center' }}>
                         <input 
                           type="checkbox" 
@@ -2787,23 +2770,9 @@ const filteredHistorial = (historial || []).filter((item) => {
                           style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: theme.accent }}
                         />
                       </td>
-
-                      {/* Crédito */}
-                      <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>
-                        {fila.numero_credito || fila.credito || '-'}
-                      </td>
-
-                      {/* Acreditado */}
-                      <td style={{ padding: '12px', color: theme.textPrimary }}>
-                        {fila.nombre_acreditado || fila.acreditado || '-'}
-                      </td>
-
-                      {/* Monto */}
-                      <td style={{ padding: '12px', color: theme.textPrimary }}>
-                        {fila.monto_credito || fila.monto || '-'}
-                      </td>
-
-                      {/* Selector de Plantilla por Fila (Completo) */}
+                      <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>{fila.numero_credito || fila.credito || '-'}</td>
+                      <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.nombre_acreditado || fila.acreditado || '-'}</td>
+                      <td style={{ padding: '12px', color: theme.textPrimary }}>{fila.monto_credito || fila.monto || '-'}</td>
                       <td style={{ padding: '8px 12px' }}>
                         <select
                           value={plantillasFilas?.[fila.index] || selectedPlantilla}
@@ -2811,43 +2780,24 @@ const filteredHistorial = (historial || []).filter((item) => {
                             const val = e.target.value;
                             setPlantillasFilas(prev => ({ ...prev, [fila.index]: val }));
                           }}
-                          style={{
-                            width: '100%',
-                            padding: '6px 8px',
-                            borderRadius: '6px',
-                            border: `1px solid ${theme.border}`,
-                            backgroundColor: theme.inputBg || '#fff',
-                            color: theme.textPrimary,
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                            outline: 'none'
-                          }}
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: `1px solid ${theme.border}`, backgroundColor: theme.inputBg || '#fff', color: theme.textPrimary, fontSize: '12px', cursor: 'pointer', outline: 'none' }}
                         >
                           <OpcionesPlantillas />
                         </select>
                       </td>
-
-                      {/* Estado */}
                       <td style={{ padding: '12px', textAlign: 'center' }}>
                         {estadoFila === 'completado' ? (
                           <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', display: 'inline-block' }}>
                             ✓ {contadoresRemosion[fila.index] !== undefined ? `Quitando en ${contadoresRemosion[fila.index]}s` : 'Completado'}
                           </span>
                         ) : estadoFila === 'procesando' ? (
-                          <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
-                            Procesando...
-                          </span>
+                          <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>Procesando...</span>
                         ) : estadoFila === 'error' ? (
-                          <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
-                            ✕ Error
-                          </span>
+                          <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>✕ Error</span>
                         ) : (
-                          <span style={{ color: '#ffa500', fontSize: '12px' }}>
-                            Pendiente
-                          </span>
+                          <span style={{ color: '#ffa500', fontSize: '12px' }}>Pendiente</span>
                         )}
                       </td>
-
                     </tr>
                   );
                 })}
@@ -2861,71 +2811,34 @@ const filteredHistorial = (historial || []).filter((item) => {
               <button
                 onClick={() => setPaginaActual(prev => Math.max(prev - 1, 1))}
                 disabled={paginaActual === 1 || cargando}
-                style={{
-                  padding: '6px 14px',
-                  backgroundColor: paginaActual === 1 ? theme.subtleBg : theme.cardBg,
-                  color: paginaActual === 1 ? theme.textSecondary : theme.textPrimary,
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: '6px',
-                  cursor: paginaActual === 1 ? 'not-allowed' : 'pointer',
-                  fontSize: '12px',
-                  fontWeight: '600'
-                }}
+                style={{ padding: '6px 14px', backgroundColor: paginaActual === 1 ? theme.subtleBg : theme.cardBg, color: paginaActual === 1 ? theme.textSecondary : theme.textPrimary, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: paginaActual === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: '600' }}
               >
                 ← Anterior
               </button>
-
               <span style={{ fontSize: '13px', color: theme.textSecondary, fontWeight: '500' }}>
                 Página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong>
               </span>
-
               <button
                 onClick={() => setPaginaActual(prev => Math.min(prev + 1, totalPaginas))}
                 disabled={paginaActual === totalPaginas || cargando}
-                style={{
-                  padding: '6px 14px',
-                  backgroundColor: paginaActual === totalPaginas ? theme.subtleBg : theme.cardBg,
-                  color: paginaActual === totalPaginas ? theme.textSecondary : theme.textPrimary,
-                  border: `1px solid ${theme.border}`,
-                  borderRadius: '6px',
-                  cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer',
-                  fontSize: '12px',
-                  fontWeight: '600'
-                }}
+                style={{ padding: '6px 14px', backgroundColor: paginaActual === totalPaginas ? theme.subtleBg : theme.cardBg, color: paginaActual === totalPaginas ? theme.textSecondary : theme.textPrimary, border: `1px solid ${theme.border}`, borderRadius: '6px', cursor: paginaActual === totalPaginas ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: '600' }}
               >
                 Siguiente →
               </button>
             </div>
           )}
 
-          {/* BOTÓN DE ACCIÓN PROFESIONAL */}
+          {/* BOTÓN DE ACCIÓN */}
           <button
             onClick={handleExcelSubmit}
             disabled={cargando || filasSeleccionadas.length === 0}
-            style={{
-              width: '100%',
-              padding: '14px 20px',
-              backgroundColor: (cargando || filasSeleccionadas.length === 0) ? '#94a3b8' : theme.accent,
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '10px',
-              cursor: (cargando || filasSeleccionadas.length === 0) ? 'not-allowed' : 'pointer',
-              fontWeight: 'bold',
-              fontSize: '15px',
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              transition: 'all 0.2s ease-in-out',
-              marginTop: '8px'
-            }}
+            style={{ width: '100%', padding: '14px 20px', backgroundColor: (cargando || filasSeleccionadas.length === 0) ? '#94a3b8' : theme.accent, color: '#ffffff', border: 'none', borderRadius: '10px', cursor: (cargando || filasSeleccionadas.length === 0) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '15px', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginTop: '8px' }}
           >
             <span>⚡</span>
             {cargando ? 'Procesando lote y empaquetando ZIP...' : `Procesar Lote (${filasSeleccionadas.length} seleccionados)`}
           </button>
 
-          {/* BARRA DE PROGRESO DINÁMICA */}
+          {/* PROGRESO */}
           {cargando && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', backgroundColor: theme.subtleBg, borderRadius: '8px', border: `1px solid ${theme.border}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: theme.textPrimary, fontWeight: '600' }}>
@@ -2939,13 +2852,11 @@ const filteredHistorial = (historial || []).filter((item) => {
           )}
         </div>
       )}
-
-      <div style={{ padding: '12px 16px', backgroundColor: isDarkMode ? '#1e293b' : '#eff6ff', borderRadius: '8px', border: `1px solid ${isDarkMode ? '#334155' : '#dbeafe'}`, fontSize: '13px', color: isDarkMode ? '#93c5fd' : '#1e40af', marginTop: '16px' }}>
-        <strong>Estructura requerida:</strong> Asegúrate de que tu hoja de cálculo incluya columnas con los nombres de encabezado como <code>numero_credito</code>, <code>nombre_acreditado</code> y <code>monto_credito</code>.
-      </div>
     </div>
   );
 })()}
+
+
 
 {/* TAB: HISTORIAL */}
           {activeTab === 'history' && (
