@@ -385,7 +385,7 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
   };
 
   const handleGenerarVistaPrevia = async () => {
-  if (!expedienteId || !datos) return;
+  if (!expedienteId || !datos) return; // 👈 Evita peticiones vacías
   
   setCargandoPreview(true);
   setMostrarVistaPrevia(true);
@@ -400,7 +400,6 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
       { responseType: 'arraybuffer' }
     );
 
-    // Validación para evitar que un error 502 o texto rompa el render
     const contentType = response.headers?.['content-type'] || '';
     if (contentType.includes('application/json') || contentType.includes('text/html') || response.data.byteLength < 500) {
       console.error("El servidor no pudo generar el Word correctamente.");
@@ -425,7 +424,7 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
 };
 
 const actualizarVistaPreviaTiempoReal = async () => {
-  if (!expedienteId) return;
+  if (!expedienteId) return; // 👈 Candado vital para evitar el error 404
   try {
     const response = await api.post(
       `/expedientes/${expedienteId}/generar-word`,
@@ -456,7 +455,7 @@ const actualizarVistaPreviaTiempoReal = async () => {
 const actualizarVistaPreviaMasivaTiempoReal = async (index) => {
   try {
     const item = batchResults[index];
-    if (!item) return;
+    if (!item || !item.expediente_id) return; // 👈 Candado para la carga masiva
 
     const response = await api.post(
       `/expedientes/${item.expediente_id}/generar-word`,
