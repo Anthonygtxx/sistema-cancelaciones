@@ -264,17 +264,14 @@ def extraer_datos_pdf(ruta_pdf):
     else:
         texto_credito = texto_limpio
 
-    # A. Extraer Veces el Salario Mínimo (VSM) del bloque de crédito
     match_vsm = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?M\.?|V\.?S\.?M\.?|VSM)', texto_credito, re.IGNORECASE)
     if match_vsm:
         datos["credito_a_salario"] = match_vsm.group(1).replace(",", "").strip()
     else:
-        # Búsqueda general de respaldo para VSM solo si el bloque falló
         match_vsm_gen = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?M\.?|V\.?S\.?M\.?|VSM)', texto_limpio, re.IGNORECASE)
         if match_vsm_gen:
             datos["credito_a_salario"] = match_vsm_gen.group(1).replace(",", "").strip()
 
-    # B. Extraer Monto en Pesos EXCLUSIVAMENTE del bloque de crédito (SIN caer en C.V.)
     match_monto_cred = re.search(
         r'(?:IMPORTE\s+(?:DE\s+LA\s+OBLIGACION\s+GARANTIZADA|DEL\s+CREDITO)?[:\s]*|CANTIDAD\s+DE\s*|CRÉDITO\s+HASTA\s+POR\s+LA\s+CANTIDAD\s+DE\s*)\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)',
         texto_credito,
@@ -284,7 +281,6 @@ def extraer_datos_pdf(ruta_pdf):
     if match_monto_cred:
         monto_raw = match_monto_cred.group(1).replace(',', '')
     else:
-        # Busca un signo de pesos SOLO dentro del bloque de crédito, nunca en todo el documento
         match_monto_gen = re.search(r'\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)', texto_credito, re.IGNORECASE)
         if match_monto_gen:
             monto_raw = match_monto_gen.group(1).replace(',', '')
@@ -302,8 +298,6 @@ def extraer_datos_pdf(ruta_pdf):
             datos["monto_credito"] = monto_raw
             datos["monto_credito_letras"] = monto_raw
     else:
-        # Si el crédito está pactado en VSM y no trae monto en pesos en su bloque, 
-        # dejamos el monto como NO_ENCONTRADO para que imprima únicamente el VSM sin contaminarse con C.V.
         datos["monto_credito"] = "NO_ENCONTRADO"
         datos["monto_credito_letras"] = "NO_ENCONTRADO"
 
@@ -369,37 +363,72 @@ def extraer_datos_pdf(ruta_pdf):
     # 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA (ANTECEDENTE / ORIGEN) - GLOBAL
     # ════════════════════════════════════════════════════════════════════════
 
-    # A. Número de Escritura (Soporta NÚMERO, NUMERO, NO., etc.)
-    match_esc = re.search(r'ESCRITURA\s+(?:P[uú]blica\s+)?(?:N[oº°]|NÚM[EÉ]RO|NUMERO|NO)\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
-    if match_esc:
-        datos["numero_escritura"] = match_esc.group(1).strip()
+    # A. Número de Escritura (Múltiples variantes)
+    patrones_escritura = [
+        r'(?:ESCRITURA|INSTRUMENTO)\s+(?:P[uú]blica\s+)?(?:N[oº°]|NÚM[EÉ]RO|NUMERO|NO)\.?\s*([\d,\.]+)',
+        r'instrumento\s+n[uú]mero\s*([\d,\.]+)',
+        r'número\s*([\d,\.]+)'
+    ]
+    for pat in patrones_escritura:
+        match_esc = re.search(pat, texto_limpio, re.IGNORECASE)
+        if match_esc:
+            val_esc = match_esc.group(1).strip().rstrip(',')
+            if val_esc.replace(',', '').replace('.', '').isdigit():
+                datos["numero_escritura"] = val_esc
+                break
 
-    # B. Fecha de Escritura (Soporta múltiples estructuras de fecha)
-    match_f_esc = re.search(r'(?:DE\s+FECHA|FECHA)\s+([0-9A-Za-z\-\/]+)', texto_limpio, re.IGNORECASE)
-    if match_f_esc:
-        fecha_bruta = match_f_esc.group(1).strip()
-        datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
+    # B. Fecha de Escritura (Validación estricta para ignorar letras sueltas como "L")
+    patrones_fecha = [
+        r'(?:DE\s+FECHA|FECHA)\s+([0-9]{1,2}[-/][0-9A-Za-z]+[-/][0-9]{4})',
+        r'(?:DE\s+FECHA|FECHA)\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})',
+        r'de\s+fecha\s+([0-9]{1,2}[-/][I|V|X]+[-/][0-9]{4})',
+        r'del?\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})'
+    ]
+    for pat in patrones_fecha:
+        match_f_esc = re.search(pat, texto_limpio, re.IGNORECASE)
+        if match_f_esc:
+            fecha_bruta = match_f_esc.group(1).strip()
+            fecha_limpia = limpiar_fecha_escritura(fecha_bruta)
+            if fecha_limpia and len(fecha_limpia) > 4 and fecha_limpia.lower() not in ['l', 'no', 'no_encontrado']:
+                datos["fecha_escritura"] = fecha_limpia
+                break
 
-    # C. Notario de Origen (Global: tolera "NOTIARIO" con i, abreviaturas "NO." y diferentes separadores)
-    match_not = re.search(
-        r'(?:LIC\.|LICENCIADO)?\s*([A-ZÁÉÍÓÚÑ\s]+?),\s*NOT[AI]ARIO\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)\s*([0-9A-Z]+)\s+DE[L]?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,\s*CON|\s+EN\s+LA\s+QUE|\s+CONSTA|\.|$)',
-        texto_limpio,
-        re.IGNORECASE
-    )
+    # C. Notario de Origen (SIN "Lic.", tolerante a "NOTIARIO" y múltiples formatos)
+    patrones_notario = [
+        r'(?:ANTE\s+LA\s+FE\s+DEL?\s+)?(?:LIC\.|LICENCIADO)?\s*([A-ZÁÉÍÓÚÑ\s]+?),\s*NOT[AI]ARIO\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)\s*([0-9A-Z]+)\s+DE[L]?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,\s*CON|\s+EN\s+LA\s+QUE|\s+CONSTA|\.|$)',
+        r'(?:NOT[AI]ARIO\s+P[uú]blico)\s+(?:LIC\.\s*)?([^,]+?)\s+n[uú]mero\s+(\d+)\s+d[eé][l]?\s+([A-Za-z\sÁÉÍÓÚÑáéíóú]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)',
+        r'NOT[AI]ARIO\s+P[uú]blico\s+(?:núm[eé]ro|no\.?)\s*(\d+)\s+[^,]+?,\s*(?:lic\.\s*)?([A-ZÁÉÍÓÚÑ\s]+?)\s+de[l]?\s+([A-ZÁÉÍÓÚÑ\s]+)'
+    ]
     
-    if match_not:
-        nombre_notario = match_not.group(1).replace("LIC.", "").replace("LICENCIADO", "").strip()
-        num_notaria = match_not.group(2).strip()
-        jurisdiccion = match_not.group(3).strip().lower()
-        
-        datos["notario_origen_completo"] = f"Lic. {nombre_notario} notario público número {num_notaria} de {jurisdiccion}"
-    else:
-        # Fallback global de respaldo
-        match_not_alt = re.search(r'NOT[AI]ARIO\s+P[uú]blico\s+([^.]+)', texto_limpio, re.IGNORECASE)
+    notario_encontrado = False
+    for pat in patrones_notario:
+        match_not = re.search(pat, texto_limpio, re.IGNORECASE)
+        if match_not:
+            grupos = match_not.groups()
+            if len(grupos) >= 3:
+                if grupos[0].strip().isdigit():
+                    posible_num = grupos[0].strip()
+                    posible_nombre = grupos[1].replace("LIC.", "").replace("LICENCIADO", "").strip()
+                    posible_jur = grupos[2].strip().lower()
+                else:
+                    posible_nombre = grupos[0].replace("LIC.", "").replace("LICENCIADO", "").strip()
+                    posible_num = grupos[1].strip()
+                    posible_jur = grupos[2].strip().lower()
+                
+                posible_nombre = re.sub(r'^(?:DEL?\s+LICENCIADO|LIC\.)\s*', '', posible_nombre, flags=re.IGNORECASE).strip()
+                
+                if len(posible_nombre) > 3 and posible_num:
+                    datos["notario_origen_completo"] = f"{posible_nombre} notario público número {posible_num} de {posible_jur}"
+                    notario_encontrado = True
+                    break
+
+    if not notario_encontrado:
+        match_not_alt = re.search(r'NOT[AI]ARIO\s+P[uú]blico\s+(?:no\.?\s*|número\s*)?([0-9]+)\s+[^,]+?,\s*([^.]+)', texto_limpio, re.IGNORECASE)
         if match_not_alt:
-            texto_not = match_not_alt.group(1).strip()
-            if "JUAN CARLOS ORTEGA" not in texto_not.upper():
-                datos["notario_origen_completo"] = f"Lic. {texto_not}"
+            num_n = match_not_alt.group(1).strip()
+            resto = match_not_alt.group(2).strip().replace("LIC.", "").replace("LICENCIADO", "").strip()
+            if "JUAN CARLOS ORTEGA" not in resto.upper():
+                datos["notario_origen_completo"] = f"{resto} notario público número {num_n}"
 
     # D. Si tiene cónyuge (Sí/No)
     tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_limpio, re.IGNORECASE))
@@ -495,7 +524,9 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
 
     def obtener_valor(clave):
         val = str(datos.get(clave, "")).strip()
-        return "" if val == "NO_ENCONTRADO" else val
+        if not val or val == "NO_ENCONTRADO" or val.lower() in ['l', 'no', 'no_encontrado', 'null']:
+            return ""
+        return val
 
     mapa_reemplazos = {
         "{{ numero_carta }}": obtener_valor("numero_carta"),
