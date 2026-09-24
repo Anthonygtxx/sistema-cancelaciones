@@ -934,27 +934,28 @@ const handlePreviewExcel = async (file) => {
     }
   };
 
-  // 📥 Función corregida para descargar el Word usando el endpoint oficial del backend
+// 📥 Función de descarga con el nombre basado en el Número de Crédito
 const handleDownloadWord = async (expedienteId, datosParam = null) => {
   try {
-    // Validar que el ID exista (manejando posibles variaciones de nombres de variables)
     const idReal = expedienteId;
     if (!idReal) {
       alert("Error: No se encontró un ID de expediente válido para la descarga.");
       return;
     }
 
-    // Usamos el endpoint oficial del backend que ya procesa el POST correctamente
     const response = await api.post(
       `/expedientes/${idReal}/generar-word`,
       {
         plantilla: selectedPlantilla,
-        datos: datosParam || datos // Usa los datos pasados o los globales del formulario
+        datos: datosParam || datos 
       },
-      { responseType: 'blob' } // Solicitamos directamente un blob para el archivo
+      { responseType: 'blob' }
     );
 
-    // Crear la URL temporal para descargar el archivo .docx
+    // 👇 Extraemos el número de crédito de los datos para ponérselo al nombre del archivo
+    const datosObj = datosParam || datos || {};
+    const numeroCredito = datosObj.numero_credito || datosObj.credito || idReal;
+
     const blob = new Blob([response.data], { 
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
     });
@@ -962,7 +963,7 @@ const handleDownloadWord = async (expedienteId, datosParam = null) => {
     const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = downloadUrl;
-    a.download = `Expediente_${numero_credito}.docx`;
+    a.download = `Cancelacion_Credito_${numeroCredito}.docx`; // 👈 Aquí usa el número de crédito
     document.body.appendChild(a);
     a.click();
     a.remove();
