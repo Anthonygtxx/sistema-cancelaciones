@@ -314,24 +314,34 @@ def extraer_datos_pdf(ruta_pdf):
     datos["genero"] = genero
     datos["estado_civil"] = estado_civil
 
-# ════════════════════════════════════════════════════════════════════════
-    # 🆕 10. EXTRACCIÓN DE NUEVOS CAMPOS (Soporta números con letra y dígitos)
+    # ════════════════════════════════════════════════════════════════════════
+    # 🆕 10. EXTRACCIÓN ESPECÍFICA DEL BLOQUE DE INSCRIPCIÓN (IFREM / EDOMEX)
     # ════════════════════════════════════════════════════════════════════════
 
-    # A. Número de Escritura / Instrumento
-    match_esc = re.search(r'(?:ESCRITURA|INSTRUMENTO)\s+(?:PÚBLICA\s+)?N[Oº°]\.?\s*([0-9A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+de\s+fecha|\s+otorgada)', texto_completo, re.IGNORECASE)
-    if match_esc:
-        datos["numero_escritura"] = match_esc.group(1).strip()
-
-    # B. Fecha de Escritura
-    match_f_esc = re.search(r'(?:ESCRITURA|INSTRUMENTO)[^\n]*?(?:de\s+fecha|del?\s+día)?\s*(\d{2}/\d{2}/\d{4}|\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})', texto_completo, re.IGNORECASE)
-    if match_f_esc:
-        datos["fecha_escritura"] = match_f_esc.group(1).strip()
-
-    # C. Notario Completo (Soporta tanto números en dígitos como en letras: "Ciento Sesenta y Ocho")
-    match_not = re.search(r'((?:LIC\.|LICENCIADO)\s+[^,]+,\s*(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+(?:N[Oº°]\.?\s*\d+|[A-ZÁÉÍÓÚÑ\s]+?)\s+DE[L]?\s+[^,\.]+)', texto_completo, re.IGNORECASE)
-    if match_not:
-        datos["notario_origen_completo"] = match_not.group(1).strip()
+    # Busca exactamente el patrón estructurado de la constancia registral
+    match_bloque_escritura = re.search(
+        r'ESCRITURA\s+(?:PÚBLICA\s+)?N[Oº°]\.?\s*([\d,\.]+)\s+DE\s+FECHA\s+([0-9A-Za-z\-\/]+)\s+(?:PASADA|OTORGADA)\s+ANTE\s+LA\s+FE\s+DEL?\s+(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+([^.]+)',
+        texto_completo,
+        re.IGNORECASE
+    )
+    
+    if match_bloque_escritura:
+        datos["numero_escritura"] = match_bloque_escritura.group(1).strip()
+        datos["fecha_escritura"] = match_bloque_escritura.group(2).strip()
+        datos["notario_origen_completo"] = match_bloque_escritura.group(3).strip()
+    else:
+        # Respaldos individuales por si el texto varía ligeramente
+        match_esc = re.search(r'ESCRITURA\s+(?:PÚBLICA\s+)?N[Oº°]\.?\s*([\d,\.]+)', texto_completo, re.IGNORECASE)
+        if match_esc:
+            datos["numero_escritura"] = match_esc.group(1).strip()
+            
+        match_f_esc = re.search(r'DE\s+FECHA\s+([0-9A-Za-z\-\/]+)', texto_completo, re.IGNORECASE)
+        if match_f_esc:
+            datos["fecha_escritura"] = match_f_esc.group(1).strip()
+            
+        match_not = re.search(r'(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+([^.]+)', texto_completo, re.IGNORECASE)
+        if match_not:
+            datos["notario_origen_completo"] = match_not.group(1).strip()
 
     # D. Si tiene cónyuge (Sí/No)
     tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_completo, re.IGNORECASE))

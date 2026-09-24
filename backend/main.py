@@ -201,7 +201,7 @@ def numero_a_letras(monto: Any) -> str:
 def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallback: str = "") -> Dict[str, Any]:
     """
     Filtra y devuelve los campos requeridos para la plantilla de Word,
-    incluyendo los campos de fecha_expedicion y credito_a_salario.
+    incluyendo los campos de fecha_expedicion, crédito y datos de la constancia.
     """
     acreditado = datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or ""
     monto = datos_origen.get("monto_credito") or datos_origen.get("monto") or ""
@@ -214,6 +214,12 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
     inmueble = datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""
     fecha_exp = datos_origen.get("fecha_expedicion") or ""
     credito_salario = datos_origen.get("credito_a_salario") or datos_origen.get("crédito_a_salario") or ""
+    
+    # 🆕 Nuevos campos extraídos de la constancia
+    num_escritura = datos_origen.get("numero_escritura") or ""
+    fecha_esc = datos_origen.get("fecha_escritura") or ""
+    notario_completo = datos_origen.get("notario_origen_completo") or ""
+    conyuge = datos_origen.get("tiene_conyuge") or "No"
 
     monto_letras = numero_a_letras(monto)
 
@@ -230,6 +236,11 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
         "datos_inmueble": inmueble,
         "fecha_expedicion": fecha_exp,
         "credito_a_salario": credito_salario,
+        # 🆕 Se añaden al diccionario final para la plantilla Word:
+        "numero_escritura": num_escritura,
+        "fecha_escritura": fecha_esc,
+        "notario_origen_completo": notario_completo,
+        "tiene_conyuge": conyuge,
     }
 
 
