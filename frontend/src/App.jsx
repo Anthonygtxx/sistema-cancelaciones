@@ -385,38 +385,6 @@ const [selectedPlantilla, setSelectedPlantilla] = React.useState('CDMX_AP_H_SOLT
   };
 
   const handleGenerarVistaPrevia = async () => {
-    if (!expedienteId || !datos) return;
-    
-    setCargandoPreview(true);
-    setMostrarVistaPrevia(true);
-
-    try {
-      const response = await api.post(
-        `/expedientes/${expedienteId}/generar-word`, 
-        {
-          plantilla: selectedPlantilla,
-          datos: datos
-        },
-        { responseType: 'arraybuffer' }
-      );
-
-      const arrayBuffer = response.data;
-      setCargandoPreview(false);
-
-      setTimeout(async () => {
-        if (previewContainerRef.current) {
-          previewContainerRef.current.innerHTML = ""; 
-          await renderAsync(arrayBuffer, previewContainerRef.current);
-        }
-      }, 50);
-
-    } catch (error) {
-      console.error("Error al renderizar vista previa:", error);
-      setCargandoPreview(false);
-    }
-  };
-
-  const handleGenerarVistaPrevia = async () => {
   if (!expedienteId || !datos) return;
   
   setCargandoPreview(true);
