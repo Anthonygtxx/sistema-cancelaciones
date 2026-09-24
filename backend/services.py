@@ -175,6 +175,11 @@ def extraer_datos_pdf(ruta_pdf):
         "datos_inmueble": "NO_ENCONTRADO",
         "genero": "NO_ENCONTRADO",
         "estado_civil": "NO_ENCONTRADO",
+        # 🆕 NUEVOS CAMPOS AGREGADOS:
+        "numero_escritura": "NO_ENCONTRADO",
+        "fecha_escritura": "NO_ENCONTRADO",
+        "notario_origen_completo": "NO_ENCONTRADO",
+        "tiene_conyuge": "NO_ENCONTRADO",
     }
 
     try:
@@ -214,7 +219,6 @@ def extraer_datos_pdf(ruta_pdf):
         if val.lower() not in ['de', 'del', 'para', 'con', 'que', 'por', 'ext']:
             datos["numero_carta"] = val
 
-    # Extraer Fecha de Expedición (incluye fechas de encabezado e instrumentos)
     patrones_fecha_exp = [
         r'(?:Fecha\s+de\s+expedici[óo]n|Expedid[oa]\s+el|M[ée]xico,?\s*(?:D\.?F\.?|CDMX)?,?\s*a|Ciudad\s+de\s+M[ée]xico,?\s*a|A)\s*[:\s]*(\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})',
         r'(\d{1,2}\s+de\s+(?:Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\s+de\s+\d{4})'
@@ -225,10 +229,9 @@ def extraer_datos_pdf(ruta_pdf):
             datos["fecha_expedicion"] = match_fecha_exp.group(1).strip()
             break
 
-# 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSM)
+    # 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSM)
     match_vsm = re.search(r'([\d\.]+)\s*VSM', texto_completo, re.IGNORECASE)
     if match_vsm:
-        # Se remueve " VSM" para almacenar únicamente el valor numérico
         datos["credito_a_salario"] = match_vsm.group(1).strip()
 
     match_monto = re.search(r'(?:crédito\s+hasta\s+por\s+la\s+cantidad\s+de|monto\s+del?\s+crédito|suerte\s+principal|importe|monto)[:\s]*\$?\s*([\d,]+\.\d{2})', texto_limpio, re.IGNORECASE)
@@ -248,7 +251,6 @@ def extraer_datos_pdf(ruta_pdf):
             
             if datos["credito_a_salario"] == "NO_ENCONTRADO":
                 veces_salario = num / SALARIO_MINIMO_MENSUAL_DF
-                # Retorna únicamente el número con formato decimal
                 datos["credito_a_salario"] = f"{veces_salario:.2f}"
         except Exception:
             datos["monto_credito"] = monto_raw
@@ -312,6 +314,29 @@ def extraer_datos_pdf(ruta_pdf):
     datos["genero"] = genero
     datos["estado_civil"] = estado_civil
 
+    # ════════════════════════════════════════════════════════════════════════
+    # 🆕 10. EXTRACCIÓN DE NUEVOS CAMPOS DE LA CONSTANCIA (Escritura, Fecha, Notario, Cónyuge)
+    # ════════════════════════════════════════════════════════════════════════
+
+    # A. Número de Escritura
+    match_esc = re.search(r'ESCRITURA\s+(?:PÚBLICA\s+)?N[Oº°]\.?\s*(\d+)', texto_completo, re.IGNORECASE)
+    if match_esc:
+        datos["numero_escritura"] = match_esc.group(1).strip()
+
+    # B. Fecha de Escritura (busca fecha cercana al antecedente de escritura)
+    match_f_esc = re.search(r'ESCRITURA[^\n]*?(\d{2}/\d{2}/\d{4}|\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})', texto_completo, re.IGNORECASE)
+    if match_f_esc:
+        datos["fecha_escritura"] = match_f_esc.group(1).strip()
+
+    # C. Notario Completo (Nombre y número juntos)
+    match_not = re.search(r'((?:LIC\.|LICENCIADO)\s+[^,]+,\s*(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+N[Oº°]\.?\s*\d+\s+DE[L]?\s+[^,\.]+)', texto_completo, re.IGNORECASE)
+    if match_not:
+        datos["notario_origen_completo"] = match_not.group(1).strip()
+
+    # D. Si tiene cónyuge (Sí/No)
+    tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_completo, re.IGNORECASE))
+    datos["tiene_conyuge"] = "Sí" if tiene_conyuge_match else "No"
+
     return datos
 
 
@@ -329,7 +354,11 @@ def combinar_datos_pareja(datos_lista):
         "fecha_liquidacion": "NO_ENCONTRADO",
         "folio_real": "NO_ENCONTRADO",
         "oficina_registral": "NO_ENCONTRADO",
-        "datos_inmueble": "NO_ENCONTRADO"
+        "datos_inmueble": "NO_ENCONTRADO",
+        "numero_escritura": "NO_ENCONTRADO",
+        "fecha_escritura": "NO_ENCONTRADO",
+        "notario_origen_completo": "NO_ENCONTRADO",
+        "tiene_conyuge": "NO_ENCONTRADO"
     }
     
     for d in datos_lista:
@@ -389,7 +418,6 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
     monto_raw = str(datos.get("monto_credito", "")).strip()
     monto_letras = str(datos.get("monto_credito_letras", "")).strip()
     
-    # Combinar monto en números y letras si existen
     if monto_raw and monto_raw != "NO_ENCONTRADO":
         if not monto_letras or monto_letras == "NO_ENCONTRADO":
             monto_letras = numero_a_letras(monto_raw)
@@ -401,7 +429,7 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         val = str(datos.get(clave, "")).strip()
         return "" if val == "NO_ENCONTRADO" else val
 
-    # Mapeo completo de variables en la plantilla Word
+    # Mapeo completo de variables en la plantilla Word (incluyendo los nuevos campos)
     mapa_reemplazos = {
         "{{ numero_carta }}": obtener_valor("numero_carta"),
         "{{numero_carta}}": obtener_valor("numero_carta"),
@@ -450,6 +478,19 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         "{{ datos_inmueble }}": obtener_valor("datos_inmueble"),
         "{{datos_inmueble}}": obtener_valor("datos_inmueble"),
         "{datos_inmueble}": obtener_valor("datos_inmueble"),
+
+        # 🆕 Nuevas etiquetas para Word:
+        "{{ numero_escritura }}": obtener_valor("numero_escritura"),
+        "{{numero_escritura}}": obtener_valor("numero_escritura"),
+
+        "{{ fecha_escritura }}": obtener_valor("fecha_escritura"),
+        "{{fecha_escritura}}": obtener_valor("fecha_escritura"),
+
+        "{{ notario_origen_completo }}": obtener_valor("notario_origen_completo"),
+        "{{notario_origen_completo}}": obtener_valor("notario_origen_completo"),
+
+        "{{ tiene_conyuge }}": obtener_valor("tiene_conyuge"),
+        "{{tiene_conyuge}}": obtener_valor("tiene_conyuge"),
     }
 
     for p in doc.paragraphs:
