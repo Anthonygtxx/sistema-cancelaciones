@@ -314,22 +314,22 @@ def extraer_datos_pdf(ruta_pdf):
     datos["genero"] = genero
     datos["estado_civil"] = estado_civil
 
-    # ════════════════════════════════════════════════════════════════════════
-    # 🆕 10. EXTRACCIÓN DE NUEVOS CAMPOS DE LA CONSTANCIA (Escritura, Fecha, Notario, Cónyuge)
+# ════════════════════════════════════════════════════════════════════════
+    # 🆕 10. EXTRACCIÓN DE NUEVOS CAMPOS (Soporta números con letra y dígitos)
     # ════════════════════════════════════════════════════════════════════════
 
-    # A. Número de Escritura
-    match_esc = re.search(r'ESCRITURA\s+(?:PÚBLICA\s+)?N[Oº°]\.?\s*(\d+)', texto_completo, re.IGNORECASE)
+    # A. Número de Escritura / Instrumento
+    match_esc = re.search(r'(?:ESCRITURA|INSTRUMENTO)\s+(?:PÚBLICA\s+)?N[Oº°]\.?\s*([0-9A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+de\s+fecha|\s+otorgada)', texto_completo, re.IGNORECASE)
     if match_esc:
         datos["numero_escritura"] = match_esc.group(1).strip()
 
-    # B. Fecha de Escritura (busca fecha cercana al antecedente de escritura)
-    match_f_esc = re.search(r'ESCRITURA[^\n]*?(\d{2}/\d{2}/\d{4}|\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})', texto_completo, re.IGNORECASE)
+    # B. Fecha de Escritura
+    match_f_esc = re.search(r'(?:ESCRITURA|INSTRUMENTO)[^\n]*?(?:de\s+fecha|del?\s+día)?\s*(\d{2}/\d{2}/\d{4}|\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})', texto_completo, re.IGNORECASE)
     if match_f_esc:
         datos["fecha_escritura"] = match_f_esc.group(1).strip()
 
-    # C. Notario Completo (Nombre y número juntos)
-    match_not = re.search(r'((?:LIC\.|LICENCIADO)\s+[^,]+,\s*(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+N[Oº°]\.?\s*\d+\s+DE[L]?\s+[^,\.]+)', texto_completo, re.IGNORECASE)
+    # C. Notario Completo (Soporta tanto números en dígitos como en letras: "Ciento Sesenta y Ocho")
+    match_not = re.search(r'((?:LIC\.|LICENCIADO)\s+[^,]+,\s*(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+(?:N[Oº°]\.?\s*\d+|[A-ZÁÉÍÓÚÑ\s]+?)\s+DE[L]?\s+[^,\.]+)', texto_completo, re.IGNORECASE)
     if match_not:
         datos["notario_origen_completo"] = match_not.group(1).strip()
 
