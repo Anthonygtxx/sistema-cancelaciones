@@ -339,37 +339,39 @@ def extraer_datos_pdf(ruta_pdf):
     datos["estado_civil"] = estado_civil
 
    # ════════════════════════════════════════════════════════════════════════
-    # 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA (IFREM)
+    # 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA (ANTECEDENTE / ORIGEN)
     # ════════════════════════════════════════════════════════════════════════
 
-    # A. Número de Escritura
-    match_esc = re.search(r'(?:ESCRITURA|INSTRUMENTO)\s+(?:PÚBLICA\s+)?(?:N[Oº°]|NÚM[EÉ]RO|NUMERO)\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
-    if match_esc:
-        datos["numero_escritura"] = match_esc.group(1).strip()
-
-    # B. Fecha de Escritura (Convierte romanos a texto formal)
-    match_f_esc = re.search(r'DE\s+FECHA\s+([0-9A-Za-z\-\/]+)', texto_limpio, re.IGNORECASE)
-    if match_f_esc:
-        fecha_bruta = match_f_esc.group(1).strip()
-        datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
-
-    # C. Notario Origen Completo (Captura separado: Nombre, Número y Jurisdicción)
-    match_not = re.search(
-        r'(?:LIC\.|LICENCIADO)\s+([A-ZÁÉÍÓÚÑ\s]+?)\s+(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+(?:N[Oº°]\.?|NÚM[EÉ]RO|NUMERO)\s*([0-9A-ZÁÉÍÓÚÑ\s]+?)\s+(?:DE[L]?|EN\s+EL)\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)',
-        texto_limpio, re.IGNORECASE
+    # Búsqueda maestra anclada al bloque de Escritura de Antecedente (Ignora al notario actual)
+    match_bloque_antecedente = re.search(
+        r'ESCRITURA\s+(?:PÚBLICA\s+)?(?:N[Oº°]|NÚM[EÉ]RO|NUMERO)\.?\s*([\d,\.]+)\s+DE\s+FECHA\s+([0-9A-Za-z\-\/]+)\s+(?:PASADA|OTORGADA)\s+ANTE\s+LA\s+FE\s+DEL?\s+(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+(?:LIC\.|LICENCIADO\s+)?([A-ZÁÉÍÓÚÑ\s\.]+?)\s+(?:N[Oº°]|NÚM[EÉ]RO|NUMERO)\s*([0-9A-ZÁÉÍÓÚÑ\s]+?)\s+(?:DE[L]?|EN\s+EL)\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)',
+        texto_limpio,
+        re.IGNORECASE
     )
-    if match_not:
-        nombre_notario = match_not.group(1).strip()
-        num_notaria = match_not.group(2).strip()
-        jurisdiccion = match_not.group(3).strip().lower()
+
+    if match_bloque_antecedente:
+        # 1. Número de escritura
+        datos["numero_escritura"] = match_bloque_antecedente.group(1).strip()
         
-        # Estructura formal solicitada
-        datos["notario_origen_completo"] = f"Lic. {nombre_notario} notario público número {num_notaria} de {jurisdiccion}"
+        # 2. Fecha de escritura limpia y formal
+        fecha_bruta = match_bloque_antecedente.group(2).strip()
+        datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
+        
+        # 3. Notario de origen formateado exactamente como lo pediste
+        nombre_notario = match_bloque_antecedente.group(3).replace("LIC.", "").replace("LICENCIADO", "").strip()
+        num_notaria = match_bloque_antecedente.group(4).strip()
+        jurisdiccion = match_bloque_antecedente.group(5).strip().lower()
+        
+        datos["notario_origen_completo"] = f"{nombre_notario} notario público número {num_notaria} de {jurisdiccion}"
     else:
-        # Fallback de respaldo por si el formato del texto varía ligeramente
-        match_not_alt = re.search(r'((?:LIC\.|LICENCIADO)\s+[^,]+(?:NOTARIO|NOTIARIO)\s+PÚBLICO[^.]+)', texto_limpio, re.IGNORECASE)
-        if match_not_alt:
-            datos["notario_origen_completo"] = match_not_alt.group(1).strip()
+        # Respaldos individuales por seguridad si el texto varía ligeramente
+        match_esc = re.search(r'(?:ESCRITURA|INSTRUMENTO)\s+(?:PÚBLICA\s+)?(?:N[Oº°]|NÚM[EÉ]RO|NUMERO)\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
+        if match_esc:
+            datos["numero_escritura"] = match_esc.group(1).strip()
+
+        match_f_esc = re.search(r'DE\s+FECHA\s+([0-9A-Za-z\-\/]+)', texto_limpio, re.IGNORECASE)
+        if match_f_esc:
+            datos["fecha_escritura"] = limpiar_fecha_escritura(match_f_esc.group(1).strip())
 
     # D. Si tiene cónyuge (Sí/No)
     tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_limpio, re.IGNORECASE))
