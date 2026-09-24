@@ -935,9 +935,11 @@ const handleExcelSubmit = async (e) => {
 
   let totalExitosos = 0;
   let todosLosDetalles = [];
+  const idsCreados = []; // 📦 Array para recolectar los IDs para el ZIP
   const totalSeleccionadas = filasSeleccionadas.length;
 
   try {
+    // 1. Procesamos cada fila del lote de forma secuencial
     for (let i = 0; i < filasSeleccionadas.length; i++) {
       const index = filasSeleccionadas[i];
       
@@ -963,42 +965,78 @@ const handleExcelSubmit = async (e) => {
 
       // Marcar fila como 'completado'
       setEstadoFilas(prev => ({ ...prev, [index]: 'completado' }));
-      setFilasSeleccionadas(prev => prev.filter(i => i !== index));
 
       totalExitosos += data.procesados;
       if (Array.isArray(data.detalles)) {
         todosLosDetalles.push(...data.detalles);
+        // Extraemos los IDs de los expedientes generados para pasárselos al ZIP
+        data.detalles.forEach(exp => {
+          if (exp.id) idsCreados.push(exp.id);
+        });
       }
-
-      // 🕒 INICIAR CONTADOR REGRESIVO DE 10 SEGUNDOS PARA ELIMINAR ESTA FILA
-      let segundosRestantes = 5;
-      setContadoresRemosion(prev => ({ ...prev, [index]: segundosRestantes }));
-
-      const timerInterval = setInterval(() => {
-        segundosRestantes -= 1;
-        if (segundosRestantes > 0) {
-          setContadoresRemosion(prev => ({ ...prev, [index]: segundosRestantes }));
-        } else {
-          clearInterval(timerInterval);
-          // Eliminar la fila de la vista previa de la tabla
-          setFilasPreview(prevPreview => prevPreview.filter(f => f.index !== index));
-          setContadoresRemosion(prev => {
-            const copia = { ...prev };
-            delete copia[index];
-            return copia;
-          });
-        }
-      }, 1000);
 
       const porcentajeActual = Math.round(((i + 1) / totalSeleccionadas) * 100);
       setProgreso(porcentajeActual);
     }
 
-    setTextoProgreso(`¡Lote procesado con éxito! Se generaron ${totalExitosos} documentos.`);
+    setTextoProgreso(`¡Lote procesado! Empaquetando documentos en ZIP...`);
     
     if (typeof setExpedientes === 'function' && Array.isArray(todosLosDetalles)) {
       setExpedientes([...todosLosDetalles, ...expedientes]);
     }
+
+    // 2. DISPARAR LA DESCARGA DEL ZIP USANDO TU ENDPOINT EXISTENTE
+    if (idsCreados.length > 0) {
+      const resZip = await fetch('https://sistema-cancelaciones-production.up.railway.app/api/expedientes/descargar-zip', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(idsCreados),
+      });
+
+      if (!resZip.ok) throw new Error("Error al generar el archivo ZIP del lote.");
+
+      const blob = await resZip.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Cancelaciones_Lote.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    }
+
+    // 3. 🕒 INICIAR CONTADOR DE 5 SEGUNDOS Y LIMPIEZA TOTAL DE LA DROP ZONE
+    let segundosRestantes = 5;
+    const contadoresIniciales = {};
+    filasSeleccionadas.forEach(idx => {
+      contadoresIniciales[idx] = segundosRestantes;
+    });
+    setContadoresRemosion(contadoresIniciales);
+
+    const timerInterval = setInterval(() => {
+      segundosRestantes -= 1;
+      if (segundosRestantes > 0) {
+        const contadoresActualizados = {};
+        filasSeleccionadas.forEach(idx => {
+          contadoresActualizados[idx] = segundosRestantes;
+        });
+        setContadoresRemosion(contadoresActualizados);
+      } else {
+        clearInterval(timerInterval);
+        
+        // Limpieza automática final
+        setArchivoExcel(null);
+        setFilasPreview([]);
+        setFilasSeleccionadas([]);
+        setEstadoFilas({});
+        setContadoresRemosion({});
+        setProgreso(0);
+        setTextoProgreso("");
+      }
+    }, 1000);
 
   } catch (err) {
     console.error(err);
@@ -2682,125 +2720,125 @@ const filteredHistorial = (historial || []).filter((item) => {
 
         <div style={{ maxHeight: '350px', overflowY: 'auto', border: `1px solid ${theme.border}`, borderRadius: '8px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-<thead>
-  <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
-    <th style={{ padding: '12px', textAlign: 'center', width: '50px' }}>
-  <input 
-    type="checkbox"
-    disabled={cargando || filasPreview.length === 0}
-    checked={filasPreview.length > 0 && filasSeleccionadas.length === filasPreview.length}
-    onChange={(e) => {
-      if (e.target.checked) {
-        const todosLosIndices = filasPreview.map(f => f.index);
-        setFilasSeleccionadas(todosLosIndices);
-      } else {
-        setFilasSeleccionadas([]);
-      }
-    }}
-    title="Seleccionar todos"
-    style={{ 
-      width: '16px', 
-      height: '16px', 
-      cursor: 'pointer', 
-      accentColor: '#2563eb' // <--- Le da el color azul profesional
-    }}
-  />
-</th>
-    <th style={{ padding: '12px', textAlign: 'left' }}>No. Crédito</th>
-    <th style={{ padding: '12px', textAlign: 'left' }}>Acreditado</th>
-    <th style={{ padding: '12px', textAlign: 'left' }}>Monto</th>
-    <th style={{ padding: '12px', textAlign: 'center' }}>Estado</th>
-  </tr>
-</thead>
-           <tbody>
-  {filasPreview.map((fila) => {
-    const isSelected = filasSeleccionadas.includes(fila.index);
-    const estadoFila = estadoFilas[fila.index]; // 'pendiente', 'procesando', 'completado', 'error'
+            <thead>
+              <tr style={{ borderBottom: `2px solid ${theme.border}` }}>
+                <th style={{ padding: '12px', textAlign: 'center', width: '50px' }}>
+                  <input 
+                    type="checkbox"
+                    disabled={cargando || filasPreview.length === 0}
+                    checked={filasPreview.length > 0 && filasSeleccionadas.length === filasPreview.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const todosLosIndices = filasPreview.map(f => f.index);
+                        setFilasSeleccionadas(todosLosIndices);
+                      } else {
+                        setFilasSeleccionadas([]);
+                      }
+                    }}
+                    title="Seleccionar todos"
+                    style={{ 
+                      width: '16px', 
+                      height: '16px', 
+                      cursor: 'pointer', 
+                      accentColor: '#2563eb' 
+                    }}
+                  />
+                </th>
+                <th style={{ padding: '12px', textAlign: 'left' }}>No. Crédito</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Acreditado</th>
+                <th style={{ padding: '12px', textAlign: 'left' }}>Monto</th>
+                <th style={{ padding: '12px', textAlign: 'center' }}>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filasPreview.map((fila) => {
+                const isSelected = filasSeleccionadas.includes(fila.index);
+                const estadoFila = estadoFilas[fila.index];
 
-    return (
-      <tr key={fila.index} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: isSelected ? (isDarkMode ? '#1e293b' : '#f8fafc') : 'transparent' }}>
-        
-        {/* 1. Checkbox */}
-        <td style={{ padding: '12px', textAlign: 'center' }}>
-  <input 
-    type="checkbox" 
-    checked={isSelected}
-    disabled={cargando}
-    onChange={() => {
-      if (isSelected) {
-        setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
-      } else {
-        setFilasSeleccionadas([...filasSeleccionadas, fila.index]);
-      }
-    }}
-    style={{ 
-      width: '16px', 
-      height: '16px', 
-      cursor: 'pointer', 
-      accentColor: '#2563eb' // <--- Mismo color estilizado
-    }}
-  />
-</td>
+                return (
+                  <tr key={fila.index} style={{ borderBottom: `1px solid ${theme.border}`, backgroundColor: isSelected ? (isDarkMode ? '#1e293b' : '#f8fafc') : 'transparent' }}>
+                    
+                    {/* 1. Checkbox */}
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isSelected}
+                        disabled={cargando}
+                        onChange={() => {
+                          if (isSelected) {
+                            setFilasSeleccionadas(filasSeleccionadas.filter(i => i !== fila.index));
+                          } else {
+                            setFilasSeleccionadas([...filasSeleccionadas, fila.index]);
+                          }
+                        }}
+                        style={{ 
+                          width: '16px', 
+                          height: '16px', 
+                          cursor: 'pointer', 
+                          accentColor: '#2563eb' 
+                        }}
+                      />
+                    </td>
 
-        {/* 2. No. Crédito */}
-        <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>
-          {fila.numero_credito || fila.credito || '-'}
-        </td>
+                    {/* 2. No. Crédito */}
+                    <td style={{ padding: '12px', color: theme.textPrimary, fontWeight: '500' }}>
+                      {fila.numero_credito || fila.credito || '-'}
+                    </td>
 
-        {/* 3. Acreditado */}
-        <td style={{ padding: '12px', color: theme.textPrimary }}>
-          {fila.nombre_acreditado || fila.acreditado || '-'}
-        </td>
+                    {/* 3. Acreditado */}
+                    <td style={{ padding: '12px', color: theme.textPrimary }}>
+                      {fila.nombre_acreditado || fila.acreditado || '-'}
+                    </td>
 
-        {/* 4. Monto */}
-        <td style={{ padding: '12px', color: theme.textPrimary }}>
-          {fila.monto_credito || fila.monto || '-'}
-        </td>
+                    {/* 4. Monto */}
+                    <td style={{ padding: '12px', color: theme.textPrimary }}>
+                      {fila.monto_credito || fila.monto || '-'}
+                    </td>
 
-        {/* 5. Estado (Al final, al lado de Monto) */}
-        <td style={{ padding: '12px', textAlign: 'center' }}>
-  {estadoFila === 'completado' ? (
-    <span style={{ 
-      backgroundColor: '#dcfce7', 
-      color: '#166534', 
-      padding: '4px 10px', 
-      borderRadius: '6px', 
-      fontSize: '11px', 
-      fontWeight: '600',
-      display: 'inline-block'
-    }}>
-      ✓ {contadoresRemosion[fila.index] !== undefined 
-          ? `Quitando fila en ${contadoresRemosion[fila.index]}s` 
-          : 'Completado'}
-    </span>
-  ) : estadoFila === 'procesando' ? (
-    <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
-      Procesando...
-    </span>
-  ) : estadoFila === 'error' ? (
-    <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
-      ✕ Error
-    </span>
-  ) : (
-    <span style={{ color: '#ffa500', fontSize: '12px' }}>
-      Pendiente
-    </span>
-  )}
-</td>
+                    {/* 5. Estado */}
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      {estadoFila === 'completado' ? (
+                        <span style={{ 
+                          backgroundColor: '#dcfce7', 
+                          color: '#166534', 
+                          padding: '4px 10px', 
+                          borderRadius: '6px', 
+                          fontSize: '11px', 
+                          fontWeight: '600',
+                          display: 'inline-block'
+                        }}>
+                          ✓ {contadoresRemosion[fila.index] !== undefined 
+                              ? `Quitando fila en ${contadoresRemosion[fila.index]}s` 
+                              : 'Completado'}
+                        </span>
+                      ) : estadoFila === 'procesando' ? (
+                        <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
+                          Procesando...
+                        </span>
+                      ) : estadoFila === 'error' ? (
+                        <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', display: 'inline-block' }}>
+                          ✕ Error
+                        </span>
+                      ) : (
+                        <span style={{ color: '#ffa500', fontSize: '12px' }}>
+                          Pendiente
+                        </span>
+                      )}
+                    </td>
 
-      </tr>
-    );
-  })}
-</tbody>
+                  </tr>
+                );
+              })}
+            </tbody>
           </table>
         </div>
 
         <button
           onClick={handleExcelSubmit}
           disabled={cargando || filasSeleccionadas.length === 0}
-          style={{ padding: '14px', backgroundColor: theme.accent, color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', opacity: filasSeleccionadas.length === 0 ? 0.6 : 1, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
         >
-          {cargando ? 'Procesando Lote en Servidor...' : `Procesar ${filasSeleccionadas.length} Documentos Seleccionados`}
+          {cargando ? 'Procesando y generando ZIP...' : 'Procesar Seleccionados'}
         </button>
 
         {/* BARRA DE PROGRESO DINÁMICA */}
