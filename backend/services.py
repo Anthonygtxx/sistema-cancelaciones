@@ -199,7 +199,6 @@ def extraer_datos_pdf(ruta_pdf):
         "datos_inmueble": "NO_ENCONTRADO",
         "genero": "NO_ENCONTRADO",
         "estado_civil": "NO_ENCONTRADO",
-        # 🆕 NUEVOS CAMPOS AGREGADOS:
         "numero_escritura": "NO_ENCONTRADO",
         "fecha_escritura": "NO_ENCONTRADO",
         "notario_origen_completo": "NO_ENCONTRADO",
@@ -253,19 +252,42 @@ def extraer_datos_pdf(ruta_pdf):
             datos["fecha_expedicion"] = match_fecha_exp.group(1).strip()
             break
 
-    # 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSM)
-    match_vsm = re.search(r'([\d\.]+)\s*VSM', texto_completo, re.IGNORECASE)
-    if match_vsm:
-        datos["credito_a_salario"] = match_vsm.group(1).strip()
-
-    match_monto = re.search(r'(?:crédito\s+hasta\s+por\s+la\s+cantidad\s+de|monto\s+del?\s+crédito|suerte\s+principal|importe|monto)[:\s]*\$?\s*([\d,]+\.\d{2})', texto_limpio, re.IGNORECASE)
-    monto_raw = None
-    if match_monto:
-        monto_raw = match_monto.group(1).replace(',', '')
+    # 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSM) AISLANDO EL BLOQUE DE CRÉDITO
+    texto_credito = ""
+    match_acta_credito = re.search(
+        r'(?:A\.?C\.?S\.?|APERTURA\s+DE\s+CREDITO|MUTUO|CREDITO\s+HIPOTECARIO|OTORGAMIENTO\s+DE\s+CREDITO)(.*?)(?=GRAVAMENES|ANTECEDENTE|VOLANTE|$)',
+        texto_limpio,
+        re.IGNORECASE | re.DOTALL
+    )
+    if match_acta_credito:
+        texto_credito = match_acta_credito.group(1)
     else:
-        monto_gen = re.search(r'\$\s*([\d,]+\.\d{2})', texto_limpio)
-        if monto_gen:
-            monto_raw = monto_gen.group(1).replace(',', '')
+        texto_credito = texto_limpio
+
+    match_vsm = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?M\.?|V\.?S\.?M\.?|VSM)', texto_credito, re.IGNORECASE)
+    if match_vsm:
+        datos["credito_a_salario"] = match_vsm.group(1).replace(",", "").strip()
+    else:
+        match_vsm_gen = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?M\.?|V\.?S\.?M\.?|VSM)', texto_limpio, re.IGNORECASE)
+        if match_vsm_gen:
+            datos["credito_a_salario"] = match_vsm_gen.group(1).replace(",", "").strip()
+
+    match_monto_cred = re.search(
+        r'(?:IMPORTE\s+(?:DE\s+LA\s+OBLIGACION\s+GARANTIZADA|DEL\s+CREDITO)?[:\s]*|CANTIDAD\s+DE\s*|CRÉDITO\s+HASTA\s+POR\s+LA\s+CANTIDAD\s+DE\s*)\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)',
+        texto_credito,
+        re.IGNORECASE
+    )
+    monto_raw = None
+    if match_monto_cred:
+        monto_raw = match_monto_cred.group(1).replace(',', '')
+    else:
+        match_monto_gen = re.search(r'\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)', texto_credito, re.IGNORECASE)
+        if match_monto_gen:
+            monto_raw = match_monto_gen.group(1).replace(',', '')
+        else:
+            match_fallback = re.search(r'\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)', texto_limpio, re.IGNORECASE)
+            if match_fallback:
+                monto_raw = match_fallback.group(1).replace(',', '')
 
     if monto_raw:
         try:
@@ -338,22 +360,16 @@ def extraer_datos_pdf(ruta_pdf):
     datos["genero"] = genero
     datos["estado_civil"] = estado_civil
 
-   # ════════════════════════════════════════════════════════════════════════
     # 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA (ANTECEDENTE / ORIGEN)
-    # ════════════════════════════════════════════════════════════════════════
-
-    # A. Número de Escritura (Tolerante a acentos)
     match_esc = re.search(r'ESCRITURA\s+(?:P[uú]blica\s+)?N[uú]m[eé]ro\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
     if match_esc:
         datos["numero_escritura"] = match_esc.group(1).strip()
 
-    # B. Fecha de Escritura (Convierte romanos a texto formal)
     match_f_esc = re.search(r'DE\s+FECHA\s+([0-9A-Za-z\-\/]+)', texto_limpio, re.IGNORECASE)
     if match_f_esc:
         fecha_bruta = match_f_esc.group(1).strip()
         datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
 
-    # C. Notario de Origen (Busca específicamente en los antecedentes y formatea el texto)
     match_not = re.search(
         r'NOTARIO\s+P[uú]blico\s+(?:LIC\.\s*)?([^,]+?)\s+n[uú]mero\s+(\d+)\s+d[eé][l]?\s+([A-Za-z\sÁÉÍÓÚÑáéíóú]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)',
         texto_limpio,
@@ -367,14 +383,12 @@ def extraer_datos_pdf(ruta_pdf):
         
         datos["notario_origen_completo"] = f"Lic. {nombre_notario} notario público número {num_notaria} de {jurisdiccion}"
     else:
-        # Fallback de respaldo por si el formato varía ligeramente
         match_not_alt = re.search(r'NOTARIO\s+P[uú]blico\s+([^.]+)', texto_limpio, re.IGNORECASE)
         if match_not_alt:
             texto_not = match_not_alt.group(1).strip()
             if "JUAN CARLOS ORTEGA" not in texto_not.upper():
                 datos["notario_origen_completo"] = f"Lic. {texto_not}"
 
-    # D. Si tiene cónyuge (Sí/No)
     tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_limpio, re.IGNORECASE))
     datos["tiene_conyuge"] = "Sí" if tiene_conyuge_match else "No"
 
@@ -470,7 +484,6 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         val = str(datos.get(clave, "")).strip()
         return "" if val == "NO_ENCONTRADO" else val
 
-    # Mapeo completo de variables en la plantilla Word (incluyendo los nuevos campos)
     mapa_reemplazos = {
         "{{ numero_carta }}": obtener_valor("numero_carta"),
         "{{numero_carta}}": obtener_valor("numero_carta"),
@@ -520,7 +533,6 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         "{{datos_inmueble}}": obtener_valor("datos_inmueble"),
         "{datos_inmueble}": obtener_valor("datos_inmueble"),
 
-        # 🆕 Nuevas etiquetas para Word:
         "{{ numero_escritura }}": obtener_valor("numero_escritura"),
         "{{numero_escritura}}": obtener_valor("numero_escritura"),
 
@@ -549,5 +561,3 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         
     doc.save(ruta_salida)
     return True
-
-    
