@@ -23,6 +23,31 @@ def credito_a_letras(numero_str):
         return f'"{numero_str}" ({" ".join(digitos)})'
     return str(numero_str)
 
+def limpiar_fecha_escritura(fecha_str):
+    if not fecha_str or fecha_str == "NO_ENCONTRADO":
+        return ""
+    
+    romanos = {
+        'I': '01', 'II': '02', 'III': '03', 'IV': '04', 'V': '05', 'VI': '06',
+        'VII': '07', 'VIII': '08', 'IX': '09', 'X': '10', 'XI': '11', 'XII': '12'
+    }
+    meses_texto = {
+        '01': 'enero', '02': 'febrero', '03': 'marzo', '04': 'abril', '05': 'mayo', '06': 'junio',
+        '07': 'julio', '08': 'agosto', '09': 'septiembre', '10': 'octubre', '11': 'noviembre', '12': 'diciembre'
+    }
+    
+    # Detecta formatos con romanos como 23-IV-2003
+    m = re.search(r'(\d{1,2})[-/]([I|V|X]+)[-/](\d{4})', fecha_str, re.IGNORECASE)
+    if m:
+        dia = m.group(1)
+        romano = m.group(2).upper()
+        anio = m.group(3)
+        mes_num = romanos.get(romano)
+        if mes_num and mes_num in meses_texto:
+            return f"{int(dia)} de {meses_texto[mes_num]} de {anio}"
+            
+    return fecha_str
+
 def numero_a_letras(numero):
     """Convierte un monto a letras con centavos escritos en texto completo."""
     unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"]
@@ -314,37 +339,28 @@ def extraer_datos_pdf(ruta_pdf):
     datos["genero"] = genero
     datos["estado_civil"] = estado_civil
 
-    # ════════════════════════════════════════════════════════════════════════
-    # 🆕 10. EXTRACCIÓN ESPECÍFICA DEL BLOQUE DE INSCRIPCIÓN (IFREM / EDOMEX)
+   # ════════════════════════════════════════════════════════════════════════
+    # 🆕 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA
     # ════════════════════════════════════════════════════════════════════════
 
-    # Busca exactamente el patrón estructurado de la constancia registral
-    match_bloque_escritura = re.search(
-        r'ESCRITURA\s+(?:PÚBLICA\s+)?N[Oº°]\.?\s*([\d,\.]+)\s+DE\s+FECHA\s+([0-9A-Za-z\-\/]+)\s+(?:PASADA|OTORGADA)\s+ANTE\s+LA\s+FE\s+DEL?\s+(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+([^.]+)',
-        texto_completo,
-        re.IGNORECASE
-    )
-    
-    if match_bloque_escritura:
-        datos["numero_escritura"] = match_bloque_escritura.group(1).strip()
-        datos["fecha_escritura"] = match_bloque_escritura.group(2).strip()
-        datos["notario_origen_completo"] = match_bloque_escritura.group(3).strip()
-    else:
-        # Respaldos individuales por si el texto varía ligeramente
-        match_esc = re.search(r'ESCRITURA\s+(?:PÚBLICA\s+)?N[Oº°]\.?\s*([\d,\.]+)', texto_completo, re.IGNORECASE)
-        if match_esc:
-            datos["numero_escritura"] = match_esc.group(1).strip()
-            
-        match_f_esc = re.search(r'DE\s+FECHA\s+([0-9A-Za-z\-\/]+)', texto_completo, re.IGNORECASE)
-        if match_f_esc:
-            datos["fecha_escritura"] = match_f_esc.group(1).strip()
-            
-        match_not = re.search(r'(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+([^.]+)', texto_completo, re.IGNORECASE)
-        if match_not:
-            datos["notario_origen_completo"] = match_not.group(1).strip()
+    # A. Número de Escritura
+    match_esc = re.search(r'ESCRITURA\s+(?:PÚBLICA\s+)?N[Oº°]\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
+    if match_esc:
+        datos["numero_escritura"] = match_esc.group(1).strip()
+
+    # B. Fecha de Escritura (Convierte romanos a texto formal)
+    match_f_esc = re.search(r'DE\s+FECHA\s+([0-9A-Za-z\-\/]+)', texto_limpio, re.IGNORECASE)
+    if match_f_esc:
+        fecha_bruta = match_f_esc.group(1).strip()
+        datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
+
+    # C. Notario Origen Completo
+    match_not = re.search(r'(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+([^.]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)', texto_limpio, re.IGNORECASE)
+    if match_not:
+        datos["notario_origen_completo"] = match_not.group(1).strip()
 
     # D. Si tiene cónyuge (Sí/No)
-    tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_completo, re.IGNORECASE))
+    tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_limpio, re.IGNORECASE))
     datos["tiene_conyuge"] = "Sí" if tiene_conyuge_match else "No"
 
     return datos
@@ -518,3 +534,5 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         
     doc.save(ruta_salida)
     return True
+
+    
