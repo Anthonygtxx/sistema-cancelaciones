@@ -17,6 +17,18 @@ const api = axios.create({
   withCredentials: true // <--- CRUCIAL para cookies
 });
 
+// 🛡️ Interceptor para manejar respuestas y filtrar ruidos de 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Si la sesión no es válida (401), es un comportamiento esperado al abrir la app sin loguearse
+    if (error.response && error.response.status === 401) {
+      return Promise.reject(error);
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default function App() {
   // --- TEMA (CLARO / OSCURO) ---
   const [isDarkMode, setIsDarkMode] = useState(() => {
