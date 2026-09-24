@@ -252,10 +252,10 @@ def extraer_datos_pdf(ruta_pdf):
             datos["fecha_expedicion"] = match_fecha_exp.group(1).strip()
             break
 
-    # 3. MONTO DEL CRÉDITO Y CÁLCULO DE CRÉDITO A SALARIO (VSM) AISLANDO EL BLOQUE DE CRÉDITO
+    # 3. MONTO DEL CRÉDITO Y VSM ESTRICTAMENTE DENTRO DEL BLOQUE DE CRÉDITO (A.C.S. / MUTUO)
     texto_credito = ""
     match_acta_credito = re.search(
-        r'(?:A\.?C\.?S\.?|APERTURA\s+DE\s+CREDITO|MUTUO|CREDITO\s+HIPOTECARIO|OTORGAMIENTO\s+DE\s+CREDITO)(.*?)(?=GRAVAMENES|ANTECEDENTE|VOLANTE|$)',
+        r'(?:A\.?C\.?S\.?|APERTURA\s+DE\s+CREDITO|MUTUO|CREDITO\s+HIPOTECARIO|OTORGAMIENTO\s+DE\s+CREDITO)(.*?)(?=GRAVAMENES|ANTECEDENTE|VOLANTE|C\.V\.|$)',
         texto_limpio,
         re.IGNORECASE | re.DOTALL
     )
@@ -264,14 +264,17 @@ def extraer_datos_pdf(ruta_pdf):
     else:
         texto_credito = texto_limpio
 
+    # A. Extraer Veces el Salario Mínimo (VSM) del bloque de crédito
     match_vsm = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?M\.?|V\.?S\.?M\.?|VSM)', texto_credito, re.IGNORECASE)
     if match_vsm:
         datos["credito_a_salario"] = match_vsm.group(1).replace(",", "").strip()
     else:
+        # Búsqueda general de respaldo para VSM solo si el bloque falló
         match_vsm_gen = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?M\.?|V\.?S\.?M\.?|VSM)', texto_limpio, re.IGNORECASE)
         if match_vsm_gen:
             datos["credito_a_salario"] = match_vsm_gen.group(1).replace(",", "").strip()
 
+    # B. Extraer Monto en Pesos EXCLUSIVAMENTE del bloque de crédito (SIN caer en C.V.)
     match_monto_cred = re.search(
         r'(?:IMPORTE\s+(?:DE\s+LA\s+OBLIGACION\s+GARANTIZADA|DEL\s+CREDITO)?[:\s]*|CANTIDAD\s+DE\s*|CRÉDITO\s+HASTA\s+POR\s+LA\s+CANTIDAD\s+DE\s*)\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)',
         texto_credito,
@@ -281,13 +284,10 @@ def extraer_datos_pdf(ruta_pdf):
     if match_monto_cred:
         monto_raw = match_monto_cred.group(1).replace(',', '')
     else:
+        # Busca un signo de pesos SOLO dentro del bloque de crédito, nunca en todo el documento
         match_monto_gen = re.search(r'\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)', texto_credito, re.IGNORECASE)
         if match_monto_gen:
             monto_raw = match_monto_gen.group(1).replace(',', '')
-        else:
-            match_fallback = re.search(r'\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)', texto_limpio, re.IGNORECASE)
-            if match_fallback:
-                monto_raw = match_fallback.group(1).replace(',', '')
 
     if monto_raw:
         try:
@@ -301,6 +301,11 @@ def extraer_datos_pdf(ruta_pdf):
         except Exception:
             datos["monto_credito"] = monto_raw
             datos["monto_credito_letras"] = monto_raw
+    else:
+        # Si el crédito está pactado en VSM y no trae monto en pesos en su bloque, 
+        # dejamos el monto como NO_ENCONTRADO para que imprima únicamente el VSM sin contaminarse con C.V.
+        datos["monto_credito"] = "NO_ENCONTRADO"
+        datos["monto_credito_letras"] = "NO_ENCONTRADO"
 
     # 4. ENTIDAD FINANCIERA
     if "INFONAVIT" in texto_limpio.upper() or "FONDO NACIONAL DE LA VIVIENDA" in texto_limpio.upper():
