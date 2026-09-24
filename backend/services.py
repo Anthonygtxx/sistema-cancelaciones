@@ -353,10 +353,23 @@ def extraer_datos_pdf(ruta_pdf):
         fecha_bruta = match_f_esc.group(1).strip()
         datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
 
-    # C. Notario Origen Completo (Permite leer el punto de "LIC." y extrae hasta el estado)
-    match_not = re.search(r'(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+([A-ZÁÉÍÓÚÑ\.\s0-9]+?(?:ESTADO\s+DE\s+M[EÉ]XICO|M[EÉ]XICO|MEXICO))', texto_limpio, re.IGNORECASE)
+    # C. Notario Origen Completo (Captura separado: Nombre, Número y Jurisdicción)
+    match_not = re.search(
+        r'(?:LIC\.|LICENCIADO)\s+([A-ZÁÉÍÓÚÑ\s]+?)\s+(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+(?:N[Oº°]\.?|NÚM[EÉ]RO|NUMERO)\s*([0-9A-ZÁÉÍÓÚÑ\s]+?)\s+(?:DE[L]?|EN\s+EL)\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)',
+        texto_limpio, re.IGNORECASE
+    )
     if match_not:
-        datos["notario_origen_completo"] = match_not.group(1).strip()
+        nombre_notario = match_not.group(1).strip()
+        num_notaria = match_not.group(2).strip()
+        jurisdiccion = match_not.group(3).strip().lower()
+        
+        # Estructura formal solicitada
+        datos["notario_origen_completo"] = f"Lic. {nombre_notario} notario público número {num_notaria} de {jurisdiccion}"
+    else:
+        # Fallback de respaldo por si el formato del texto varía ligeramente
+        match_not_alt = re.search(r'((?:LIC\.|LICENCIADO)\s+[^,]+(?:NOTARIO|NOTIARIO)\s+PÚBLICO[^.]+)', texto_limpio, re.IGNORECASE)
+        if match_not_alt:
+            datos["notario_origen_completo"] = match_not_alt.group(1).strip()
 
     # D. Si tiene cónyuge (Sí/No)
     tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_limpio, re.IGNORECASE))
