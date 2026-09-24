@@ -267,10 +267,6 @@ def extraer_datos_pdf(ruta_pdf):
     match_vsm = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?M\.?|V\.?S\.?M\.?|VSM)', texto_credito, re.IGNORECASE)
     if match_vsm:
         datos["credito_a_salario"] = match_vsm.group(1).replace(",", "").strip()
-    else:
-        match_vsm_gen = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?M\.?|V\.?S\.?M\.?|VSM)', texto_limpio, re.IGNORECASE)
-        if match_vsm_gen:
-            datos["credito_a_salario"] = match_vsm_gen.group(1).replace(",", "").strip()
 
     match_monto_cred = re.search(
         r'(?:IMPORTE\s+(?:DE\s+LA\s+OBLIGACION\s+GARANTIZADA|DEL\s+CREDITO)?[:\s]*|CANTIDAD\s+DE\s*|CRÉDITO\s+HASTA\s+POR\s+LA\s+CANTIDAD\s+DE\s*)\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)',
@@ -297,9 +293,6 @@ def extraer_datos_pdf(ruta_pdf):
         except Exception:
             datos["monto_credito"] = monto_raw
             datos["monto_credito_letras"] = monto_raw
-    else:
-        datos["monto_credito"] = "NO_ENCONTRADO"
-        datos["monto_credito_letras"] = "NO_ENCONTRADO"
 
     # 4. ENTIDAD FINANCIERA
     if "INFONAVIT" in texto_limpio.upper() or "FONDO NACIONAL DE LA VIVIENDA" in texto_limpio.upper():
@@ -360,45 +353,38 @@ def extraer_datos_pdf(ruta_pdf):
     datos["estado_civil"] = estado_civil
 
     # ════════════════════════════════════════════════════════════════════════
-    # 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA (ANTECEDENTE / ORIGEN) - ESTRICTO
+    # 10. EXTRACCIÓN ESTRICTA DE ANTECEDENTES (ESCRITURA, FECHA, NOTARIO, CÓNYUGE)
     # ════════════════════════════════════════════════════════════════════════
 
-    datos["numero_escritura"] = "NO_ENCONTRADO"
-    datos["fecha_escritura"] = "NO_ENCONTRADO"
-    datos["notario_origen_completo"] = "NO_ENCONTRADO"
+    # Aislar exclusivamente el bloque de antecedentes / instrumento original para evitar contaminación externa
+    texto_antecedente = ""
+    match_ant = re.search(
+        r'(?:ANTECEDENTE|INSTRUMENTO|ESCRITURA\s+P[UÚ]BLICA\s+N[UÚ]M[EÉ]RO|PRIMER\s+TESTIMONIO)(.*?)(?=GRAVAMENES|INSCRIPCIONES|VOLANTE|ENTRADA|$)',
+        texto_limpio,
+        re.IGNORECASE | re.DOTALL
+    )
+    if match_ant:
+        texto_antecedente = match_ant.group(1)
+    else:
+        texto_antecedente = texto_limpio
 
-    # A. Número de Escritura
-    patrones_escritura = [
-        r'(?:ESCRITURA|INSTRUMENTO)\s+(?:P[uú]blica\s+)?(?:N[oº°]|NÚM[EÉ]RO|NUMERO|NO)\.?\s*([\d,\.]+)',
-        r'instrumento\s+n[uú]mero\s*([\d,\.]+)'
-    ]
-    for pat in patrones_escritura:
-        match_esc = re.search(pat, texto_limpio, re.IGNORECASE)
-        if match_esc:
-            val_esc = match_esc.group(1).strip().rstrip(',')
-            if val_esc.replace(',', '').replace('.', '').isdigit():
-                datos["numero_escritura"] = val_esc
-                break
+    # A. Número de Escritura (Únicamente en el bloque de antecedentes)
+    match_esc = re.search(r'(?:N[oº°]|NÚM[EÉ]RO|NUMERO|NO)\.?\s*([0-9,\.]+)', texto_antecedente, re.IGNORECASE)
+    if match_esc:
+        val_esc = match_esc.group(1).strip().rstrip(',')
+        if val_esc.replace(',', '').replace('.', '').isdigit():
+            datos["numero_escritura"] = val_esc
 
-    # B. Fecha de Escritura (Estricta: exige dígitos numéricos para evitar capturar letras basura como "L")
-    patrones_fecha = [
-        r'(?:DE\s+FECHA|FECHA)\s+([0-9]{1,2}[-/][0-9A-Za-z]+[-/][0-9]{4})',
-        r'(?:DE\s+FECHA|FECHA)\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})',
-        r'de\s+fecha\s+([0-9]{1,2}[-/][I|V|X]+[-/][0-9]{4})',
-        r'del?\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})'
-    ]
-    for pat in patrones_fecha:
-        match_f_esc = re.search(pat, texto_limpio, re.IGNORECASE)
-        if match_f_esc:
-            fecha_bruta = match_f_esc.group(1).strip()
-            # Validación estricta: debe contener al menos un dígito numérico
-            if any(char.isdigit() for char in fecha_bruta):
-                fecha_limpia = limpiar_fecha_escritura(fecha_bruta)
-                if fecha_limpia and len(fecha_limpia) > 4 and fecha_limpia.lower() not in ['l', 'no', 'no_encontrado']:
-                    datos["fecha_escritura"] = fecha_limpia
-                    break
+    # B. Fecha de Escritura (Validación estricta de números, sin aceptar letras sueltas como "L")
+    match_f_esc = re.search(r'DE\s+FECHA\s+([0-9]{1,2}[-/][0-9A-Za-z]+[-/][0-9]{4}|[0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})', texto_antecedente, re.IGNORECASE)
+    if match_f_esc:
+        fecha_bruta = match_f_esc.group(1).strip()
+        if any(char.isdigit() for char in fecha_bruta):
+            fecha_limpia = limpiar_fecha_escritura(fecha_bruta)
+            if fecha_limpia and len(fecha_limpia) > 4 and fecha_limpia.lower() not in ['l', 'no', 'no_encontrado']:
+                datos["fecha_escritura"] = fecha_limpia
 
-    # C. Notario de Origen (Sin "Lic.", captura limpia y completa sin cortes)
+    # C. Notario de Origen Completo (Sin "Lic.", con número y jurisdicción localizados estrictamente en antecedentes)
     patrones_notario = [
         r'(?:OTORGADA?\s+ANTE\s+LA\s+FE\s+DEL?|ANTE\s+LA\s+FE\s+DEL?)\s+(?:LIC\.|LICENCIADO)?\s*([A-ZÁÉÍÓÚÑ\s\.]+?)\s*,?\s*NOT[AI]ARIO\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)\s*([0-9A-Z]+)\s+DE[L]?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+EN\s+LA\s+QUE|\s+CONSTA|\.|$)',
         r'NOT[AI]ARIO\s+P[uú]blico\s+(?:núm[eé]ro|no\.?)\s*([0-9]+)\s+[^,]+?,\s*(?:LIC\.|LICENCIADO)?\s*([A-ZÁÉÍÓÚÑ\s\.]+?)\s+de[l]?\s+([A-ZÁÉÍÓÚÑ\s]+)'
@@ -406,7 +392,7 @@ def extraer_datos_pdf(ruta_pdf):
     
     notario_encontrado = False
     for pat in patrones_notario:
-        match_not = re.search(pat, texto_limpio, re.IGNORECASE)
+        match_not = re.search(pat, texto_antecedente, re.IGNORECASE)
         if match_not:
             grupos = match_not.groups()
             if len(grupos) >= 3:
@@ -427,7 +413,7 @@ def extraer_datos_pdf(ruta_pdf):
                     break
 
     if not notario_encontrado:
-        match_not_alt = re.search(r'NOT[AI]ARIO\s+P[uú]blico\s+(?:no\.?\s*|número\s*)?([0-9]+)\s+[^,]+?,\s*([^.]+)', texto_limpio, re.IGNORECASE)
+        match_not_alt = re.search(r'NOT[AI]ARIO\s+P[uú]blico\s+(?:no\.?\s*|número\s*)?([0-9]+)\s+[^,]+?,\s*([^.]+)', texto_antecedente, re.IGNORECASE)
         if match_not_alt:
             num_n = match_not_alt.group(1).strip()
             resto = match_not_alt.group(2).strip().replace("LIC.", "").replace("LICENCIADO", "").strip()
@@ -435,7 +421,7 @@ def extraer_datos_pdf(ruta_pdf):
                 datos["notario_origen_completo"] = f"{resto} notario público número {num_n}"
 
     # D. Si tiene cónyuge (Sí/No)
-    tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_limpio, re.IGNORECASE))
+    tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_antecedente, re.IGNORECASE))
     datos["tiene_conyuge"] = "Sí" if tiene_conyuge_match else "No"
 
     return datos
