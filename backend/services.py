@@ -342,7 +342,7 @@ def extraer_datos_pdf(ruta_pdf):
     # 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA (IFREM)
     # ════════════════════════════════════════════════════════════════════════
 
-    # A. Número de Escritura (Soporta NÚMERO con acento, NUMERO, NO., etc.)
+    # A. Número de Escritura
     match_esc = re.search(r'(?:ESCRITURA|INSTRUMENTO)\s+(?:PÚBLICA\s+)?(?:N[Oº°]|NÚM[EÉ]RO|NUMERO)\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
     if match_esc:
         datos["numero_escritura"] = match_esc.group(1).strip()
@@ -353,10 +353,8 @@ def extraer_datos_pdf(ruta_pdf):
         fecha_bruta = match_f_esc.group(1).strip()
         datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
 
-    # C. Notario Origen Completo (Captura desde LIC. hasta antes de DEL ESTADO o EN LA QUE)
-    match_not = re.search(r'((?:LIC\.|LICENCIADO)\s+[^,]+,\s*(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+[^.]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)', texto_limpio, re.IGNORECASE)
-    if not match_not:
-        match_not = re.search(r'(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+([^.]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)', texto_limpio, re.IGNORECASE)
+    # C. Notario Origen Completo (Permite leer el punto de "LIC." y extrae hasta el estado)
+    match_not = re.search(r'(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+([A-ZÁÉÍÓÚÑ\.\s0-9]+?(?:ESTADO\s+DE\s+M[EÉ]XICO|M[EÉ]XICO|MEXICO))', texto_limpio, re.IGNORECASE)
     if match_not:
         datos["notario_origen_completo"] = match_not.group(1).strip()
 
