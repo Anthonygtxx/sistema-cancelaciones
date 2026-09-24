@@ -342,36 +342,37 @@ def extraer_datos_pdf(ruta_pdf):
     # 10. EXTRACCIÓN Y LIMPIEZA DE DATOS DE LA CONSTANCIA (ANTECEDENTE / ORIGEN)
     # ════════════════════════════════════════════════════════════════════════
 
-    # Búsqueda maestra anclada al bloque de Escritura de Antecedente (Ignora al notario actual)
-    match_bloque_antecedente = re.search(
-        r'ESCRITURA\s+(?:PÚBLICA\s+)?(?:N[Oº°]|NÚM[EÉ]RO|NUMERO)\.?\s*([\d,\.]+)\s+DE\s+FECHA\s+([0-9A-Za-z\-\/]+)\s+(?:PASADA|OTORGADA)\s+ANTE\s+LA\s+FE\s+DEL?\s+(?:NOTARIO|NOTIARIO)\s+PÚBLICO\s+(?:LIC\.|LICENCIADO\s+)?([A-ZÁÉÍÓÚÑ\s\.]+?)\s+(?:N[Oº°]|NÚM[EÉ]RO|NUMERO)\s*([0-9A-ZÁÉÍÓÚÑ\s]+?)\s+(?:DE[L]?|EN\s+EL)\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)',
+    # A. Número de Escritura (Tolerante a acentos)
+    match_esc = re.search(r'ESCRITURA\s+(?:P[uú]blica\s+)?N[uú]m[eé]ro\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
+    if match_esc:
+        datos["numero_escritura"] = match_esc.group(1).strip()
+
+    # B. Fecha de Escritura (Convierte romanos a texto formal)
+    match_f_esc = re.search(r'DE\s+FECHA\s+([0-9A-Za-z\-\/]+)', texto_limpio, re.IGNORECASE)
+    if match_f_esc:
+        fecha_bruta = match_f_esc.group(1).strip()
+        datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
+
+    # C. Notario de Origen (Busca específicamente en los antecedentes y formatea el texto)
+    match_not = re.search(
+        r'NOTARIO\s+P[uú]blico\s+(?:LIC\.\s*)?([^,]+?)\s+n[uú]mero\s+(\d+)\s+d[eé][l]?\s+([A-Za-z\sÁÉÍÓÚÑáéíóú]+?)(?=\s+EN\s+LA\s+QUE|\s+CONSTAN|\.|$)',
         texto_limpio,
         re.IGNORECASE
     )
-
-    if match_bloque_antecedente:
-        # 1. Número de escritura
-        datos["numero_escritura"] = match_bloque_antecedente.group(1).strip()
+    
+    if match_not:
+        nombre_notario = match_not.group(1).replace("LIC.", "").strip()
+        num_notaria = match_not.group(2).strip()
+        jurisdiccion = match_not.group(3).strip().lower()
         
-        # 2. Fecha de escritura limpia y formal
-        fecha_bruta = match_bloque_antecedente.group(2).strip()
-        datos["fecha_escritura"] = limpiar_fecha_escritura(fecha_bruta)
-        
-        # 3. Notario de origen formateado exactamente como lo pediste
-        nombre_notario = match_bloque_antecedente.group(3).replace("LIC.", "").replace("LICENCIADO", "").strip()
-        num_notaria = match_bloque_antecedente.group(4).strip()
-        jurisdiccion = match_bloque_antecedente.group(5).strip().lower()
-        
-        datos["notario_origen_completo"] = f"{nombre_notario} notario público número {num_notaria} de {jurisdiccion}"
+        datos["notario_origen_completo"] = f"Lic. {nombre_notario} notario público número {num_notaria} de {jurisdiccion}"
     else:
-        # Respaldos individuales por seguridad si el texto varía ligeramente
-        match_esc = re.search(r'(?:ESCRITURA|INSTRUMENTO)\s+(?:PÚBLICA\s+)?(?:N[Oº°]|NÚM[EÉ]RO|NUMERO)\.?\s*([\d,\.]+)', texto_limpio, re.IGNORECASE)
-        if match_esc:
-            datos["numero_escritura"] = match_esc.group(1).strip()
-
-        match_f_esc = re.search(r'DE\s+FECHA\s+([0-9A-Za-z\-\/]+)', texto_limpio, re.IGNORECASE)
-        if match_f_esc:
-            datos["fecha_escritura"] = limpiar_fecha_escritura(match_f_esc.group(1).strip())
+        # Fallback de respaldo por si el formato varía ligeramente
+        match_not_alt = re.search(r'NOTARIO\s+P[uú]blico\s+([^.]+)', texto_limpio, re.IGNORECASE)
+        if match_not_alt:
+            texto_not = match_not_alt.group(1).strip()
+            if "JUAN CARLOS ORTEGA" not in texto_not.upper():
+                datos["notario_origen_completo"] = f"Lic. {texto_not}"
 
     # D. Si tiene cónyuge (Sí/No)
     tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_limpio, re.IGNORECASE))
