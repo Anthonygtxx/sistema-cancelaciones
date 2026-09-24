@@ -934,42 +934,43 @@ const handlePreviewExcel = async (file) => {
     }
   };
 
-  // 📥 Función actualizada para recibir ID y los datos (por si se editó la vista previa)
-const handleDownloadWord = async (expedienteId, datos = null) => {
+  // 📥 Función corregida para descargar el Word usando el endpoint oficial del backend
+const handleDownloadWord = async (expedienteId, datosParam = null) => {
   try {
-    if (!expedienteId && !datos) {
-      alert("No hay información suficiente para descargar el documento.");
+    // Validar que el ID exista (manejando posibles variaciones de nombres de variables)
+    const idReal = expedienteId;
+    if (!idReal) {
+      alert("Error: No se encontró un ID de expediente válido para la descarga.");
       return;
     }
 
-    // Si pasas datos (como datosExtraidos), idealmente se envían por POST para reflejar cambios en tiempo real
-    const hasData = datos && Object.keys(datos).length > 0;
-    const urlEndpoint = hasData 
-      ? `https://sistema-cancelaciones-production.up.railway.app/api/expedientes/descargar-word`
-      : `https://sistema-cancelaciones-production.up.railway.app/api/expedientes/descargar-word/${expedienteId}`;
+    // Usamos el endpoint oficial del backend que ya procesa el POST correctamente
+    const response = await api.post(
+      `/expedientes/${idReal}/generar-word`,
+      {
+        plantilla: selectedPlantilla,
+        datos: datosParam || datos // Usa los datos pasados o los globales del formulario
+      },
+      { responseType: 'blob' } // Solicitamos directamente un blob para el archivo
+    );
 
-    const config = {
-      method: hasData ? 'POST' : 'GET',
-      headers: hasData ? { 'Content-Type': 'application/json' } : undefined,
-      body: hasData ? JSON.stringify({ expediente_id: expedienteId, datos }) : undefined,
-    };
-
-    const res = await fetch(urlEndpoint, config);
-
-    if (!res.ok) throw new Error("Error al descargar el documento Word desde el servidor.");
-
-    const blob = await res.blob();
+    // Crear la URL temporal para descargar el archivo .docx
+    const blob = new Blob([response.data], { 
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+    });
+    
     const downloadUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = downloadUrl;
-    a.download = `Cancelacion_${expedienteId || 'expediente'}.docx`;
+    a.download = `Expediente_${idReal}.docx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     window.URL.revokeObjectURL(downloadUrl);
+
   } catch (err) {
-    console.error(err);
-    alert("No se pudo descargar el archivo Word: " + err.message);
+    console.error("Error al descargar el archivo Word:", err);
+    alert("No se pudo descargar el archivo Word desde el servidor.");
   }
 };
 
