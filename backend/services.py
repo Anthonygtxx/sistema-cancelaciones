@@ -408,14 +408,20 @@ def extraer_notario_robusto(texto_limpio, texto_completo=""):
                 
                 num_notaria_letra = numero_a_palabras_generico(num_notaria).lower()
                 
-                # Detectar procedencia (Estado de México o Ciudad de México)
-                jurisdiccion_lower = jurisdiccion.lower()
-                if "méxico" in jurisdiccion_lower or "mexico" in jurisdiccion_lower:
+                # Análisis ampliado del texto circundante para obtener la jurisdicción correcta
+                sub_texto = texto_upper[match.start():min(len(texto_upper), match.end() + 100)]
+                if "ESTADO DE MÉXICO" in sub_texto or "ESTADO DE MEXICO" in sub_texto:
                     jur_fmt = "del estado de méxico"
-                elif "federal" in jurisdiccion_lower or "ciudad" in jurisdiccion_lower:
+                elif "CIUDAD DE MÉXICO" in sub_texto or "CIUDAD DE MEXICO" in sub_texto or "DISTRITO FEDERAL" in sub_texto:
                     jur_fmt = "de la ciudad de méxico"
                 else:
-                    jur_fmt = f"de {jurisdiccion_lower}"
+                    jurisdiccion_lower = jurisdiccion.lower()
+                    if "méxico" in jurisdiccion_lower or "mexico" in jurisdiccion_lower:
+                        jur_fmt = "del estado de méxico"
+                    elif "federal" in jurisdiccion_lower or "ciudad" in jurisdiccion_lower:
+                        jur_fmt = "de la ciudad de méxico"
+                    else:
+                        jur_fmt = f"del {jurisdiccion_lower}" if not jurisdiccion_lower.startswith("de") else f"de {jurisdiccion_lower}"
 
                 candidatos_validos.append({
                     "pos": match.start(),
@@ -446,13 +452,20 @@ def extraer_notario_robusto(texto_limpio, texto_completo=""):
                     continue
                 
                 num_notaria_letra = numero_a_palabras_generico(num_notaria).lower()
-                jurisdiccion_lower = jurisdiccion.lower()
-                if "méxico" in jurisdiccion_lower or "mexico" in jurisdiccion_lower:
+                
+                sub_texto = texto_upper[match_not.start():min(len(texto_upper), match_not.end() + 100)]
+                if "ESTADO DE MÉXICO" in sub_texto or "ESTADO DE MEXICO" in sub_texto:
                     jur_fmt = "del estado de méxico"
-                elif "federal" in jurisdiccion_lower or "ciudad" in jurisdiccion_lower:
+                elif "CIUDAD DE MÉXICO" in sub_texto or "CIUDAD DE MEXICO" in sub_texto or "DISTRITO FEDERAL" in sub_texto:
                     jur_fmt = "de la ciudad de méxico"
                 else:
-                    jur_fmt = f"de {jurisdiccion_lower}"
+                    jurisdiccion_lower = jurisdiccion.lower()
+                    if "méxico" in jurisdiccion_lower or "mexico" in jurisdiccion_lower:
+                        jur_fmt = "del estado de méxico"
+                    elif "federal" in jurisdiccion_lower or "ciudad" in jurisdiccion_lower:
+                        jur_fmt = "de la ciudad de méxico"
+                    else:
+                        jur_fmt = f"del {jurisdiccion_lower}" if not jurisdiccion_lower.startswith("de") else f"de {jurisdiccion_lower}"
 
                 candidatos_validos.append({
                     "pos": match_not.start(),
@@ -557,7 +570,7 @@ def extraer_datos_pdf(ruta_pdf):
                 datos["fecha_expedicion"] = limpia_exp
                 break
 
-    # 3. MONTO DEL CRÉDITO Y VSM (SOLO LETRAS, SIN NÚMEROS ADJUNTOS)
+    # 3. MONTO DEL CRÉDITO Y VSM
     texto_credito = ""
     match_acta_credito = re.search(
         r'(?:A\.?C\.?S\.?|APERTURA\s+DE\s+CREDITO|MUTUO|CREDITO\s+HIPOTECARIO|OTORGAMIENTO\s+DE\s+CREDITO)(.*?)(?=GRAVAMENES|ANTECEDENTE|VOLANTE|C\.V\.|$)',
@@ -611,7 +624,7 @@ def extraer_datos_pdf(ruta_pdf):
     elif "BANORTE" in texto_limpio.upper():
         datos["entidad_financiera"] = "BANORTE"
 
-    # 5. FOLIO REAL ELECTRÓNICO (SOLO LETRAS)
+    # 5. FOLIO REAL ELECTRÓNICO
     match_folio = re.search(r'(?:FOLIO\s+REAL\s+ELECTRÓNICO\s+NUMERO|FOLIO\s+REAL\s+ELECTRÓNICO|FOLIO\s+ELECTRÓNICO)[:\s#]*([0-9A-Z\-]{4,15})', texto_limpio, re.IGNORECASE)
     if not match_folio:
         match_folio = re.search(r'(?:Folio\s*Real|Antecedente|F\.R\.|F\.E\.)[:\s#]*([0-9A-Z\-]{4,15})', texto_limpio, re.IGNORECASE)
@@ -666,7 +679,7 @@ def extraer_datos_pdf(ruta_pdf):
     datos["genero"] = genero
     datos["estado_civil"] = estado_civil
 
-    # 10. ANTECEDENTES (NÚMERO DE ESCRITURA SOLO EN LETRAS)
+    # 10. ANTECEDENTES
     patrones_escritura = [
         r'(?:ESCRITURA|INSTRUMENTO)\s+(?:P[uú]blica\s+)?(?:N[oº°]|NÚM[EÉ]RO|NUMERO|NO)\.?\s*([0-9,\.]+)',
         r'escritura\s+p[uú]blica\s+([0-9,\.]+)',
@@ -838,7 +851,7 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         "{folio_real}": folio_limpio,
 
         "{{ oficina_registral }}": obtener_valor("oficina_registral"),
-        "{{oficina_registral}}": obtener_valor("oficina_registral"),
+        "{{oficina_registral}}": obtener_valorelectoral := obtener_valor("oficina_registral"),
         "{oficina_registral}": obtener_valor("oficina_registral"),
 
         "{{ datos_inmueble }}": obtener_valor("datos_inmueble"),
