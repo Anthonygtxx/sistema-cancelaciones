@@ -186,45 +186,52 @@ def extraer_notario_robusto(texto_limpio):
     texto_upper = texto_limpio.upper()
     candidatos_validos = []
 
-    # Buscar todas las apariciones de notarios públicos en todo el texto
-    patron_notaria = r'NOTI?AR[IÍ]O\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\s+EN\s+QUE|\.|$)'
-    
-    for match_not in re.finditer(patron_notaria, texto_upper):
-        num_notaria = match_not.group(1).strip()
-        jurisdiccion = match_not.group(2).strip()
-        jurisdiccion = re.sub(r'\s+(?:CON|RESIDENCIA|RESICENCIA|EN).*$', '', jurisdiccion).strip()
-        
-        # Leer el texto hacia atrás para extraer el nombre del notario
-        inicio_pos = max(0, match_not.start() - 180)
-        bloque_anterior = texto_upper[inicio_pos:match_not.start()]
-        
-        palabras = re.findall(r'\b[A-ZÁÉÍÓÚÑ]{3,}\b', bloque_anterior)
-        palabras_validas = []
-        
-        prohibidas = {
-            "ESTADO", "MEXICO", "MÉXICO", "MUNICIPIO", "TOLUCA", "RESIDENCIA", "RESICENCIA", "PRESENTE", 
-            "PODER", "REGISTRO", "OFICINA", "INMUEBLES", "PUBLICO", "PÚBLICO", "NOTARIO", "NOTIARIO", 
-            "NOTARIA", "LIC", "LICENCIADO", "DE", "DEL", "LA", "LAS", "LOS", "Y", "A", "EN", "CON", 
-            "FE", "ANTE", "PASADA", "TESTIMONIO", "ESCRITURA", "PUBLICA", "PÚBLICA", "NO", "QUE", "SE", "HIZO"
-        }
-        
-        for p in reversed(palabras):
-            if p not in prohibidas and not p.isdigit():
-                palabras_validas.insert(0, p)
-                if len(palabras_validas) >= 4:
-                    break
-        
-        if palabras_validas:
-            nombre_notario = " ".join(palabras_validas)
-            # FILTRO ESTRICTO: Ignorar completamente a Juan Carlos
-            if "JUAN CARLOS" not in nombre_notario.upper():
-                candidatos_validos.append({
-                    "pos": match_not.start(),
-                    "texto": f"{nombre_notario} notario público número {num_notaria} de {jurisdiccion.lower()}"
-                })
+    # Lista ampliada de palabras prohibidas para eliminar ruido (como "PRIMER", "TESTIMONIO", etc.)
+    prohibidas = {
+        "ESTADO", "MEXICO", "MÉXICO", "MUNICIPIO", "TOLUCA", "RESIDENCIA", "RESICENCIA", "PRESENTE", 
+        "PODER", "REGISTRO", "OFICINA", "INMUEBLES", "PUBLICO", "PÚBLICO", "NOTARIO", "NOTIARIO", 
+        "NOTARIA", "LIC", "LICENCIADO", "DE", "DEL", "LA", "LAS", "LOS", "Y", "A", "EN", "CON", 
+        "FE", "ANTE", "PASADA", "TESTIMONIO", "ESCRITURA", "PUBLICA", "PÚBLICA", "NO", "QUE", "SE", "HIZO",
+        "PRIMER", "SEGUNDO", "TERCER", "INSTRUMENTO", "NUMERO", "NÚMERO", "VOLANTE", "CALIFICADOR", "VIGILANCIA"
+    }
+
+    # Patrones flexibles para capturar diferentes formas en que viene redactado el notario de antecedentes
+    patrones = [
+        r'NOTI?AR[IÍ]O\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\s+EN\s+QUE|\.|$)',
+        r'NOTI?AR[IÍ]O\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)',
+        r'NOTAR[IÍ]A\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\.|$)'
+    ]
+
+    for pat in patrones:
+        for match_not in re.finditer(pat, texto_upper):
+            num_notaria = match_not.group(1).strip()
+            jurisdiccion = match_not.group(2).strip()
+            jurisdiccion = re.sub(r'\s+(?:CON|RESIDENCIA|RESICENCIA|EN|DE).*$', '', jurisdiccion).strip()
+            
+            # Extraer el bloque de texto anterior para encontrar el nombre del notario
+            inicio_pos = max(0, match_not.start() - 220)
+            bloque_anterior = texto_upper[inicio_pos:match_not.start()]
+            
+            palabras = re.findall(r'\b[A-ZÁÉÍÓÚÑ]{3,}\b', bloque_anterior)
+            palabras_validas = []
+            
+            for p in reversed(palabras):
+                if p not in prohibidas and not p.isdigit():
+                    palabras_validas.insert(0, p)
+                    if len(palabras_validas) >= 4:  # Captura hasta 4 palabras del nombre completo
+                        break
+            
+            if palabras_validas:
+                nombre_notario = " ".join(palabras_validas)
+                # FILTRO ESTRICTO: Ignorar completamente a Juan Carlos
+                if "JUAN CARLOS" not in nombre_notario.upper():
+                    candidatos_validos.append({
+                        "pos": match_not.start(),
+                        "texto": f"{nombre_notario} notario público número {num_notaria} de {jurisdiccion.lower()}"
+                    })
 
     if candidatos_validos:
-        # Ordenar por posición en el documento y retornar el último (el de la parte de abajo / antecedentes)
+        # Ordenar por posición en el documento y retornar el último (el de los antecedentes abajo)
         candidatos_validos.sort(key=lambda x: x["pos"])
         return candidatos_validos[-1]["texto"]
 
