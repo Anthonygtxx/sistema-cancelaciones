@@ -300,11 +300,11 @@ def convertir_inmueble_a_letras(texto_inmueble):
     return texto_procesado
 
 def extraer_oficina_registral(texto):
-    match = re.search(r'OFICINA\s+DE\s+["“\']?([^"”\'\n\r]+?)["“\']?\s+INMUEBLES', texto, re.IGNORECASE)
+    match = re.search(r'OFICINA\s+DE\s+["“\']?([^"”\'\n\r]+?)["”\']?\s+INMUEBLES', texto, re.IGNORECASE)
     if not match:
         match = re.search(r'OFICINA\s+REGISTRAL\s*:\s*([A-ZÁÉÍÓÚÑ\s]+)', texto, re.IGNORECASE)
     if not match:
-        match = re.search(r'OFICINA\s+REGISTRAL\s+DE\s+["“\']?([^"”\'\n\r]+?)["“\']?(?=\s+INMUEBLES|\n|,|\.|$)', texto, re.IGNORECASE)
+        match = re.search(r'OFICINA\s+REGISTRAL\s+DE\s+["“\']?([^"”\'\n\r]+?)["”\']?(?=\s+INMUEBLES|\n|,|\.|$)', texto, re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return "NO_ENCONTRADO"
@@ -408,7 +408,6 @@ def extraer_notario_robusto(texto_limpio, texto_completo=""):
                 
                 num_notaria_letra = numero_a_palabras_generico(num_notaria).lower()
                 
-                # Análisis ampliado del texto circundante para obtener la jurisdicción correcta
                 sub_texto = texto_upper[match.start():min(len(texto_upper), match.end() + 100)]
                 if "ESTADO DE MÉXICO" in sub_texto or "ESTADO DE MEXICO" in sub_texto:
                     jur_fmt = "del estado de méxico"
@@ -851,7 +850,7 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         "{folio_real}": folio_limpio,
 
         "{{ oficina_registral }}": obtener_valor("oficina_registral"),
-        "{{oficina_registral}}": obtener_valorelectoral := obtener_valor("oficina_registral"),
+        "{{oficina_registral}}": obtener_valor("oficina_registral"),
         "{oficina_registral}": obtener_valor("oficina_registral"),
 
         "{{ datos_inmueble }}": obtener_valor("datos_inmueble"),
