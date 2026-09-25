@@ -24,12 +24,13 @@ def credito_a_letras(numero_str):
     return str(numero_str)
 
 def convertir_fecha_texto(texto_fecha):
-    if not texto_fecha or texto_fecha == "NO_ENCONTRADO":
-        return texto_fecha
+    if not texto_fecha or str(texto_fecha).upper() in ["NO_ENCONTRADO", "NONE", ""]:
+        return "NO_ENCONTRADO"
     
-    texto_upper = str(texto_fecha).upper().strip()
+    # Limpiar saltos de línea y espacios múltiples para estandarizar el texto
+    texto_upper = re.sub(r'\s+', ' ', str(texto_fecha)).upper().strip()
     
-    # Diccionario de meses en español
+    # Diccionario de meses en español (con y sin acentos)
     meses = {
         "ENERO": "enero", "FEBRERO": "febrero", "MARZO": "marzo", "ABRIL": "abril",
         "MAYO": "mayo", "JUNIO": "junio", "JULIO": "julio", "AGOSTO": "agosto",
@@ -40,8 +41,8 @@ def convertir_fecha_texto(texto_fecha):
         'I': '01', 'II': '02', 'III': '03', 'IV': '04', 'V': '05', 'VI': '06',
         'VII': '07', 'VIII': '08', 'IX': '09', 'X': '10', 'XI': '11', 'XII': '12'
     }
-    
-    # 1. Si viene numérica con romanos (ej: 14/VIII/2003)
+
+    # 1. Si viene con números romanos en el mes (ej: 14/VIII/2003 o 14-VIII-03)
     m_rom = re.search(r'(\d{1,2})[-/]([I|V|X]+)[-/](\d{2,4})', texto_upper)
     if m_rom:
         dia = m_rom.group(1).zfill(2)
@@ -50,11 +51,13 @@ def convertir_fecha_texto(texto_fecha):
         if len(anio) == 2:
             anio = "20" + anio if int(anio) < 50 else "19" + anio
         mes_num = romanos.get(romano)
-        if mes_num and mes_num in meses:
-            return f"{int(dia)} de {meses[mes_num]} de {anio}"
+        if mes_num and mes_num in ["01","02","03","04","05","06","07","08","09","10","11","12"]:
+            meses_num_map = {"01": "enero", "02": "febrero", "03": "marzo", "04": "abril", "05": "mayo", "06": "junio",
+                               "07": "julio", "08": "agosto", "09": "septiembre", "10": "octubre", "11": "noviembre", "12": "diciembre"}
+            return f"{int(dia)} de {meses_num_map[mes_num]} de {anio}"
 
-    # 2. Si ya viene numérica estándar (ej: 14/08/2003 o 14-08-2003)
-    match_num = re.search(r'(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})', texto_upper)
+    # 2. Si viene numérica estándar (ej: 14/08/2003 o 14-08-2003 o con puntos)
+    match_num = re.search(r'(\d{1,2})[/\.-](\d{1,2})[/\.-](\d{2,4})', texto_upper)
     if match_num:
         d, m, y = match_num.groups()
         if len(y) == 2:
@@ -62,66 +65,77 @@ def convertir_fecha_texto(texto_fecha):
         mes_key = f"{int(m):02d}"
         meses_num_map = {"01": "enero", "02": "febrero", "03": "marzo", "04": "abril", "05": "mayo", "06": "junio",
                            "07": "julio", "08": "agosto", "09": "septiembre", "10": "octubre", "11": "noviembre", "12": "diciembre"}
-        if mes_key in meses_num_map:
+        if mes_key in meses_num_map and 1 <= int(d) <= 31:
             return f"{int(d)} de {meses_num_map[mes_key]} de {y}"
 
-    # 3. Mapeo de números en texto para días y años redactados con letra
+    # 3. Diccionario exhaustivo de palabras para días (1 al 31)
     numeros_palabras = {
         "UN": 1, "UNO": 1, "PRIMER": 1, "PRIMERO": 1, "DOS": 2, "TRES": 3, "CUATRO": 4, "CINCO": 5,
         "SEIS": 6, "SIETE": 7, "OCHO": 8, "NUEVE": 9, "DIEZ": 10, "ONCE": 11, "DOCE": 12,
-        "TRECE": 13, "CATORCE": 14, "QUINCE": 15, "DIECISEIS": 16, "DIECISIETE": 17,
-        "DIECIOCHO": 18, "DIECINUEVE": 19, "VEINTE": 20, "VEINTIUNO": 21, "VEINTIDOS": 22,
-        "VEINTITRES": 23, "VEINTICUATRO": 24, "VEINTICINCO": 25, "VEINTISEIS": 26,
+        "TRECE": 13, "CATORCE": 14, "QUINCE": 15, "DIECISÉIS": 16, "DIECISEIS": 16, "DIECISIETE": 17,
+        "DIECIOCHO": 18, "DIECINUEVE": 19, "VEINTE": 20, "VEINTIUNO": 21, "VEINTIDÓS": 22, "VEINTIDOS": 22,
+        "VEINTITRÉS": 23, "VEINTITRES": 23, "VEINTICUATRO": 24, "VEINTICINCO": 25, "VEINTISÉIS": 26, "VEINTISEIS": 26,
         "VEINTISIETE": 27, "VEINTIOCHO": 28, "VEINTINUEVE": 29, "TREINTA": 30, "TREINTA Y UNO": 31
     }
 
-    # Buscar mes en texto
+    # Extraer el mes del texto
     mes_encontrado = None
     for m_nombre in meses:
         if m_nombre in texto_upper:
             mes_encontrado = meses[m_nombre]
             break
 
-    # Buscar año de 4 dígitos (numérico o texto)
+    # Extraer el año (numérico de 4 dígitos o escrito con letra)
     anio_num = None
     match_anio_num = re.search(r'\b(19\d{2}|20\d{2})\b', texto_upper)
     if match_anio_num:
         anio_num = match_anio_num.group(1)
     else:
-        if "DOS MIL TRES" in texto_upper: anio_num = "2003"
-        elif "DOS MIL CUATRO" in texto_upper: anio_num = "2004"
-        elif "DOS MIL DOS" in texto_upper: anio_num = "2002"
-        elif "DOS MIL CINCO" in texto_upper: anio_num = "2005"
-        elif "DOS MIL SEIS" in texto_upper: anio_num = "2006"
-        elif "DOS MIL SIETE" in texto_upper: anio_num = "2007"
-        elif "DOS MIL OCHO" in texto_upper: anio_num = "2008"
-        elif "DOS MIL NUEVE" in texto_upper: anio_num = "2009"
+        # Conversor de años comunes redactados con letra
+        if "DOS MIL VEINTISÉIS" in texto_upper or "DOS MIL VEINTISEIS" in texto_upper: anio_num = "2026"
+        elif "DOS MIL VEINTICINCO" in texto_upper: anio_num = "2025"
+        elif "DOS MIL VEINTICUATRO" in texto_upper: anio_num = "2024"
+        elif "DOS MIL VEINTITRÉS" in texto_upper or "DOS MIL VEINTITRES" in texto_upper: anio_num = "2023"
+        elif "DOS MIL VEINTIDÓS" in texto_upper or "DOS MIL VEINTIDOS" in texto_upper: anio_num = "2022"
+        elif "DOS MIL VEINTIUNO" in texto_upper: anio_num = "2021"
+        elif "DOS MIL VEINTE" in texto_upper: anio_num = "2020"
+        elif "DOS MIL DIECINUEVE" in texto_upper: anio_num = "2019"
+        elif "DOS MIL DIECIOCHO" in texto_upper: anio_num = "2018"
+        elif "DOS MIL DIECISIETE" in texto_upper: anio_num = "2017"
+        elif "DOS MIL DIECISÉIS" in texto_upper or "DOS MIL DIECISEIS" in texto_upper: anio_num = "2016"
+        elif "DOS MIL QUINCE" in texto_upper: anio_num = "2015"
+        elif "DOS MIL CATORCE" in texto_upper: anio_num = "2014"
+        elif "DOS MIL TRECE" in texto_upper: anio_num = "2013"
+        elif "DOS MIL DOCE" in texto_upper: anio_num = "2012"
+        elif "DOS MIL ONCE" in texto_upper: anio_num = "2011"
         elif "DOS MIL DIEZ" in texto_upper: anio_num = "2010"
+        elif "DOS MIL NUEVE" in texto_upper: anio_num = "2009"
+        elif "DOS MIL OCHO" in texto_upper: anio_num = "2008"
+        elif "DOS MIL SIETE" in texto_upper: anio_num = "2007"
+        elif "DOS MIL SEIS" in texto_upper: anio_num = "2006"
+        elif "DOS MIL CINCO" in texto_upper: anio_num = "2005"
+        elif "DOS MIL CUATRO" in texto_upper: anio_num = "2004"
+        elif "DOS MIL TRES" in texto_upper: anio_num = "2003"
+        elif "DOS MIL DOS" in texto_upper: anio_num = "2002"
         elif "DOS MIL UNO" in texto_upper: anio_num = "2001"
         elif "DOS MIL" in texto_upper: anio_num = "2000"
-        elif "DOS MIL ONCE" in texto_upper: anio_num = "2011"
-        elif "DOS MIL DOCE" in texto_upper: anio_num = "2012"
-        elif "DOS MIL TRECE" in texto_upper: anio_num = "2013"
-        elif "DOS MIL CATORCE" in texto_upper: anio_num = "2014"
-        elif "DOS MIL QUINCE" in texto_upper: anio_num = "2015"
-        elif "DOS MIL DIECISEIS" in texto_upper: anio_num = "2016"
-        elif "DOS MIL DIECISIETE" in texto_upper: anio_num = "2017"
-        elif "DOS MIL DIECIOCHO" in texto_upper: anio_num = "2018"
-        elif "DOS MIL DIECINUEVE" in texto_upper: anio_num = "2019"
-        elif "DOS MIL VEINTE" in texto_upper: anio_num = "2020"
-        elif "DOS MIL VEINTIUNO" in texto_upper: anio_num = "2021"
-        elif "DOS MIL VEINTIDOS" in texto_upper: anio_num = "2022"
-        elif "DOS MIL VEINTITRES" in texto_upper: anio_num = "2023"
-        elif "DOS MIL VEINTICUATRO" in texto_upper: anio_num = "2024"
-        elif "DOS MIL VEINTICINCO" in texto_upper: anio_num = "2025"
+        elif "MIL NOVECIENTOS" in texto_upper:
+            # Extracción simple para años 199x o 198x si es necesario
+            m_1900 = re.search(r'MIL\s+NOVECIENTOS\s+([A-ZÁÉÍÓÚÑ\s]+)', texto_upper)
+            if m_1900:
+                # Mapeo rápido de decenas comunes en los 90s/80s
+                txt_dec = m_1900.group(1)
+                if "NOVENTA" in txt_dec: anio_num = "1990" # fallback base
+                elif "OCHENTA" in txt_dec: anio_num = "1980"
 
-    # Buscar día (número o palabra en el texto)
-    match_dia_num = re.search(r'\b(0?[1-9]|[12]\d|3[01])\b', texto_upper)
+    # Extraer el día (priorizar número directo dentro del texto o paréntesis, ej: "(14)" o "14")
     dia_num = None
-    if match_dia_num:
-        dia_num = match_dia_num.group(1)
+    match_dia_digito = re.search(r'\b(0?[1-9]|[12]\d|3[01])\b', texto_upper)
+    if match_dia_digito:
+        dia_num = match_dia_digito.group(1)
     else:
-        for palabra, num in numeros_palabras.items():
+        # Buscar por palabra clave de día
+        for palabra, num in sorted(numeros_palabras.items(), key=lambda x: len(x[0]), reverse=True):
             if re.search(r'\b' + palabra + r'\b', texto_upper):
                 dia_num = str(num)
                 break
@@ -135,7 +149,6 @@ def limpiar_fecha_escritura(fecha_str):
     return convertir_fecha_texto(fecha_str)
 
 def numero_a_letras(numero):
-    """Convierte un monto a letras con centavos escritos en texto completo."""
     unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"]
     decenas = ["", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"]
     dieces = ["DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISÉIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"]
@@ -394,7 +407,7 @@ def extraer_datos_pdf(ruta_pdf):
         datos["numero_credito"] = raw_credito
         datos["numero_credito_letras"] = credito_a_letras(raw_credito)
 
-    # 2. NÚMERO DE CARTA Y FECHA DE EXPEDICIÓN
+    # 2. NÚMERO DE CARTA Y FECHA DE EXPEDICIÓN (Patrones ampliados)
     match_carta = re.search(r'Número\s+de\s+carta[:\s#]*([A-Z0-9\-\/]{5,20})', texto_limpio, re.IGNORECASE)
     if not match_carta:
         match_carta = re.search(r'(?:Carta\s*(?:de\s*Instrucción)?|Oficio|Instrucción|Ref)[:\s\.\°\#-]*([A-Z0-9\-\/]{5,20})', texto_limpio, re.IGNORECASE)
@@ -404,7 +417,8 @@ def extraer_datos_pdf(ruta_pdf):
             datos["numero_carta"] = val
 
     patrones_fecha_exp = [
-        r'(?:Fecha\s+de\s+expedici[óo]n|Expedid[oa]\s+el|M[ée]xico,?\s*(?:D\.?F\.?|CDMX)?,?\s*a|Ciudad\s+de\s+M[ée]xico,?\s*a|A)\s*[:\s]*([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4}|[0-9]{1,2}[/\-][0-9]{1,2}[/\-][0-9]{2,4}|[A-ZÁÉÍÓÚÑ\s]+DÍAS?[^,\.]*)',
+        r'(?:Fecha\s+de\s+expedici[óo]n|Expedid[oa]\s+el|M[ée]xico,?\s*(?:D\.?F\.?|CDMX)?,?\s*a|Ciudad\s+de\s+M[ée]xico,?\s*a|A)\s*[:\s]*([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4}|[0-9]{1,2}[/\-\.][0-9]{1,2}[/\-\.][0-9]{2,4}|[A-ZÁÉÍÓÚÑ\s]+\d{,2}\s+DÍAS?[^,\.]*)',
+        r'(?:a\s+los|a)\s+([0-9]{1,2}\s+d[ií]as?\s+del?\s+mes\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+del?\s+a[nñ]o\s+[0-9]{4}|[0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})',
         r'([0-9]{1,2}\s+de\s+(?:Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\s+de\s+\d{4})'
     ]
     for patron in patrones_fecha_exp:
@@ -428,7 +442,7 @@ def extraer_datos_pdf(ruta_pdf):
     else:
         texto_credito = texto_limpio
 
-    match_vsm = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?M\.?|V\.?S\.?M\.?|VSM)', texto_credito, re.IGNORECASE)
+    match_vsm = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?|V\.?S\.?M\.?|VSM)', texto_credito, re.IGNORECASE)
     if match_vsm:
         datos["credito_a_salario"] = match_vsm.group(1).replace(",", "").strip()
 
@@ -533,20 +547,21 @@ def extraer_datos_pdf(ruta_pdf):
                 datos["numero_escritura"] = val_esc
                 break
 
-    # B. Fecha de Escritura (Soporta número, romanos y texto redactado)
+    # B. Fecha de Escritura (Con patrones sumamente flexibles)
     patrones_fecha = [
         r'de\s+fecha\s+([0-9]{1,2}[-/][0-9A-Za-z]+[-/][0-9]{4})',
         r'de\s+fecha\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})',
         r'fecha\s+([0-9]{1,2}[-/][0-9A-Za-z]+[-/][0-9]{4})',
         r'fecha\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})',
-        r'de\s+fecha\s+([A-ZÁÉÍÓÚÑ\s]+DÍAS?[^,\.]*)'
+        r'de\s+fecha\s+([A-ZÁÉÍÓÚÑ\s]+\d{,2}\s+DÍAS?[^,\.]*)',
+        r'(?:celebrada|otorgada|suscrita)\s+el\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})'
     ]
     for pat in patrones_fecha:
         match_f_esc = re.search(pat, texto_limpio, re.IGNORECASE)
         if match_f_esc:
             fecha_bruta = match_f_esc.group(1).strip()
-            fecha_limpia = limpiar_fecha_escritura(fecha_bruta)
-            if fecha_limpia and len(fecha_limpia) > 4 and fecha_limpia.lower() not in ['l', 'no', 'no_encontrado']:
+            fecha_limpia = convertir_fecha_texto(fecha_bruta)
+            if fecha_limpia and fecha_limpia != "NO_ENCONTRADO":
                 datos["fecha_escritura"] = fecha_limpia
                 break
 
@@ -692,7 +707,7 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         "{{folio_real}}": folio_limpio,
         "{folio_real}": folio_limpio,
 
-        "{{ oficina_registral }}": obtener_valore("oficina_registral") if 'obtener_valore' in globals() else obtener_valor("oficina_registral"),
+        "{{ oficina_registral }}": obtener_valor("oficina_registral"),
         "{{oficina_registral}}": obtener_valor("oficina_registral"),
         "{oficina_registral}": obtener_valor("oficina_registral"),
 
