@@ -24,7 +24,7 @@ def credito_a_letras(numero_str):
     return str(numero_str)
 
 def numero_a_palabras_generico(numero):
-    """Convierte cualquier número entero o decimal a texto completo sin la leyenda de pesos."""
+    """Convierte cualquier número entero o decimal con precisión exacta a texto completo."""
     unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"]
     decenas = ["", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"]
     dieces = ["DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISÉIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"]
@@ -52,10 +52,10 @@ def numero_a_palabras_generico(numero):
         if '.' in val_str:
             partes_num = val_str.split('.')
             enteros = int(partes_num[0])
-            decimales = int(partes_num[1][:2].ljust(2, '0'))
+            dec_str = partes_num[1]
         else:
             enteros = int(val_str)
-            decimales = 0
+            dec_str = ""
     except Exception:
         return str(numero)
 
@@ -82,11 +82,25 @@ def numero_a_palabras_generico(numero):
 
         texto_enteros = " ".join(partes)
 
-    if decimales > 0:
-        texto_dec = f" PUNTO {convert_group(decimales).strip()}"
-        return f"{texto_enteros}{texto_dec}"
-    
-    return texto_enteros
+    texto_dec = ""
+    if dec_str:
+        zeros_lead = len(dec_str) - len(dec_str.lstrip('0'))
+        partes_cero = ["CERO"] * zeros_lead
+        restante_str = dec_str.lstrip('0')
+        if restante_str:
+            try:
+                val_restante = int(restante_str)
+                texto_restante = convert_group(val_restante).strip()
+            except Exception:
+                texto_restante = restante_str
+        else:
+            texto_restante = ""
+
+        todas_partes_dec = partes_cero + ([texto_restante] if texto_restante else [])
+        if todas_partes_dec:
+            texto_dec = f" PUNTO {' '.join(todas_partes_dec)}"
+
+    return f"{texto_enteros}{texto_dec}"
 
 def convertir_fecha_texto(texto_fecha):
     if not texto_fecha or str(texto_fecha).upper() in ["NO_ENCONTRADO", "NONE", ""]:
@@ -256,42 +270,34 @@ def numero_a_letras(numero):
     return f"{texto_enteros} {texto_centavos}, MONEDA NACIONAL"
 
 def convertir_inmueble_a_letras(texto_inmueble):
-    """Convierte todos los números arábigos y romanos de la ubicación del inmueble a letra."""
     if not texto_inmueble or texto_inmueble == "NO_ENCONTRADO":
         return texto_inmueble
 
-    # Mapeo de números romanos frecuentes en inmuebles
     mapa_romanos = {
         'I': 'uno', 'II': 'dos', 'III': 'tres', 'IV': 'cuatro', 'V': 'cinco',
         'VI': 'seis', 'VII': 'siete', 'VIII': 'ocho', 'IX': 'nueve', 'X': 'diez',
         'XI': 'once', 'XII': 'doce', 'XIII': 'trece', 'XIV': 'catorce', 'XV': 'quince'
     }
 
-    # Reemplazar números romanos aislados por letras
     def reemplazar_romano(match):
         rom = match.group(0).upper()
         return mapa_romanos.get(rom, rom)
 
-    # Reemplazar números arábigos por letras
     def reemplazar_arabigo(match):
         num_str = match.group(0)
         return numero_a_palabras_generico(num_str).lower()
 
-    # Procesar romanos primero (evitar conflicto con letras sueltas)
     texto_procesado = re.sub(r'\b(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV)\b', reemplazar_romano, texto_inmueble, flags=re.IGNORECASE)
-    
-    # Procesar números arábigos (excepto códigos postales de 5 dígitos para mantenerlos legibles o convertirlos si se prefiere)
-    # Aquí convertimos números de lote, manzana, exterior, interior, etc.
     texto_procesado = re.sub(r'\b(?!\d{5}\b)\d+\b', reemplazar_arabigo, texto_procesado)
 
     return texto_procesado
 
 def extraer_oficina_registral(texto):
-    match = re.search(r'OFICINA\s+DE\s+["“\']?([^"”\'\n\r]+?)["”\']?\s+INMUEBLES', texto, re.IGNORECASE)
+    match = re.search(r'OFICINA\s+DE\s+["“\']?([^"”\'\n\r]+?)["“\']?\s+INMUEBLES', texto, re.IGNORECASE)
     if not match:
         match = re.search(r'OFICINA\s+REGISTRAL\s*:\s*([A-ZÁÉÍÓÚÑ\s]+)', texto, re.IGNORECASE)
     if not match:
-        match = re.search(r'OFICINA\s+REGISTRAL\s+DE\s+["“\']?([^"”\'\n\r]+?)["”\']?(?=\s+INMUEBLES|\n|,|\.|$)', texto, re.IGNORECASE)
+        match = re.search(r'OFICINA\s+REGISTRAL\s+DE\s+["“\']?([^"”\'\n\r]+?)["“\']?(?=\s+INMUEBLES|\n|,|\.|$)', texto, re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return "NO_ENCONTRADO"
@@ -334,7 +340,6 @@ def armar_ubicacion_inmueble(texto_completo):
 
     if componentes_encontrados:
         texto_armado = ", ".join(componentes_encontrados)
-        # Convertir números y romanos a letra como se solicitó
         return convertir_inmueble_a_letras(texto_armado)
     return "NO_ENCONTRADO"
 
@@ -394,7 +399,6 @@ def extraer_notario_robusto(texto_limpio, texto_completo=""):
                 if "JUAN CARLOS" in nombre_limpio.upper():
                     continue
                 
-                # Convertir número de notaría a letra
                 num_notaria_letra = numero_a_palabras_generico(num_notaria).lower()
                 num_notaria_fmt = f"{num_notaria} ({num_notaria_letra})"
 
@@ -441,7 +445,6 @@ def extraer_notario_robusto(texto_limpio, texto_completo=""):
         candidatos_validos.sort(key=lambda x: x["pos"])
         texto_resultado = candidatos_validos[-1]["texto"]
 
-    # Agregar menciones federales o nacionales si vienen en el documento
     if texto_completo:
         sup_upper = texto_completo.upper()
         menciones_extra = []
@@ -533,7 +536,7 @@ def extraer_datos_pdf(ruta_pdf):
                 datos["fecha_expedicion"] = limpia_exp
                 break
 
-    # 3. MONTO DEL CRÉDITO Y VSM (CONVERSIÓN A LETRAS)
+    # 3. MONTO DEL CRÉDITO Y VSM (CONVERSIÓN EXACTA A LETRAS)
     texto_credito = ""
     match_acta_credito = re.search(
         r'(?:A\.?C\.?S\.?|APERTURA\s+DE\s+CREDITO|MUTUO|CREDITO\s+HIPOTECARIO|OTORGAMIENTO\s+DE\s+CREDITO)(.*?)(?=GRAVAMENES|ANTECEDENTE|VOLANTE|C\.V\.|$)',
@@ -545,11 +548,10 @@ def extraer_datos_pdf(ruta_pdf):
     else:
         texto_credito = texto_limpio
 
-    match_vsm = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?|V\.?S\.?M\.?|VSM)', texto_credito, re.IGNORECASE)
+    match_vsm = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?|VSM)', texto_credito, re.IGNORECASE)
     if match_vsm:
         raw_vsm = match_vsm.group(1).replace(",", "").strip()
-        vsm_num = float(raw_vsm)
-        vsm_letra = numero_a_palabras_generico(vsm_num).lower()
+        vsm_letra = numero_a_palabras_generico(raw_vsm).lower()
         datos["credito_a_salario"] = f"{raw_vsm} ({vsm_letra})"
 
     match_monto_cred = re.search(
@@ -573,8 +575,9 @@ def extraer_datos_pdf(ruta_pdf):
             
             if datos["credito_a_salario"] == "NO_ENCONTRADO":
                 veces_salario = num / SALARIO_MINIMO_MENSUAL_DF
-                vsm_letra = numero_a_palabras_generico(round(veces_salario, 2)).lower()
-                datos["credito_a_salario"] = f"{veces_salario:.2f} ({vsm_letra})"
+                veces_salario_str = f"{veces_salario:.4f}".rstrip('0').rstrip('.')
+                vsm_letra = numero_a_palabras_generico(veces_salario_str).lower()
+                datos["credito_a_salario"] = f"{veces_salario_str} ({vsm_letra})"
         except Exception:
             datos["monto_credito"] = monto_raw
             datos["monto_credito_letras"] = monto_raw
@@ -589,7 +592,7 @@ def extraer_datos_pdf(ruta_pdf):
     elif "BANORTE" in texto_limpio.upper():
         datos["entidad_financiera"] = "BANORTE"
 
-    # 5. FOLIO REAL ELECTRÓNICO (CON NÚMERO Y LETRA)
+    # 5. FOLIO REAL ELECTRÓNICO (CON NÚMERO Y LETRA EXACTA)
     match_folio = re.search(r'(?:FOLIO\s+REAL\s+ELECTRÓNICO\s+NUMERO|FOLIO\s+REAL\s+ELECTRÓNICO|FOLIO\s+ELECTRÓNICO)[:\s#]*([0-9A-Z\-]{4,15})', texto_limpio, re.IGNORECASE)
     if not match_folio:
         match_folio = re.search(r'(?:Folio\s*Real|Antecedente|F\.R\.|F\.E\.)[:\s#]*([0-9A-Z\-]{4,15})', texto_limpio, re.IGNORECASE)
@@ -660,7 +663,6 @@ def extraer_datos_pdf(ruta_pdf):
                 datos["numero_escritura"] = f"{val_esc} ({esc_letra})"
                 break
 
-    # B. Fecha de Escritura
     patrones_fecha = [
         r'de\s+fecha\s+([0-9]{1,2}[-/][0-9A-Za-z]+[-/][0-9]{4})',
         r'de\s+fecha\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})',
@@ -678,10 +680,8 @@ def extraer_datos_pdf(ruta_pdf):
                 datos["fecha_escritura"] = fecha_limpia
                 break
 
-    # C. Notario de Origen Completo (con número en letra y mención federal si aplica)
     datos["notario_origen_completo"] = extraer_notario_robusto(texto_limpio, texto_completo)
 
-    # D. Si tiene cónyuge (Sí/No)
     tiene_conyuge_match = bool(re.search(r'(C[ÓO]NYUGE|SOCIEDAD\s+CONYUGAL|CASAD[AO]\s+EN\s+SOCIEDAD|EN\s+COPROPIEDAD)', texto_limpio, re.IGNORECASE))
     datos["tiene_conyuge"] = "Sí" if tiene_conyuge_match else "No"
 
