@@ -23,29 +23,116 @@ def credito_a_letras(numero_str):
         return f'"{numero_str}" ({" ".join(digitos)})'
     return str(numero_str)
 
-def limpiar_fecha_escritura(fecha_str):
-    if not fecha_str or fecha_str == "NO_ENCONTRADO":
-        return ""
+def convertir_fecha_texto(texto_fecha):
+    if not texto_fecha or texto_fecha == "NO_ENCONTRADO":
+        return texto_fecha
+    
+    texto_upper = str(texto_fecha).upper().strip()
+    
+    # Diccionario de meses en español
+    meses = {
+        "ENERO": "enero", "FEBRERO": "febrero", "MARZO": "marzo", "ABRIL": "abril",
+        "MAYO": "mayo", "JUNIO": "junio", "JULIO": "julio", "AGOSTO": "agosto",
+        "SEPTIEMBRE": "septiembre", "OCTUBRE": "octubre", "NOVIEMBRE": "noviembre", "DICIEMBRE": "diciembre"
+    }
     
     romanos = {
         'I': '01', 'II': '02', 'III': '03', 'IV': '04', 'V': '05', 'VI': '06',
         'VII': '07', 'VIII': '08', 'IX': '09', 'X': '10', 'XI': '11', 'XII': '12'
     }
-    meses_texto = {
-        '01': 'enero', '02': 'febrero', '03': 'marzo', '04': 'abril', '05': 'mayo', '06': 'junio',
-        '07': 'julio', '08': 'agosto', '09': 'septiembre', '10': 'octubre', '11': 'noviembre', '12': 'diciembre'
-    }
     
-    m = re.search(r'(\d{1,2})[-/]([I|V|X]+)[-/](\d{4})', fecha_str, re.IGNORECASE)
-    if m:
-        dia = m.group(1)
-        romano = m.group(2).upper()
-        anio = m.group(3)
+    # 1. Si viene numérica con romanos (ej: 14/VIII/2003)
+    m_rom = re.search(r'(\d{1,2})[-/]([I|V|X]+)[-/](\d{2,4})', texto_upper)
+    if m_rom:
+        dia = m_rom.group(1).zfill(2)
+        romano = m_rom.group(2).upper()
+        anio = m_rom.group(3)
+        if len(anio) == 2:
+            anio = "20" + anio if int(anio) < 50 else "19" + anio
         mes_num = romanos.get(romano)
-        if mes_num and mes_num in meses_texto:
-            return f"{int(dia)} de {meses_texto[mes_num]} de {anio}"
-            
-    return fecha_str
+        if mes_num and mes_num in meses:
+            return f"{int(dia)} de {meses[mes_num]} de {anio}"
+
+    # 2. Si ya viene numérica estándar (ej: 14/08/2003 o 14-08-2003)
+    match_num = re.search(r'(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})', texto_upper)
+    if match_num:
+        d, m, y = match_num.groups()
+        if len(y) == 2:
+            y = "20" + y if int(y) < 50 else "19" + y
+        mes_key = f"{int(m):02d}"
+        meses_num_map = {"01": "enero", "02": "febrero", "03": "marzo", "04": "abril", "05": "mayo", "06": "junio",
+                           "07": "julio", "08": "agosto", "09": "septiembre", "10": "octubre", "11": "noviembre", "12": "diciembre"}
+        if mes_key in meses_num_map:
+            return f"{int(d)} de {meses_num_map[mes_key]} de {y}"
+
+    # 3. Mapeo de números en texto para días y años redactados con letra
+    numeros_palabras = {
+        "UN": 1, "UNO": 1, "PRIMER": 1, "PRIMERO": 1, "DOS": 2, "TRES": 3, "CUATRO": 4, "CINCO": 5,
+        "SEIS": 6, "SIETE": 7, "OCHO": 8, "NUEVE": 9, "DIEZ": 10, "ONCE": 11, "DOCE": 12,
+        "TRECE": 13, "CATORCE": 14, "QUINCE": 15, "DIECISEIS": 16, "DIECISIETE": 17,
+        "DIECIOCHO": 18, "DIECINUEVE": 19, "VEINTE": 20, "VEINTIUNO": 21, "VEINTIDOS": 22,
+        "VEINTITRES": 23, "VEINTICUATRO": 24, "VEINTICINCO": 25, "VEINTISEIS": 26,
+        "VEINTISIETE": 27, "VEINTIOCHO": 28, "VEINTINUEVE": 29, "TREINTA": 30, "TREINTA Y UNO": 31
+    }
+
+    # Buscar mes en texto
+    mes_encontrado = None
+    for m_nombre in meses:
+        if m_nombre in texto_upper:
+            mes_encontrado = meses[m_nombre]
+            break
+
+    # Buscar año de 4 dígitos (numérico o texto)
+    anio_num = None
+    match_anio_num = re.search(r'\b(19\d{2}|20\d{2})\b', texto_upper)
+    if match_anio_num:
+        anio_num = match_anio_num.group(1)
+    else:
+        if "DOS MIL TRES" in texto_upper: anio_num = "2003"
+        elif "DOS MIL CUATRO" in texto_upper: anio_num = "2004"
+        elif "DOS MIL DOS" in texto_upper: anio_num = "2002"
+        elif "DOS MIL CINCO" in texto_upper: anio_num = "2005"
+        elif "DOS MIL SEIS" in texto_upper: anio_num = "2006"
+        elif "DOS MIL SIETE" in texto_upper: anio_num = "2007"
+        elif "DOS MIL OCHO" in texto_upper: anio_num = "2008"
+        elif "DOS MIL NUEVE" in texto_upper: anio_num = "2009"
+        elif "DOS MIL DIEZ" in texto_upper: anio_num = "2010"
+        elif "DOS MIL UNO" in texto_upper: anio_num = "2001"
+        elif "DOS MIL" in texto_upper: anio_num = "2000"
+        elif "DOS MIL ONCE" in texto_upper: anio_num = "2011"
+        elif "DOS MIL DOCE" in texto_upper: anio_num = "2012"
+        elif "DOS MIL TRECE" in texto_upper: anio_num = "2013"
+        elif "DOS MIL CATORCE" in texto_upper: anio_num = "2014"
+        elif "DOS MIL QUINCE" in texto_upper: anio_num = "2015"
+        elif "DOS MIL DIECISEIS" in texto_upper: anio_num = "2016"
+        elif "DOS MIL DIECISIETE" in texto_upper: anio_num = "2017"
+        elif "DOS MIL DIECIOCHO" in texto_upper: anio_num = "2018"
+        elif "DOS MIL DIECINUEVE" in texto_upper: anio_num = "2019"
+        elif "DOS MIL VEINTE" in texto_upper: anio_num = "2020"
+        elif "DOS MIL VEINTIUNO" in texto_upper: anio_num = "2021"
+        elif "DOS MIL VEINTIDOS" in texto_upper: anio_num = "2022"
+        elif "DOS MIL VEINTITRES" in texto_upper: anio_num = "2023"
+        elif "DOS MIL VEINTICUATRO" in texto_upper: anio_num = "2024"
+        elif "DOS MIL VEINTICINCO" in texto_upper: anio_num = "2025"
+
+    # Buscar día (número o palabra en el texto)
+    match_dia_num = re.search(r'\b(0?[1-9]|[12]\d|3[01])\b', texto_upper)
+    dia_num = None
+    if match_dia_num:
+        dia_num = match_dia_num.group(1)
+    else:
+        for palabra, num in numeros_palabras.items():
+            if re.search(r'\b' + palabra + r'\b', texto_upper):
+                dia_num = str(num)
+                break
+
+    if dia_num and mes_encontrado and anio_num:
+        return f"{int(dia_num)} de {mes_encontrado} de {anio_num}"
+
+    return texto_fecha
+
+def limpiar_fecha_escritura(fecha_str):
+    return convertir_fecha_texto(fecha_str)
 
 def numero_a_letras(numero):
     """Convierte un monto a letras con centavos escritos en texto completo."""
@@ -186,7 +273,6 @@ def extraer_notario_robusto(texto_limpio):
     texto_upper = texto_limpio.upper()
     candidatos_validos = []
 
-    # Lista ampliada de palabras prohibidas y ruido legal
     prohibidas = {
         "ESTADO", "MEXICO", "MÉXICO", "MUNICIPIO", "TOLUCA", "RESIDENCIA", "RESICENCIA", "PRESENTE", 
         "PODER", "REGISTRO", "OFICINA", "INMUEBLES", "PUBLICO", "PÚBLICO", "NOTARIO", "NOTIARIO", 
@@ -196,17 +282,12 @@ def extraer_notario_robusto(texto_limpio):
         "ACTO", "A.C.S", "GENERAL", "DISTRITO", "FEDERAL", "JUZGADO", "TRIBUNAL", "FECHA", "COMPRAVENTA"
     }
 
-    # Patrones flexibles (no dependen estrictamente de comas)
     patrones = [
-        # Patrón 1: Captura directa sin requerir coma (ej: NOTARIO PUBLICO [LIC.] [NOMBRE] NUMERO [X])
         r'NOTI?AR[IÍ]O\s+P[UÚ]BLIC[OA]\s+(?:LICENCIADO|LIC\.?\s+)?([A-ZÁÉÍÓÚÑ\s]{4,45}?)\s+(?:N[UÚ]M[EÉ]RO|NO\.?)\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\s+QUE|\.|$)',
-        # Patrón 2: Con ante la fe del / comas
         r'(?:ANTE\s+LA\s+FE\s+(?:DEL?\s+)?)(?:LICENCIADO|LIC\.?\s+)?([A-ZÁÉÍÓÚÑ\s]{4,45}?)\s*,?\s*NOTI?AR[IÍ]O\s+P[UÚ]BLIC[OA]\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)',
-        # Patrón 3: Búsqueda por número de notaría genérico
         r'NOTI?AR[IÍ]O\s+(?:P[UÚ]BLIC[OA]\s+)?(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\s+EN\s+QUE|\.|$)'
     ]
 
-    # 1. Búsqueda con nombre explícito (Patrones 1 y 2)
     for pat in patrones[:2]:
         for match in re.finditer(pat, texto_upper):
             posible_nombre = match.group(1).strip()
@@ -218,7 +299,6 @@ def extraer_notario_robusto(texto_limpio):
             if palabras_n:
                 nombre_limpio = " ".join(palabras_n)
                 
-                # FILTRO ESTRICTO: Bloquear completamente a Juan Carlos
                 if "JUAN CARLOS" in nombre_limpio.upper():
                     continue
                     
@@ -227,7 +307,6 @@ def extraer_notario_robusto(texto_limpio):
                     "texto": f"{nombre_limpio} notario público número {num_notaria} de {jurisdiccion.lower()}"
                 })
 
-    # 2. Búsqueda de respaldo por proximidad (Patrón 3) si no encontró nombre explícito
     if not [c for c in candidatos_validos if "JUAN CARLOS" not in c["texto"].upper()]:
         for match_not in re.finditer(patrones[2], texto_upper):
             num_notaria = match_not.group(1).strip()
@@ -256,11 +335,9 @@ def extraer_notario_robusto(texto_limpio):
                     "texto": f"{nombre_notario} notario público número {num_notaria} de {jurisdiccion.lower()}"
                 })
 
-    # Limpieza final absoluta de cualquier rastro de Juan Carlos
     candidatos_validos = [c for c in candidatos_validos if "JUAN CARLOS" not in c["texto"].upper()]
 
     if candidatos_validos:
-        # Ordenar por posición y retornar el último (el antecedente de abajo)
         candidatos_validos.sort(key=lambda x: x["pos"])
         return candidatos_validos[-1]["texto"]
 
@@ -327,16 +404,19 @@ def extraer_datos_pdf(ruta_pdf):
             datos["numero_carta"] = val
 
     patrones_fecha_exp = [
-        r'(?:Fecha\s+de\s+expedici[óo]n|Expedid[oa]\s+el|M[ée]xico,?\s*(?:D\.?F\.?|CDMX)?,?\s*a|Ciudad\s+de\s+M[ée]xico,?\s*a|A)\s*[:\s]*(\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})',
-        r'(\d{1,2}\s+de\s+(?:Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\s+de\s+\d{4})'
+        r'(?:Fecha\s+de\s+expedici[óo]n|Expedid[oa]\s+el|M[ée]xico,?\s*(?:D\.?F\.?|CDMX)?,?\s*a|Ciudad\s+de\s+M[ée]xico,?\s*a|A)\s*[:\s]*([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4}|[0-9]{1,2}[/\-][0-9]{1,2}[/\-][0-9]{2,4}|[A-ZÁÉÍÓÚÑ\s]+DÍAS?[^,\.]*)',
+        r'([0-9]{1,2}\s+de\s+(?:Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)\s+de\s+\d{4})'
     ]
     for patron in patrones_fecha_exp:
         match_fecha_exp = re.search(patron, texto_completo, re.IGNORECASE)
         if match_fecha_exp:
-            datos["fecha_expedicion"] = match_fecha_exp.group(1).strip()
-            break
+            raw_exp = match_fecha_exp.group(1).strip()
+            limpia_exp = convertir_fecha_texto(raw_exp)
+            if limpia_exp and limpia_exp != "NO_ENCONTRADO":
+                datos["fecha_expedicion"] = limpia_exp
+                break
 
-    # 3. MONTO DEL CRÉDITO Y VSM ESTRICTAMENTE DENTRO DEL BLOQUE DE CRÉDITO (A.C.S. / MUTUO)
+    # 3. MONTO DEL CRÉDITO Y VSM
     texto_credito = ""
     match_acta_credito = re.search(
         r'(?:A\.?C\.?S\.?|APERTURA\s+DE\s+CREDITO|MUTUO|CREDITO\s+HIPOTECARIO|OTORGAMIENTO\s+DE\s+CREDITO)(.*?)(?=GRAVAMENES|ANTECEDENTE|VOLANTE|C\.V\.|$)',
@@ -417,15 +497,18 @@ def extraer_datos_pdf(ruta_pdf):
                 break
 
     # 7. FECHA DE LIQUIDACIÓN / PAGO
-    match_fecha_pago = re.search(r'(?:saldo\s+deudor.*?:?|a\s+partir\s+de|liquidad[oa]\s+el|pagad[oa]\s+el|fecha\s+de\s+pago)[:\s]*(\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})', texto_completo, re.IGNORECASE)
+    match_fecha_pago = re.search(r'(?:saldo\s+deudor.*?:?|a\s+partir\s+de|liquidad[oa]\s+el|pagad[oa]\s+el|fecha\s+de\s+pago)[:\s]*([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4}|[0-9]{1,2}[/\-][0-9]{1,2}[/\-][0-9]{2,4}|[A-ZÁÉÍÓÚÑ\s]+DÍAS?[^,\.]*)', texto_completo, re.IGNORECASE)
     if match_fecha_pago:
-        datos["fecha_liquidacion"] = match_fecha_pago.group(1).strip()
+        raw_pago = match_fecha_pago.group(1).strip()
+        limpia_pago = convertir_fecha_texto(raw_pago)
+        if limpia_pago and limpia_pago != "NO_ENCONTRADO":
+            datos["fecha_liquidacion"] = limpia_pago
     else:
         fechas = re.findall(r'(\d{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+\d{4})', texto_completo, re.IGNORECASE)
         if len(fechas) > 1:
-            datos["fecha_liquidacion"] = fechas[1].strip()
+            datos["fecha_liquidacion"] = convertir_fecha_texto(fechas[1].strip())
         elif fechas:
-            datos["fecha_liquidacion"] = fechas[0].strip()
+            datos["fecha_liquidacion"] = convertir_fecha_texto(fechas[0].strip())
 
     # 8. OFICINA REGISTRAL Y UBICACIÓN DEL INMUEBLE
     datos["oficina_registral"] = extraer_oficina_registral(texto_completo)
@@ -436,11 +519,7 @@ def extraer_datos_pdf(ruta_pdf):
     datos["genero"] = genero
     datos["estado_civil"] = estado_civil
 
-    # ════════════════════════════════════════════════════════════════════════
-    # 10. EXTRACCIÓN ROBUSTA Y DIRECTA DE ANTECEDENTES (ESCRITURA, FECHA, NOTARIO, CÓNYUGE)
-    # ════════════════════════════════════════════════════════════════════════
-
-    # A. Número de Escritura
+    # 10. ANTECEDENTES (ESCRITURA, FECHA, NOTARIO, CÓNYUGE)
     patrones_escritura = [
         r'(?:ESCRITURA|INSTRUMENTO)\s+(?:P[uú]blica\s+)?(?:N[oº°]|NÚM[EÉ]RO|NUMERO|NO)\.?\s*([0-9,\.]+)',
         r'escritura\s+p[uú]blica\s+([0-9,\.]+)',
@@ -454,24 +533,24 @@ def extraer_datos_pdf(ruta_pdf):
                 datos["numero_escritura"] = val_esc
                 break
 
-    # B. Fecha de Escritura (Validación estricta de dígitos numéricos)
+    # B. Fecha de Escritura (Soporta número, romanos y texto redactado)
     patrones_fecha = [
         r'de\s+fecha\s+([0-9]{1,2}[-/][0-9A-Za-z]+[-/][0-9]{4})',
         r'de\s+fecha\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})',
         r'fecha\s+([0-9]{1,2}[-/][0-9A-Za-z]+[-/][0-9]{4})',
-        r'fecha\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})'
+        r'fecha\s+([0-9]{1,2}\s+de\s+[a-zA-ZÁÉÍÓÚáéíóú]+\s+de\s+[0-9]{4})',
+        r'de\s+fecha\s+([A-ZÁÉÍÓÚÑ\s]+DÍAS?[^,\.]*)'
     ]
     for pat in patrones_fecha:
         match_f_esc = re.search(pat, texto_limpio, re.IGNORECASE)
         if match_f_esc:
             fecha_bruta = match_f_esc.group(1).strip()
-            if any(char.isdigit() for char in fecha_bruta):
-                fecha_limpia = limpiar_fecha_escritura(fecha_bruta)
-                if fecha_limpia and len(fecha_limpia) > 4 and fecha_limpia.lower() not in ['l', 'no', 'no_encontrado']:
-                    datos["fecha_escritura"] = fecha_limpia
-                    break
+            fecha_limpia = limpiar_fecha_escritura(fecha_bruta)
+            if fecha_limpia and len(fecha_limpia) > 4 and fecha_limpia.lower() not in ['l', 'no', 'no_encontrado']:
+                datos["fecha_escritura"] = fecha_limpia
+                break
 
-    # C. Notario de Origen Completo (Usando la función robusta global)
+    # C. Notario de Origen Completo
     datos["notario_origen_completo"] = extraer_notario_robusto(texto_limpio)
 
     # D. Si tiene cónyuge (Sí/No)
@@ -613,7 +692,7 @@ def generar_word_cancelacion(ruta_plantilla, datos, ruta_salida):
         "{{folio_real}}": folio_limpio,
         "{folio_real}": folio_limpio,
 
-        "{{ oficina_registral }}": obtener_valor("oficina_registral"),
+        "{{ oficina_registral }}": obtener_valore("oficina_registral") if 'obtener_valore' in globals() else obtener_valor("oficina_registral"),
         "{{oficina_registral}}": obtener_valor("oficina_registral"),
         "{oficina_registral}": obtener_valor("oficina_registral"),
 
