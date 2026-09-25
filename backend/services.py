@@ -387,13 +387,17 @@ def extraer_datos_pdf(ruta_pdf):
                     datos["fecha_escritura"] = fecha_limpia
                     break
 
-    # C. Notario de Origen Completo (Sin "Lic.", captura nombre completo, número y jurisdicción)
+    # C. Notario de Origen Completo (Soporta "NOTIARIO" con errata, nombres con comas, sin "Lic.")
     patrones_notario = [
-        r'(?:notario\s+p[uú]blico|notiario\s+p[uú]blico)\s+(?:lic\.\s*|licenciado\s*)?([A-ZÁÉÍÓÚÑ\s\.]+?)\s+(?:n[uú]m[eé]ro|no\.?)\s*([0-9A-Z]+)\s+del?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s+en\s+la|\s+con\s+residencia|\s+con\s+resicencia|\s+en\s+la\s+que|\s+consta|\.|$)',
-        r'(?:lic\.\s*|licenciado\s*)?([A-ZÁÉÍÓÚÑ\s\.]+?)\s*,\s*(?:notario\s+p[uú]blico|notiario\s+p[uú]blico)\s+(?:n[uú]m[eé]ro|no\.?)\s*([0-9A-Z]+)\s+del?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s+en\s+la|\s+con\s+residencia|\s+con\s+resicencia|\s+en\s+la\s+que|\s+consta|\.|$)',
-        r'(?:notario\s+p[uú]blico|notiario\s+p[uú]blico)\s+(?:n[uú]m[eé]ro|no\.?)\s*([0-9]+)\s+del?\s+([A-ZÁÉÍÓÚÑ\s]+?)\s*,\s*(?:lic\.\s*|licenciado\s*)?([A-ZÁÉÍÓÚÑ\s\.]+?)(?=\s+en\s+la|\s+con\s+residencia|\s+con\s+resicencia|\s+en\s+la\s+que|\s+consta|\.|$)'
+        # Formato Leticia: LIC. NOMBRE, NOTIARIO PÚBLICO NO. NUM DE JURISDICCION
+        r'(?:LIC\.|LICENCIADO)?\s*([A-ZÁÉÍÓÚÑ\s\.]+?)\s*,\s*NOTI?ARIO\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)\s*([0-9A-Z]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+EN\s+LA|\s+CON\s+RES|\.|$)',
+        # Formato María Idalia: NOTARIO PUBLICO LIC. NOMBRE NUMERO NUM DE JURISDICCION
+        r'NOTI?ARIO\s+P[UÚ]BLICO\s+(?:LIC\.\s*|LICENCIADO\s*)?([A-ZÁÉÍÓÚÑ\s\.]+?)\s+(?:N[UÚ]M[EÉ]RO|NO\.?)\s*([0-9A-Z]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+EN\s+LA|\s+CON\s+RES|\.|$)',
+        # Formato alternativo con número primero
+        r'NOTI?ARIO\s+P[UÚ]BLICO\s+(?:N[UÚ]M[EÉ]RO|NO\.?)\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)\s*,\s*(?:LIC\.|LICENCIADO\s*)?([A-ZÁÉÍÓÚÑ\s\.]+?)'
     ]
     
+    notario_encontrado = False
     for pat in patrones_notario:
         match_not = re.search(pat, texto_limpio, re.IGNORECASE)
         if match_not:
@@ -413,6 +417,7 @@ def extraer_datos_pdf(ruta_pdf):
                 
                 if len(posible_nombre) > 3 and posible_num:
                     datos["notario_origen_completo"] = f"{posible_nombre} notario público número {posible_num} de {posible_jur}"
+                    notario_encontrado = True
                     break
 
     # D. Si tiene cónyuge (Sí/No)
