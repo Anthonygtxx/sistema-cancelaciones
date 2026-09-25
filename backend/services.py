@@ -186,52 +186,71 @@ def extraer_notario_robusto(texto_limpio):
     texto_upper = texto_limpio.upper()
     candidatos_validos = []
 
-    # Lista ampliada de palabras prohibidas para eliminar ruido (como "PRIMER", "TESTIMONIO", etc.)
+    # Lista ampliada de palabras prohibidas (incluyendo ACTO, A.C.S., PRIMER, etc.)
     prohibidas = {
         "ESTADO", "MEXICO", "MÉXICO", "MUNICIPIO", "TOLUCA", "RESIDENCIA", "RESICENCIA", "PRESENTE", 
         "PODER", "REGISTRO", "OFICINA", "INMUEBLES", "PUBLICO", "PÚBLICO", "NOTARIO", "NOTIARIO", 
         "NOTARIA", "LIC", "LICENCIADO", "DE", "DEL", "LA", "LAS", "LOS", "Y", "A", "EN", "CON", 
         "FE", "ANTE", "PASADA", "TESTIMONIO", "ESCRITURA", "PUBLICA", "PÚBLICA", "NO", "QUE", "SE", "HIZO",
-        "PRIMER", "SEGUNDO", "TERCER", "INSTRUMENTO", "NUMERO", "NÚMERO", "VOLANTE", "CALIFICADOR", "VIGILANCIA"
+        "PRIMER", "SEGUNDO", "TERCER", "INSTRUMENTO", "NUMERO", "NÚMERO", "VOLANTE", "CALIFICADOR", "VIGILANCIA", "ACTO", "A.C.S"
     }
 
-    # Patrones flexibles para capturar diferentes formas en que viene redactado el notario de antecedentes
-    patrones = [
-        r'NOTI?AR[IÍ]O\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\s+EN\s+QUE|\.|$)',
-        r'NOTI?AR[IÍ]O\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)',
-        r'NOTAR[IÍ]A\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\.|$)'
+    # 1. Patrones directos anclados a expresiones comunes ("ante la fe del Lic.", etc.)
+    patrones_directos = [
+        r'(?:ANTE\s+LA\s+FE\s+(?:DEL?\s+)?)(?:LICENCIADO|LIC\.?\s+)?([A-ZÁÉÍÓÚÑ\s]{5,40}?)\s*,\s*NOTI?AR[IÍ]O\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)',
+        r'(?:LICENCIADO|LIC\.?)\s+([A-ZÁÉÍÓÚÑ\s]{5,40}?)\s*,?\s*NOTI?AR[IÍ]O\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)'
     ]
 
-    for pat in patrones:
-        for match_not in re.finditer(pat, texto_upper):
-            num_notaria = match_not.group(1).strip()
-            jurisdiccion = match_not.group(2).strip()
+    for pat in patrones_directos:
+        for match in re.finditer(pat, texto_upper):
+            posible_nombre = match.group(1).strip()
+            num_notaria = match.group(2).strip()
+            jurisdiccion = match.group(3).strip()
             jurisdiccion = re.sub(r'\s+(?:CON|RESIDENCIA|RESICENCIA|EN|DE).*$', '', jurisdiccion).strip()
             
-            # Extraer el bloque de texto anterior para encontrar el nombre del notario
-            inicio_pos = max(0, match_not.start() - 220)
-            bloque_anterior = texto_upper[inicio_pos:match_not.start()]
-            
-            palabras = re.findall(r'\b[A-ZÁÉÍÓÚÑ]{3,}\b', bloque_anterior)
-            palabras_validas = []
-            
-            for p in reversed(palabras):
-                if p not in prohibidas and not p.isdigit():
-                    palabras_validas.insert(0, p)
-                    if len(palabras_validas) >= 4:  # Captura hasta 4 palabras del nombre completo
-                        break
-            
-            if palabras_validas:
-                nombre_notario = " ".join(palabras_validas)
-                # FILTRO ESTRICTO: Ignorar completamente a Juan Carlos
-                if "JUAN CARLOS" not in nombre_notario.upper():
+            palabras_n = [p for p in posible_nombre.split() if p not in prohibidas and len(p) > 1]
+            if palabras_n:
+                nombre_limpio = " ".join(palabras_n)
+                if "JUAN CARLOS" not in nombre_limpio.upper():
                     candidatos_validos.append({
-                        "pos": match_not.start(),
-                        "texto": f"{nombre_notario} notario público número {num_notaria} de {jurisdiccion.lower()}"
+                        "pos": match.start(),
+                        "texto": f"{nombre_limpio} notario público número {num_notaria} de {jurisdiccion.lower()}"
                     })
 
+    # 2. Patrones de respaldo por proximidad si el formato difiere ligeramente en el otro expediente
+    if not candidatos_validos:
+        patrones_respaldo = [
+            r'NOTI?AR[IÍ]O\s+P[UÚ]BLICO\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\s+EN\s+QUE|\.|$)',
+            r'NOTI?AR[IÍ]O\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)',
+        ]
+        for pat in patrones_respaldo:
+            for match_not in re.finditer(pat, texto_upper):
+                num_notaria = match_not.group(1).strip()
+                jurisdiccion = match_not.group(2).strip()
+                jurisdiccion = re.sub(r'\s+(?:CON|RESIDENCIA|RESICENCIA|EN|DE).*$', '', jurisdiccion).strip()
+                
+                inicio_pos = max(0, match_not.start() - 220)
+                bloque_anterior = texto_upper[inicio_pos:match_not.start()]
+                
+                palabras = re.findall(r'\b[A-ZÁÉÍÓÚÑ]{3,}\b', bloque_anterior)
+                palabras_validas = []
+                
+                for p in reversed(palabras):
+                    if p not in prohibidas and not p.isdigit():
+                        palabras_validas.insert(0, p)
+                        if len(palabras_validas) >= 4:
+                            break
+                
+                if palabras_validas:
+                    nombre_notario = " ".join(palabras_validas)
+                    if "JUAN CARLOS" not in nombre_notario.upper():
+                        candidatos_validos.append({
+                            "pos": match_not.start(),
+                            "texto": f"{nombre_notario} notario público número {num_notaria} de {jurisdiccion.lower()}"
+                        })
+
     if candidatos_validos:
-        # Ordenar por posición en el documento y retornar el último (el de los antecedentes abajo)
+        # Ordenar por posición y retornar el último (el de abajo / antecedentes)
         candidatos_validos.sort(key=lambda x: x["pos"])
         return candidatos_validos[-1]["texto"]
 
