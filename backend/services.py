@@ -119,18 +119,23 @@ def convertir_fecha_texto(texto_fecha):
         'VII': '07', 'VIII': '08', 'IX': '09', 'X': '10', 'XI': '11', 'XII': '12'
     }
 
+    meses_num_map = {
+        "01": "enero", "02": "febrero", "03": "marzo", "04": "abril", "05": "mayo", "06": "junio",
+        "07": "julio", "08": "agosto", "09": "septiembre", "10": "octubre", "11": "noviembre", "12": "diciembre"
+    }
+
     m_rom = re.search(r'(\d{1,2})[-/]([I|V|X]+)[-/](\d{2,4})', texto_upper)
     if m_rom:
-        dia = m_rom.group(1).zfill(2)
+        dia_num = int(m_rom.group(1))
         romano = m_rom.group(2).upper()
-        anio = m_rom.group(3)
-        if len(anio) == 2:
-            anio = "20" + anio if int(anio) < 50 else "19" + anio
+        anio_num = m_rom.group(3)
+        if len(anio_num) == 2:
+            anio_num = "20" + anio_num if int(anio_num) < 50 else "19" + anio_num
         mes_num = romanos.get(romano)
-        if mes_num and mes_num in meses:
-            meses_num_map = {"01": "enero", "02": "febrero", "03": "marzo", "04": "abril", "05": "mayo", "06": "junio",
-                               "07": "julio", "08": "agosto", "09": "septiembre", "10": "octubre", "11": "noviembre", "12": "diciembre"}
-            return f"{int(dia)} de {meses_num_map[mes_num]} de {anio}"
+        if mes_num and mes_num in meses_num_map:
+            dia_letra = numero_a_palabras_generico(dia_num).lower()
+            anio_letra = numero_a_palabras_generico(int(anio_num)).lower()
+            return f"{dia_letra} de {meses_num_map[mes_num]} de {anio_letra}"
 
     match_num = re.search(r'(\d{1,2})[/\.-](\d{1,2})[/\.-](\d{2,4})', texto_upper)
     if match_num:
@@ -138,10 +143,10 @@ def convertir_fecha_texto(texto_fecha):
         if len(y) == 2:
             y = "20" + y if int(y) < 50 else "19" + y
         mes_key = f"{int(m):02d}"
-        meses_num_map = {"01": "enero", "02": "febrero", "03": "marzo", "04": "abril", "05": "mayo", "06": "junio",
-                           "07": "julio", "08": "agosto", "09": "septiembre", "10": "octubre", "11": "noviembre", "12": "diciembre"}
         if mes_key in meses_num_map and 1 <= int(d) <= 31:
-            return f"{int(d)} de {meses_num_map[mes_key]} de {y}"
+            dia_letra = numero_a_palabras_generico(int(d)).lower()
+            anio_letra = numero_a_palabras_generico(int(y)).lower()
+            return f"{dia_letra} de {meses_num_map[mes_key]} de {anio_letra}"
 
     numeros_palabras = {
         "UN": 1, "UNO": 1, "PRIMER": 1, "PRIMERO": 1, "DOS": 2, "TRES": 3, "CUATRO": 4, "CINCO": 5,
@@ -194,15 +199,17 @@ def convertir_fecha_texto(texto_fecha):
     dia_num = None
     match_dia_digito = re.search(r'\b(0?[1-9]|[12]\d|3[01])\b', texto_upper)
     if match_dia_digito:
-        dia_num = match_dia_digito.group(1)
+        dia_num = int(match_dia_digito.group(1))
     else:
         for palabra, num in sorted(numeros_palabras.items(), key=lambda x: len(x[0]), reverse=True):
             if re.search(r'\b' + palabra + r'\b', texto_upper):
-                dia_num = str(num)
+                dia_num = num
                 break
 
     if dia_num and mes_encontrado and anio_num:
-        return f"{int(dia_num)} de {mes_encontrado} de {anio_num}"
+        dia_letra = numero_a_palabras_generico(dia_num).lower()
+        anio_letra = numero_a_palabras_generico(int(anio_num)).lower()
+        return f"{dia_letra} de {mes_encontrado} de {anio_letra}"
 
     return texto_fecha
 
@@ -400,11 +407,19 @@ def extraer_notario_robusto(texto_limpio, texto_completo=""):
                     continue
                 
                 num_notaria_letra = numero_a_palabras_generico(num_notaria).lower()
-                num_notaria_fmt = f"{num_notaria} ({num_notaria_letra})"
+                
+                # Detectar procedencia (Estado de México o Ciudad de México)
+                jurisdiccion_lower = jurisdiccion.lower()
+                if "méxico" in jurisdiccion_lower or "mexico" in jurisdiccion_lower:
+                    jur_fmt = "del estado de méxico"
+                elif "federal" in jurisdiccion_lower or "ciudad" in jurisdiccion_lower:
+                    jur_fmt = "de la ciudad de méxico"
+                else:
+                    jur_fmt = f"de {jurisdiccion_lower}"
 
                 candidatos_validos.append({
                     "pos": match.start(),
-                    "texto": f"{nombre_limpio} notario público número {num_notaria_fmt} de {jurisdiccion.lower()}"
+                    "texto": f"{nombre_limpio} notario público número {num_notaria_letra} {jur_fmt}"
                 })
 
     if not [c for c in candidatos_validos if "JUAN CARLOS" not in c["texto"].upper()]:
@@ -431,11 +446,17 @@ def extraer_notario_robusto(texto_limpio, texto_completo=""):
                     continue
                 
                 num_notaria_letra = numero_a_palabras_generico(num_notaria).lower()
-                num_notaria_fmt = f"{num_notaria} ({num_notaria_letra})"
+                jurisdiccion_lower = jurisdiccion.lower()
+                if "méxico" in jurisdiccion_lower or "mexico" in jurisdiccion_lower:
+                    jur_fmt = "del estado de méxico"
+                elif "federal" in jurisdiccion_lower or "ciudad" in jurisdiccion_lower:
+                    jur_fmt = "de la ciudad de méxico"
+                else:
+                    jur_fmt = f"de {jurisdiccion_lower}"
 
                 candidatos_validos.append({
                     "pos": match_not.start(),
-                    "texto": f"{nombre_notario} notario público número {num_notaria_fmt} de {jurisdiccion.lower()}"
+                    "texto": f"{nombre_notario} notario público número {num_notaria_letra} {jur_fmt}"
                 })
 
     candidatos_validos = [c for c in candidatos_validos if "JUAN CARLOS" not in c["texto"].upper()]
@@ -536,7 +557,7 @@ def extraer_datos_pdf(ruta_pdf):
                 datos["fecha_expedicion"] = limpia_exp
                 break
 
-    # 3. MONTO DEL CRÉDITO Y VSM (CONVERSIÓN EXACTA A LETRAS)
+    # 3. MONTO DEL CRÉDITO Y VSM (SOLO LETRAS, SIN NÚMEROS ADJUNTOS)
     texto_credito = ""
     match_acta_credito = re.search(
         r'(?:A\.?C\.?S\.?|APERTURA\s+DE\s+CREDITO|MUTUO|CREDITO\s+HIPOTECARIO|OTORGAMIENTO\s+DE\s+CREDITO)(.*?)(?=GRAVAMENES|ANTECEDENTE|VOLANTE|C\.V\.|$)',
@@ -551,8 +572,7 @@ def extraer_datos_pdf(ruta_pdf):
     match_vsm = re.search(r'([\d,]+\.?\d*)\s*(?:VECES\s+EL\s+SALARIO|V\.?S\.?M\.?|VSM)', texto_credito, re.IGNORECASE)
     if match_vsm:
         raw_vsm = match_vsm.group(1).replace(",", "").strip()
-        vsm_letra = numero_a_palabras_generico(raw_vsm).lower()
-        datos["credito_a_salario"] = f"{raw_vsm} ({vsm_letra})"
+        datos["credito_a_salario"] = numero_a_palabras_generico(raw_vsm).lower()
 
     match_monto_cred = re.search(
         r'(?:IMPORTE\s+(?:DE\s+LA\s+OBLIGACION\s+GARANTIZADA|DEL\s+CREDITO)?[:\s]*|CANTIDAD\s+DE\s*|CRÉDITO\s+HASTA\s+POR\s+LA\s+CANTIDAD\s+DE\s*)\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?)',
@@ -576,8 +596,7 @@ def extraer_datos_pdf(ruta_pdf):
             if datos["credito_a_salario"] == "NO_ENCONTRADO":
                 veces_salario = num / SALARIO_MINIMO_MENSUAL_DF
                 veces_salario_str = f"{veces_salario:.4f}".rstrip('0').rstrip('.')
-                vsm_letra = numero_a_palabras_generico(veces_salario_str).lower()
-                datos["credito_a_salario"] = f"{veces_salario_str} ({vsm_letra})"
+                datos["credito_a_salario"] = numero_a_palabras_generico(veces_salario_str).lower()
         except Exception:
             datos["monto_credito"] = monto_raw
             datos["monto_credito_letras"] = monto_raw
@@ -592,7 +611,7 @@ def extraer_datos_pdf(ruta_pdf):
     elif "BANORTE" in texto_limpio.upper():
         datos["entidad_financiera"] = "BANORTE"
 
-    # 5. FOLIO REAL ELECTRÓNICO (CON NÚMERO Y LETRA EXACTA)
+    # 5. FOLIO REAL ELECTRÓNICO (SOLO LETRAS)
     match_folio = re.search(r'(?:FOLIO\s+REAL\s+ELECTRÓNICO\s+NUMERO|FOLIO\s+REAL\s+ELECTRÓNICO|FOLIO\s+ELECTRÓNICO)[:\s#]*([0-9A-Z\-]{4,15})', texto_limpio, re.IGNORECASE)
     if not match_folio:
         match_folio = re.search(r'(?:Folio\s*Real|Antecedente|F\.R\.|F\.E\.)[:\s#]*([0-9A-Z\-]{4,15})', texto_limpio, re.IGNORECASE)
@@ -601,8 +620,7 @@ def extraer_datos_pdf(ruta_pdf):
         if val.lower() not in ['sreales', 'real', 'registral', 'electronico', 'numero']:
             folio_limpio = limpiar_ceros_izquierda(val)
             if folio_limpio.isdigit():
-                folio_letra = numero_a_palabras_generico(folio_limpio).lower()
-                datos["folio_real"] = f"{folio_limpio} ({folio_letra})"
+                datos["folio_real"] = numero_a_palabras_generico(folio_limpio).lower()
             else:
                 datos["folio_real"] = folio_limpio
 
@@ -648,7 +666,7 @@ def extraer_datos_pdf(ruta_pdf):
     datos["genero"] = genero
     datos["estado_civil"] = estado_civil
 
-    # 10. ANTECEDENTES (NÚMERO DE ESCRITURA CON LETRA)
+    # 10. ANTECEDENTES (NÚMERO DE ESCRITURA SOLO EN LETRAS)
     patrones_escritura = [
         r'(?:ESCRITURA|INSTRUMENTO)\s+(?:P[uú]blica\s+)?(?:N[oº°]|NÚM[EÉ]RO|NUMERO|NO)\.?\s*([0-9,\.]+)',
         r'escritura\s+p[uú]blica\s+([0-9,\.]+)',
@@ -659,8 +677,7 @@ def extraer_datos_pdf(ruta_pdf):
         if match_esc:
             val_esc = match_esc.group(1).strip().rstrip(',').replace(',', '')
             if val_esc.isdigit():
-                esc_letra = numero_a_palabras_generico(val_esc).lower()
-                datos["numero_escritura"] = f"{val_esc} ({esc_letra})"
+                datos["numero_escritura"] = numero_a_palabras_generico(val_esc).lower()
                 break
 
     patrones_fecha = [
