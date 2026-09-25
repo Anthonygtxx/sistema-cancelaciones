@@ -186,24 +186,27 @@ def extraer_notario_robusto(texto_limpio):
     texto_upper = texto_limpio.upper()
     candidatos_validos = []
 
-    # Lista de palabras prohibidas para filtrar ruido y palabras legales comunes
+    # Lista ampliada de palabras prohibidas y ruido legal
     prohibidas = {
         "ESTADO", "MEXICO", "MÉXICO", "MUNICIPIO", "TOLUCA", "RESIDENCIA", "RESICENCIA", "PRESENTE", 
         "PODER", "REGISTRO", "OFICINA", "INMUEBLES", "PUBLICO", "PÚBLICO", "NOTARIO", "NOTIARIO", 
         "NOTARIA", "NOTARÍA", "LIC", "LICENCIADO", "DE", "DEL", "LA", "LAS", "LOS", "Y", "A", "EN", "CON", 
         "FE", "ANTE", "PASADA", "TESTIMONIO", "ESCRITURA", "PUBLICA", "PÚBLICA", "NO", "QUE", "SE", "HIZO",
         "PRIMER", "SEGUNDO", "TERCER", "INSTRUMENTO", "NUMERO", "NÚMERO", "VOLANTE", "CALIFICADOR", "VIGILANCIA", 
-        "ACTO", "A.C.S", "GENERAL", "DISTRITO", "FEDERAL", "JUZGADO", "TRIBUNAL"
+        "ACTO", "A.C.S", "GENERAL", "DISTRITO", "FEDERAL", "JUZGADO", "TRIBUNAL", "FECHA", "COMPRAVENTA"
     }
 
-    # Patrones globales amplios para capturar cualquier notario en expedientes de México
+    # Patrones flexibles (no dependen estrictamente de comas)
     patrones = [
-        r'(?:LICENCIADO|LIC\.?)\s+([A-ZÁÉÍÓÚÑ\s]{4,45}?)\s*,\s*(?:NOTI?AR[IÍ]O|NOTAR[IÍ]A)\s+(?:P[UÚ]BLIC[OA]\s+)?(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)',
-        r'(?:ANTE\s+LA\s+FE\s+(?:DEL?\s+)?)(?:LICENCIADO|LIC\.?\s+)?([A-ZÁÉÍÓÚÑ\s]{4,45}?)\s*,\s*(?:NOTI?AR[IÍ]O|NOTAR[IÍ]A)\s+(?:P[UÚ]BLIC[OA]\s+)?(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)',
-        r'(?:NOTI?AR[IÍ]O|NOTAR[IÍ]A)\s+(?:P[UÚ]BLIC[OA]\s+)?(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)'
+        # Patrón 1: Captura directa sin requerir coma (ej: NOTARIO PUBLICO [LIC.] [NOMBRE] NUMERO [X])
+        r'NOTI?AR[IÍ]O\s+P[UÚ]BLIC[OA]\s+(?:LICENCIADO|LIC\.?\s+)?([A-ZÁÉÍÓÚÑ\s]{4,45}?)\s+(?:N[UÚ]M[EÉ]RO|NO\.?)\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\s+QUE|\.|$)',
+        # Patrón 2: Con ante la fe del / comas
+        r'(?:ANTE\s+LA\s+FE\s+(?:DEL?\s+)?)(?:LICENCIADO|LIC\.?\s+)?([A-ZÁÉÍÓÚÑ\s]{4,45}?)\s*,?\s*NOTI?AR[IÍ]O\s+P[UÚ]BLIC[OA]\s+(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\.|$)',
+        # Patrón 3: Búsqueda por número de notaría genérico
+        r'NOTI?AR[IÍ]O\s+(?:P[UÚ]BLIC[OA]\s+)?(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\s+EN\s+QUE|\.|$)'
     ]
 
-    # 1. Búsqueda con nombre explícito
+    # 1. Búsqueda con nombre explícito (Patrones 1 y 2)
     for pat in patrones[:2]:
         for match in re.finditer(pat, texto_upper):
             posible_nombre = match.group(1).strip()
@@ -214,15 +217,19 @@ def extraer_notario_robusto(texto_limpio):
             palabras_n = [p for p in posible_nombre.split() if p not in prohibidas and len(p) > 1 and not p.isdigit()]
             if palabras_n:
                 nombre_limpio = " ".join(palabras_n)
+                
+                # FILTRO ESTRICTO: Bloquear completamente a Juan Carlos
+                if "JUAN CARLOS" in nombre_limpio.upper():
+                    continue
+                    
                 candidatos_validos.append({
                     "pos": match.start(),
                     "texto": f"{nombre_limpio} notario público número {num_notaria} de {jurisdiccion.lower()}"
                 })
 
-    # 2. Búsqueda genérica por proximidad si el formato varía
-    if not candidatos_validos:
-        patron_generico = r'(?:NOTI?AR[IÍ]O|NOTAR[IÍ]A)\s+(?:P[UÚ]BLIC[OA]\s+)?(?:NO\.?|N[UÚ]M[EÉ]RO)?\s*([0-9]+)\s+DEL?\s+([A-ZÁÉÍÓÚÑ\s]+?)(?=\s*,|\s+CON\s+RES|\s+EN\s+LA|\s+EN\s+QUE|\.|$)'
-        for match_not in re.finditer(patron_generico, texto_upper):
+    # 2. Búsqueda de respaldo por proximidad (Patrón 3) si no encontró nombre explícito
+    if not [c for c in candidatos_validos if "JUAN CARLOS" not in c["texto"].upper()]:
+        for match_not in re.finditer(patrones[2], texto_upper):
             num_notaria = match_not.group(1).strip()
             jurisdiccion = match_not.group(2).strip()
             jurisdiccion = re.sub(r'\s+(?:CON|RESIDENCIA|RESICENCIA|EN|DE).*$', '', jurisdiccion).strip()
@@ -241,23 +248,22 @@ def extraer_notario_robusto(texto_limpio):
             
             if palabras_validas:
                 nombre_notario = " ".join(palabras_validas)
+                if "JUAN CARLOS" in nombre_notario.upper():
+                    continue
+                    
                 candidatos_validos.append({
                     "pos": match_not.start(),
                     "texto": f"{nombre_notario} notario público número {num_notaria} de {jurisdiccion.lower()}"
                 })
 
+    # Limpieza final absoluta de cualquier rastro de Juan Carlos
+    candidatos_validos = [c for c in candidatos_validos if "JUAN CARLOS" not in c["texto"].upper()]
+
     if candidatos_validos:
-        # Ordenar por posición en el documento
+        # Ordenar por posición y retornar el último (el antecedente de abajo)
         candidatos_validos.sort(key=lambda x: x["pos"])
-        
-        # Si hay múltiples menciones (ej. carta arriba y antecedente abajo), 
-        # y la primera es Juan Carlos, devolvemos la última (el antecedente registral).
-        if len(candidatos_validos) > 1 and "JUAN CARLOS" in candidatos_validos[0]["texto"].upper():
-            return candidatos_validos[-1]["texto"]
-            
         return candidatos_validos[-1]["texto"]
 
-    # Si de plano no encuentra ningún nombre, retorna NO_ENCONTRADO para edición manual en el UI
     return "NO_ENCONTRADO"
 
 def extraer_datos_pdf(ruta_pdf):
