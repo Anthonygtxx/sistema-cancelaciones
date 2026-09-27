@@ -1277,6 +1277,8 @@ const filteredHistorial = (historial || []).filter((item) => {
       backgroundColor: theme.bg,
       color: theme.textPrimary,
       minHeight: '100vh',
+      width: '100%',
+      maxWidth: '100%',
       margin: 0,
       padding: '24px 16px',
       boxSizing: 'border-box',
