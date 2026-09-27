@@ -1388,7 +1388,7 @@ const filteredHistorial = (historial || []).filter((item) => {
           </div>
         </div>
       ) : (
-        <div className="fade-in" style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+        <div className="fade-in" style={{ width: '100%', maxWidth: '100%', margin: '0', padding: '0 24px', boxSizing: 'border-box' }}>
           
           {/* Encabezado Principal */}
           <header style={{ borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
