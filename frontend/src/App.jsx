@@ -1374,51 +1374,54 @@ const filteredHistorial = (historial || []).filter((item) => {
         }}>
           
           {/* Encabezado Principal */}
-          <header style={{ borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-            <div>
-              <h1 style={{ color: theme.textPrimary, margin: '0 0 6px 0', fontSize: '24px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center' }}>
-                  <FileText color={theme.accent} size={24} />
-                </div> 
-                Sistema de Cancelación de Hipotecas
-              </h1>
-              <p style={{ color: theme.textSecondary, margin: 0, fontSize: '14px' }}>
-                Gestión individualizada de expedientes notariales
-              </p>
-            </div>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <button 
-                onClick={toggleTheme} 
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, color: theme.textPrimary, padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
-              >
-                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-                {isDarkMode ? 'Claro' : 'Oscuro'}
-              </button>
+<header style={{ borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+  <div>
+    <h1 style={{ color: theme.textPrimary, margin: '0 0 4px 0', fontSize: '22px', fontWeight: '700', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center' }}>
+        <FileText color={theme.accent} size={24} />
+      </div> 
+      Sistema de Cancelación de Hipotecas
+    </h1>
+    <p style={{ color: theme.textSecondary, margin: 0, fontSize: '13px', fontWeight: '500' }}>
+      Gestión individualizada de expedientes notariales
+    </p>
+  </div>
+  
+  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+    <button 
+      onClick={toggleTheme} 
+      className="pulse-hover"
+      style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, color: theme.textPrimary, padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
+    >
+      {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+      {isDarkMode ? 'Claro' : 'Oscuro'}
+    </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.subtleBg, padding: '6px 14px 6px 6px', borderRadius: '40px', border: `1px solid ${theme.border}` }}>
-                <div style={{ backgroundColor: theme.accent, color: '#fff', width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '15px' }}>
-                  {currentUser?.username?.charAt(0).toUpperCase()}
-                </div>
-                <div style={{ textAlign: 'left', paddingRight: '4px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>{currentUser?.username}</div>
-                  <div style={{ fontSize: '11px', color: theme.textSecondary, textTransform: 'uppercase' }}>{currentUser?.role || (currentUser?.es_admin ? 'admin' : 'operador')}</div>
-                </div>
-              </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.subtleBg, padding: '6px 14px 6px 6px', borderRadius: '40px', border: `1px solid ${theme.border}` }}>
+      <div style={{ backgroundColor: theme.accent, color: '#fff', width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '15px' }}>
+        {currentUser?.username?.charAt(0).toUpperCase()}
+      </div>
+      <div style={{ textAlign: 'left', paddingRight: '4px' }}>
+        <div style={{ fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>{currentUser?.username}</div>
+        <div style={{ fontSize: '11px', color: theme.textSecondary, textTransform: 'uppercase' }}>{currentUser?.role || (currentUser?.es_admin ? 'admin' : 'operador')}</div>
+      </div>
+    </div>
 
-              <button
-                onClick={() => setShowLogoutModal(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: isDarkMode ? '#450a0a' : '#fff1f2', color: '#dc2626', border: '1px solid #fecdd3', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
-              >
-                <LogOut size={16} /> Salir
-              </button>
-            </div>
-          </header>
+    <button
+      onClick={() => setShowLogoutModal(true)}
+      className="pulse-hover"
+      style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: isDarkMode ? '#450a0a' : '#fff1f2', color: '#dc2626', border: '1px solid #fecdd3', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
+    >
+      <LogOut size={16} /> Salir
+    </button>
+  </div>
+</header>
 
 {/* NAVEGACIÓN TABS */}
 <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '16px', flexWrap: 'wrap' }}>
   <button
     onClick={() => setActiveTab('single')}
+    className="pulse-hover"
     style={{
       padding: '10px 18px',
       borderRadius: '10px',
@@ -1430,7 +1433,8 @@ const filteredHistorial = (historial || []).filter((item) => {
       cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px'
+      gap: '8px',
+      transition: 'background-color 0.2s ease'
     }}
   >
     <FileText size={16} /> Caso Individual
@@ -1438,6 +1442,7 @@ const filteredHistorial = (historial || []).filter((item) => {
 
   <button
     onClick={() => setActiveTab('batch')}
+    className="pulse-hover"
     style={{
       padding: '10px 18px',
       borderRadius: '10px',
@@ -1449,15 +1454,16 @@ const filteredHistorial = (historial || []).filter((item) => {
       cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px'
+      gap: '8px',
+      transition: 'background-color 0.2s ease'
     }}
   >
     <FolderPlus size={16} /> Carga Masiva (PDFs)
   </button>
 
-  {/* --- NUEVA PESTAÑA: CAPTURA MANUAL --- */}
   <button
     onClick={() => setActiveTab('manual')}
+    className="pulse-hover"
     style={{
       padding: '10px 18px',
       borderRadius: '10px',
@@ -1469,15 +1475,16 @@ const filteredHistorial = (historial || []).filter((item) => {
       cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px'
+      gap: '8px',
+      transition: 'background-color 0.2s ease'
     }}
   >
     <Edit3 size={16} /> Captura Manual
   </button>
 
-  {/* --- NUEVA PESTAÑA: CARGA EXCEL --- */}
   <button
     onClick={() => setActiveTab('excel')}
+    className="pulse-hover"
     style={{
       padding: '10px 18px',
       borderRadius: '10px',
@@ -1489,7 +1496,8 @@ const filteredHistorial = (historial || []).filter((item) => {
       cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px'
+      gap: '8px',
+      transition: 'background-color 0.2s ease'
     }}
   >
     <FileSpreadsheet size={16} /> Carga Excel / Lote
@@ -1497,6 +1505,7 @@ const filteredHistorial = (historial || []).filter((item) => {
 
   <button
     onClick={() => setActiveTab('history')}
+    className="pulse-hover"
     style={{
       padding: '10px 18px',
       borderRadius: '10px',
@@ -1508,7 +1517,8 @@ const filteredHistorial = (historial || []).filter((item) => {
       cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
-      gap: '8px'
+      gap: '8px',
+      transition: 'background-color 0.2s ease'
     }}
   >
     <History size={16} /> Mi Historial
@@ -1518,6 +1528,7 @@ const filteredHistorial = (historial || []).filter((item) => {
     <>
       <button
         onClick={() => setActiveTab('users')}
+        className="pulse-hover"
         style={{
           padding: '10px 18px',
           borderRadius: '10px',
@@ -1529,7 +1540,8 @@ const filteredHistorial = (historial || []).filter((item) => {
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px'
+          gap: '8px',
+          transition: 'background-color 0.2s ease'
         }}
       >
         <Users size={16} /> Usuarios
@@ -1537,6 +1549,7 @@ const filteredHistorial = (historial || []).filter((item) => {
 
       <button
         onClick={() => setActiveTab('templates')}
+        className="pulse-hover"
         style={{
           padding: '10px 18px',
           borderRadius: '10px',
@@ -1548,7 +1561,8 @@ const filteredHistorial = (historial || []).filter((item) => {
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px'
+          gap: '8px',
+          transition: 'background-color 0.2s ease'
         }}
       >
         <Settings size={16} /> Configuración Notarial
@@ -1559,7 +1573,7 @@ const filteredHistorial = (historial || []).filter((item) => {
 
 {/* NOTIFICACIÓN DE ERROR */}
 {error && (
-  <div style={{ backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2', borderLeft: '4px solid #ef4444', color: isDarkMode ? '#fca5a5' : '#991b1b', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+  <div className="slide-up" style={{ backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2', borderLeft: '4px solid #ef4444', color: isDarkMode ? '#fca5a5' : '#991b1b', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
     <AlertCircle size={20} />
     <span>{error}</span>
   </div>
