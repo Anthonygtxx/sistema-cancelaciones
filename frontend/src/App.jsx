@@ -1284,32 +1284,6 @@ const filteredHistorial = (historial || []).filter((item) => {
       boxSizing: 'border-box',
       transition: 'background-color 0.2s, color 0.2s'
     }}>
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in {
-          animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        input:focus, button:focus, select:focus {
-          outline: none;
-        }
-        ::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-          background: ${isDarkMode ? '#111827' : '#f1f5f9'};
-        }
-        ::-webkit-scrollbar-thumb {
-          background: ${isDarkMode ? '#374151' : '#cbd5e1'};
-          border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: ${isDarkMode ? '#4b5563' : '#94a3b8'};
-        }
-      `}</style>
 
       {isCheckingAuth ? (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg }}>
@@ -1319,8 +1293,9 @@ const filteredHistorial = (historial || []).filter((item) => {
           </div>
         </div>
       ) : !isAuthenticated ? (
-        <div className="fade-in" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: isDarkMode ? '#0b0f19' : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)' }}>
-          <div style={{ maxWidth: '420px', width: '100%', backgroundColor: theme.cardBg, padding: '40px 32px', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', border: `1px solid ${theme.border}` }}>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: isDarkMode ? '#0b0f19' : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)' }}>
+          {/* Tarjeta de login animada con la clase slide-up de index.css */}
+          <div className="slide-up" style={{ maxWidth: '420px', width: '100%', backgroundColor: theme.cardBg, padding: '40px 32px', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', border: `1px solid ${theme.border}` }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
               <button onClick={toggleTheme} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: theme.textSecondary }}>
                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
@@ -1378,6 +1353,7 @@ const filteredHistorial = (historial || []).filter((item) => {
 
                   <button
                     type="submit"
+                    className="pulse-hover"
                     style={{ width: '100%', backgroundColor: theme.accent, color: '#fff', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: '600', fontSize: '15px', cursor: 'pointer' }}
                   >
                     Ingresar a mi Perfil
