@@ -1280,7 +1280,7 @@ const filteredHistorial = (historial || []).filter((item) => {
       width: '100%',
       maxWidth: '100%',
       margin: 0,
-      padding: '24px 16px',
+      padding: 0,
       boxSizing: 'border-box',
       transition: 'background-color 0.2s, color 0.2s'
     }}>
@@ -1294,7 +1294,7 @@ const filteredHistorial = (historial || []).filter((item) => {
         </div>
       ) : !isAuthenticated ? (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: isDarkMode ? '#0b0f19' : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)' }}>
-          {/* Tarjeta de login animada con la clase slide-up de index.css */}
+          {/* Tarjeta de login animada */}
           <div className="slide-up" style={{ maxWidth: '420px', width: '100%', backgroundColor: theme.cardBg, padding: '40px 32px', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', border: `1px solid ${theme.border}` }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
               <button onClick={toggleTheme} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: theme.textSecondary }}>
@@ -1365,219 +1365,345 @@ const filteredHistorial = (historial || []).filter((item) => {
         </div>
       ) : (
         <div className="fade-in" style={{ 
-          width: '100%', 
-          minHeight: '100vh', 
-          margin: 0, 
-          padding: '24px 32px', 
-          boxSizing: 'border-box', 
-          backgroundColor: theme.bg 
+          display: 'flex',
+          minHeight: '100vh',
+          width: '100%',
+          backgroundColor: theme.bg
         }}>
           
-          {/* Encabezado Principal */}
-<header style={{ borderBottom: `1px solid ${theme.border}`, paddingBottom: '20px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-  <div>
-    <h1 style={{ color: theme.textPrimary, margin: '0 0 4px 0', fontSize: '22px', fontWeight: '700', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-      <div style={{ backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center' }}>
-        <FileText color={theme.accent} size={24} />
-      </div> 
-      Sistema de Cancelación de Hipotecas
-    </h1>
-    <p style={{ color: theme.textSecondary, margin: 0, fontSize: '13px', fontWeight: '500' }}>
-      Gestión individualizada de expedientes notariales
-    </p>
-  </div>
-  
-  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-    <button 
-      onClick={toggleTheme} 
-      className="pulse-hover"
-      style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: theme.subtleBg, border: `1px solid ${theme.border}`, color: theme.textPrimary, padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
-    >
-      {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-      {isDarkMode ? 'Claro' : 'Oscuro'}
-    </button>
+          {/* BARRA LATERAL (SIDEBAR) - DISEÑO HÍBRIDO */}
+          <aside style={{
+            width: '280px',
+            backgroundColor: theme.cardBg,
+            borderRight: `1px solid ${theme.border}`,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '24px 16px',
+            boxSizing: 'border-box',
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            overflowY: 'auto'
+          }}>
+            <div>
+              {/* Logo / Título del Sistema */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px', paddingLeft: '8px' }}>
+                <div style={{ backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center' }}>
+                  <FileText color={theme.accent} size={24} />
+                </div>
+                <div>
+                  <h1 style={{ color: theme.textPrimary, margin: '0 0 2px 0', fontSize: '16px', fontWeight: '700', letterSpacing: '-0.3px' }}>
+                    Cancelación de Hipotecas
+                  </h1>
+                  <p style={{ color: theme.textSecondary, margin: 0, fontSize: '11px', fontWeight: '500' }}>
+                    Gestión Notarial
+                  </p>
+                </div>
+              </div>
 
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: theme.subtleBg, padding: '6px 14px 6px 6px', borderRadius: '40px', border: `1px solid ${theme.border}` }}>
-      <div style={{ backgroundColor: theme.accent, color: '#fff', width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '15px' }}>
-        {currentUser?.username?.charAt(0).toUpperCase()}
-      </div>
-      <div style={{ textAlign: 'left', paddingRight: '4px' }}>
-        <div style={{ fontSize: '14px', fontWeight: '600', color: theme.textPrimary }}>{currentUser?.username}</div>
-        <div style={{ fontSize: '11px', color: theme.textSecondary, textTransform: 'uppercase' }}>{currentUser?.role || (currentUser?.es_admin ? 'admin' : 'operador')}</div>
-      </div>
-    </div>
+              {/* NAVEGACIÓN VERTICAL (TABS) */}
+              <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <button
+                  onClick={() => setActiveTab('single')}
+                  className="pulse-hover"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: activeTab === 'single' ? theme.accent : 'transparent',
+                    color: activeTab === 'single' ? '#fff' : theme.textSecondary,
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    textAlign: 'left',
+                    transition: 'background-color 0.2s ease, color 0.2s ease'
+                  }}
+                >
+                  <FileText size={18} /> Caso Individual
+                </button>
 
-    <button
-      onClick={() => setShowLogoutModal(true)}
-      className="pulse-hover"
-      style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: isDarkMode ? '#450a0a' : '#fff1f2', color: '#dc2626', border: '1px solid #fecdd3', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
-    >
-      <LogOut size={16} /> Salir
-    </button>
-  </div>
-</header>
+                <button
+                  onClick={() => setActiveTab('batch')}
+                  className="pulse-hover"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: activeTab === 'batch' ? theme.accent : 'transparent',
+                    color: activeTab === 'batch' ? '#fff' : theme.textSecondary,
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    textAlign: 'left',
+                    transition: 'background-color 0.2s ease, color 0.2s ease'
+                  }}
+                >
+                  <FolderPlus size={18} /> Carga Masiva (PDFs)
+                </button>
 
-{/* NAVEGACIÓN TABS */}
-<div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '16px', flexWrap: 'wrap' }}>
-  <button
-    onClick={() => setActiveTab('single')}
-    className="pulse-hover"
-    style={{
-      padding: '10px 18px',
-      borderRadius: '10px',
-      border: 'none',
-      backgroundColor: activeTab === 'single' ? theme.accent : theme.subtleBg,
-      color: activeTab === 'single' ? '#fff' : theme.textSecondary,
-      fontWeight: '600',
-      fontSize: '14px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      transition: 'background-color 0.2s ease'
-    }}
-  >
-    <FileText size={16} /> Caso Individual
-  </button>
+                <button
+                  onClick={() => setActiveTab('manual')}
+                  className="pulse-hover"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: activeTab === 'manual' ? theme.accent : 'transparent',
+                    color: activeTab === 'manual' ? '#fff' : theme.textSecondary,
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    textAlign: 'left',
+                    transition: 'background-color 0.2s ease, color 0.2s ease'
+                  }}
+                >
+                  <Edit3 size={18} /> Captura Manual
+                </button>
 
-  <button
-    onClick={() => setActiveTab('batch')}
-    className="pulse-hover"
-    style={{
-      padding: '10px 18px',
-      borderRadius: '10px',
-      border: 'none',
-      backgroundColor: activeTab === 'batch' ? theme.accent : theme.subtleBg,
-      color: activeTab === 'batch' ? '#fff' : theme.textSecondary,
-      fontWeight: '600',
-      fontSize: '14px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      transition: 'background-color 0.2s ease'
-    }}
-  >
-    <FolderPlus size={16} /> Carga Masiva (PDFs)
-  </button>
+                <button
+                  onClick={() => setActiveTab('excel')}
+                  className="pulse-hover"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: activeTab === 'excel' ? theme.accent : 'transparent',
+                    color: activeTab === 'excel' ? '#fff' : theme.textSecondary,
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    textAlign: 'left',
+                    transition: 'background-color 0.2s ease, color 0.2s ease'
+                  }}
+                >
+                  <FileSpreadsheet size={18} /> Carga Excel / Lote
+                </button>
 
-  <button
-    onClick={() => setActiveTab('manual')}
-    className="pulse-hover"
-    style={{
-      padding: '10px 18px',
-      borderRadius: '10px',
-      border: 'none',
-      backgroundColor: activeTab === 'manual' ? theme.accent : theme.subtleBg,
-      color: activeTab === 'manual' ? '#fff' : theme.textSecondary,
-      fontWeight: '600',
-      fontSize: '14px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      transition: 'background-color 0.2s ease'
-    }}
-  >
-    <Edit3 size={16} /> Captura Manual
-  </button>
+                <button
+                  onClick={() => setActiveTab('history')}
+                  className="pulse-hover"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: activeTab === 'history' ? theme.accent : 'transparent',
+                    color: activeTab === 'history' ? '#fff' : theme.textSecondary,
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    textAlign: 'left',
+                    transition: 'background-color 0.2s ease, color 0.2s ease'
+                  }}
+                >
+                  <History size={18} /> Mi Historial
+                </button>
 
-  <button
-    onClick={() => setActiveTab('excel')}
-    className="pulse-hover"
-    style={{
-      padding: '10px 18px',
-      borderRadius: '10px',
-      border: 'none',
-      backgroundColor: activeTab === 'excel' ? theme.accent : theme.subtleBg,
-      color: activeTab === 'excel' ? '#fff' : theme.textSecondary,
-      fontWeight: '600',
-      fontSize: '14px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      transition: 'background-color 0.2s ease'
-    }}
-  >
-    <FileSpreadsheet size={16} /> Carga Excel / Lote
-  </button>
+                {esAdmin && (
+                  <>
+                    <div style={{ height: '1px', backgroundColor: theme.border, margin: '12px 0' }} />
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: theme.textSecondary, textTransform: 'uppercase', paddingLeft: '14px', marginBottom: '4px', letterSpacing: '0.5px' }}>Administración</span>
+                    
+                    <button
+                      onClick={() => setActiveTab('users')}
+                      className="pulse-hover"
+                      style={{
+                        width: '100%',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        backgroundColor: activeTab === 'users' ? theme.accent : 'transparent',
+                        color: activeTab === 'users' ? '#fff' : theme.textSecondary,
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        textAlign: 'left',
+                        transition: 'background-color 0.2s ease, color 0.2s ease'
+                      }}
+                    >
+                      <Users size={18} /> Usuarios
+                    </button>
 
-  <button
-    onClick={() => setActiveTab('history')}
-    className="pulse-hover"
-    style={{
-      padding: '10px 18px',
-      borderRadius: '10px',
-      border: 'none',
-      backgroundColor: activeTab === 'history' ? theme.accent : theme.subtleBg,
-      color: activeTab === 'history' ? '#fff' : theme.textSecondary,
-      fontWeight: '600',
-      fontSize: '14px',
-      cursor: 'pointer',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      transition: 'background-color 0.2s ease'
-    }}
-  >
-    <History size={16} /> Mi Historial
-  </button>
+                    <button
+                      onClick={() => setActiveTab('templates')}
+                      className="pulse-hover"
+                      style={{
+                        width: '100%',
+                        padding: '12px 14px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        backgroundColor: activeTab === 'templates' ? theme.accent : 'transparent',
+                        color: activeTab === 'templates' ? '#fff' : theme.textSecondary,
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        textAlign: 'left',
+                        transition: 'background-color 0.2s ease, color 0.2s ease'
+                      }}
+                    >
+                      <Settings size={18} /> Configuración Notarial
+                    </button>
+                  </>
+                )}
+              </nav>
+            </div>
 
-  {esAdmin && (
-    <>
-      <button
-        onClick={() => setActiveTab('users')}
-        className="pulse-hover"
-        style={{
-          padding: '10px 18px',
-          borderRadius: '10px',
-          border: 'none',
-          backgroundColor: activeTab === 'users' ? theme.accent : theme.subtleBg,
-          color: activeTab === 'users' ? '#fff' : theme.textSecondary,
-          fontWeight: '600',
-          fontSize: '14px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          transition: 'background-color 0.2s ease'
-        }}
-      >
-        <Users size={16} /> Usuarios
-      </button>
+            {/* Footer de la Barra Lateral (Perfil y Tema) */}
+            <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ backgroundColor: theme.accent, color: '#fff', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '14px' }}>
+                    {currentUser?.username?.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: theme.textPrimary, maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser?.username}</div>
+                    <div style={{ fontSize: '10px', color: theme.textSecondary, textTransform: 'uppercase' }}>{currentUser?.role || (currentUser?.es_admin ? 'admin' : 'operador')}</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={toggleTheme} 
+                  className="pulse-hover"
+                  style={{ background: theme.subtleBg, border: `1px solid ${theme.border}`, color: theme.textPrimary, padding: '8px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title="Cambiar Tema"
+                >
+                  {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+                </button>
+              </div>
 
-      <button
-        onClick={() => setActiveTab('templates')}
-        className="pulse-hover"
-        style={{
-          padding: '10px 18px',
-          borderRadius: '10px',
-          border: 'none',
-          backgroundColor: activeTab === 'templates' ? theme.accent : theme.subtleBg,
-          color: activeTab === 'templates' ? '#fff' : theme.textSecondary,
-          fontWeight: '600',
-          fontSize: '14px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          transition: 'background-color 0.2s ease'
-        }}
-      >
-        <Settings size={16} /> Configuración Notarial
-      </button>
-    </>
-  )}
-</div>
+              <button
+                onClick={() => setShowLogoutModal(true)}
+                className="pulse-hover"
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: isDarkMode ? '#450a0a' : '#fff1f2', color: '#dc2626', border: '1px solid #fecdd3', padding: '10px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
+              >
+                <LogOut size={16} /> Cerrar Sesión
+              </button>
+            </div>
+          </aside>
 
-{/* NOTIFICACIÓN DE ERROR */}
-{error && (
-  <div className="slide-up" style={{ backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2', borderLeft: '4px solid #ef4444', color: isDarkMode ? '#fca5a5' : '#991b1b', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-    <AlertCircle size={20} />
-    <span>{error}</span>
-  </div>
-)}
+          {/* CONTENIDO PRINCIPAL */}
+          <main style={{ flex: 1, padding: '32px', boxSizing: 'border-box', overflowY: 'auto' }}>
+            
+            {/* NOTIFICACIÓN DE ERROR */}
+            {error && (
+              <div className="slide-up" style={{ backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2', borderLeft: '4px solid #ef4444', color: isDarkMode ? '#fca5a5' : '#991b1b', padding: '14px 18px', borderRadius: '10px', marginBottom: '24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <AlertCircle size={20} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* CONTENEDOR DE TARJETA PRINCIPAL */}
+            <div style={{ backgroundColor: theme.cardBg, borderRadius: '16px', border: `1px solid ${theme.border}`, padding: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+              {activeTab === 'single' && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Gestión de Caso Individual</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Complete los datos necesarios para procesar el expediente notarial individual.</p>
+                </div>
+              )}
+
+              {activeTab === 'batch' && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Carga Masiva de PDFs</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Procesamiento automatizado por lotes de documentos notariales.</p>
+                  <div style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '50px', textAlign: 'center', cursor: 'pointer' }}>
+                    <FolderPlus size={48} color={theme.accent} style={{ margin: '0 auto 16px auto', display: 'block' }} />
+                    <p style={{ margin: '0 0 6px 0', fontWeight: '600', fontSize: '15px', color: theme.textPrimary }}>Arrastre sus archivos PDF aquí o haga clic para explorar</p>
+                    <p style={{ margin: 0, fontSize: '13px', color: theme.textSecondary }}>Soporta múltiples archivos simultáneamente</p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'manual' && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Captura Manual de Expediente</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Formulario estructurado para registro directo de datos en el sistema.</p>
+                </div>
+              )}
+
+              {activeTab === 'excel' && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Carga por Lote (Excel)</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Importación masiva mediante archivo de hoja de cálculo estructurada.</p>
+                </div>
+              )}
+
+              {activeTab === 'history' && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Mi Historial de Trámites</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Consulta el registro y estatus de las solicitudes procesadas por su usuario.</p>
+                </div>
+              )}
+
+              {activeTab === 'users' && esAdmin && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Administración de Usuarios</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Control de permisos, roles y altas de operadores del sistema.</p>
+                </div>
+              )}
+
+              {activeTab === 'templates' && esAdmin && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Configuración Notarial</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Gestión de plantillas y parámetros predeterminados de la notaría.</p>
+                </div>
+              )}
+            </div>
+
+          </main>
+        </div>
+      )}
+
+      {/* MODAL DE CIERRE DE SESIÓN */}
+      {showLogoutModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div className="slide-up" style={{ backgroundColor: theme.cardBg, padding: '32px', borderRadius: '16px', maxWidth: '400px', width: '100%', border: `1px solid ${theme.border}`, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', textAlign: 'center' }}>
+            <div style={{ backgroundColor: isDarkMode ? '#450a0a' : '#fff1f2', width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
+              <LogOut color="#dc2626" size={28} />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', color: theme.textPrimary, fontSize: '20px', fontWeight: '700' }}>¿Cerrar sesión?</h3>
+            <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>¿Está seguro que desea salir del sistema de cancelación de hipotecas?</p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: theme.subtleBg, color: theme.textPrimary, fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleLogout}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', backgroundColor: '#dc2626', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
+              >
+                Sí, salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
  {/* TAB: CASO INDIVIDUAL */}
@@ -3239,5 +3365,3 @@ const filteredHistorial = (historial || []).filter((item) => {
 
         </div>
       )}
-    </div>
-  )};
