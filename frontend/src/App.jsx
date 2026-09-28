@@ -1567,7 +1567,6 @@ const filteredHistorial = (historial || []).filter((item) => {
                         transition: 'background-color 0.2s ease, color 0.2s ease'
                       }}
                     >
-                      <Settings size={18} /> Configuración Notarial
                     </button>
                   </>
                 )}
@@ -3247,9 +3246,6 @@ const filteredHistorial = (historial || []).filter((item) => {
             </div>
           )}
 
-{/* espacio para nuevas pestañas de el nav */}
-
-
             </div>
 
           </main>
@@ -3273,7 +3269,7 @@ const filteredHistorial = (historial || []).filter((item) => {
                 Cancelar
               </button>
               <button
-                onClick={handleLogout}
+                onClick={handleConfirmLogout}
                 style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', backgroundColor: '#dc2626', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
               >
                 Sí, salir
