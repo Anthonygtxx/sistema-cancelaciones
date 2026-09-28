@@ -71,8 +71,7 @@ def descargar_zip(
     db: Session = Depends(get_db)
 ):
     os.makedirs("uploads/zips", exist_ok=True)
-    ruta_zip = f"uploads/zips/Cancelaciones_Lote_{uuid.uuid4()}.uuid" # Usar un nombre único por petición evita colisiones si dos usuarios descargan al mismo tiempo
-    ruta_zip = "uploads/zips/Cancelaciones_Lote.zip" # O puedes mantener tu ruta estática si manejas UUIDs únicos
+    ruta_zip = "uploads/zips/Cancelaciones_Lote.zip"
     
     with zipfile.ZipFile(ruta_zip, 'w') as zipf:
         for exp_id in expediente_ids:
@@ -86,8 +85,8 @@ def descargar_zip(
                 nombre_archivo = os.path.basename(exp.ruta_word_generado)
                 zipf.write(exp.ruta_word_generado, arcname=nombre_archivo)
 
-    # Programar la tarea de limpieza para que borre el ZIP en cuanto termine la respuesta HTTP
-    background_tasks.add_task(eliminar_archivo_temporal, ruta_zip)
+    if background_tasks:
+        background_tasks.add_task(eliminar_archivo_temporal, ruta_zip)
 
     return FileResponse(
         path=ruta_zip,
@@ -103,19 +102,16 @@ def resolver_ruta_plantilla(nombre_o_clave: Optional[str]) -> str:
     if not nombre_o_clave:
         return os.path.join(TEMPLATES_DIR, "plantilla_manera2.docx")
         
-    # 1. Búsqueda por clave corta de catálogo
     if nombre_o_clave in PLANTILLAS_CATALOGO:
         ruta = os.path.join(TEMPLATES_DIR, PLANTILLAS_CATALOGO[nombre_o_clave])
         if os.path.exists(ruta):
             return ruta
 
-    # 2. Búsqueda por nombre directo de archivo
     nombre_archivo = nombre_o_clave if nombre_o_clave.endswith(".docx") else f"{nombre_o_clave}.docx"
     ruta_directa = os.path.join(TEMPLATES_DIR, nombre_archivo)
     if os.path.exists(ruta_directa):
         return ruta_directa
 
-    # Fallback por defecto si no se encuentra
     return os.path.join(TEMPLATES_DIR, "plantilla_manera2.docx")
 
 
@@ -198,6 +194,35 @@ def numero_a_letras(monto: Any) -> str:
         return str(monto)
 
 
+def corregir_numeros_compuestos(texto: str) -> str:
+    """Corrige de forma automática la separación de números del 21 al 29 en textos legales."""
+    if not texto:
+        return ""
+    reemplazos = {
+        r'\bveinte\s+y\s+uno\b': 'veintiuno',
+        r'\bveinte\s+y\s+dos\b': 'veintidós',
+        r'\bveinte\s+y\s+tres\b': 'veintitrés',
+        r'\bveinte\s+y\s+cuatro\b': 'veinticuatro',
+        r'\bveinte\s+y\s+cinco\b': 'veinticinco',
+        r'\bveinte\s+y\s+seis\b': 'veintiséis',
+        r'\bveinte\s+y\s+siete\b': 'veintisiete',
+        r'\bveinte\s+y\s+ocho\b': 'veintiocho',
+        r'\bveinte\s+y\s+nueve\b': 'veintinueve',
+        r'\bVEINTE\s+Y\s+UNO\b': 'VEINTIUNO',
+        r'\bVEINTE\s+Y\s+DOS\b': 'VEINTIDÓS',
+        r'\bVEINTE\s+Y\s+TRES\b': 'VEINTITRÉS',
+        r'\bVEINTE\s+Y\s+CUATRO\b': 'VEINTICUATRO',
+        r'\bVEINTE\s+Y\s+CINCO\b': 'VEINTICINCO',
+        r'\bVEINTE\s+Y\s+SEIS\b': 'VEINTISÉIS',
+        r'\bVEINTE\s+Y\s+SIETE\b': 'VEINTISIETE',
+        r'\bVEINTE\s+Y\s+OCHO\b': 'VEINTIOCHO',
+        r'\bVEINTE\s+Y\s+NUEVE\b': 'VEINTINUEVE',
+    }
+    for patron, reemplazo in reemplazos.items():
+        texto = re.sub(patron, reemplazo, str(texto), flags=re.IGNORECASE)
+    return texto
+
+
 def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallback: str = "") -> Dict[str, Any]:
     """
     Filtra y devuelve los campos requeridos para la plantilla de Word,
@@ -215,11 +240,23 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
     fecha_exp = datos_origen.get("fecha_expedicion") or ""
     credito_salario = datos_origen.get("credito_a_salario") or datos_origen.get("crédito_a_salario") or ""
     
-    # 🆕 Nuevos campos extraídos de la constancia
+    # Nuevos campos extraídos de la constancia
     num_escritura = datos_origen.get("numero_escritura") or ""
     fecha_esc = datos_origen.get("fecha_escritura") or ""
     notario_completo = datos_origen.get("notario_origen_completo") or ""
     conyuge = datos_origen.get("tiene_conyuge") or "No"
+
+    # Aplicar corrección de números compuestos (del 21 al 29)
+    fecha_exp = corregir_numeros_compuestos(str(fecha_exp))
+    inmueble = corregir_numeros_compuestos(str(inmueble))
+    acreditado = corregir_numeros_compuestos(str(acreditado))
+
+    # Validar Crédito a Salario: si no existe o es inválido, asignar NO_ENCONTRADO
+    credito_salario_str = str(credito_salario).strip()
+    if not credito_salario_str or credito_salario_str.lower() in ["none", "null", "n/a", "", "no_encontrado"]:
+        credito_salario = "NO_ENCONTRADO"
+    else:
+        credito_salario = corregir_numeros_compuestos(credito_salario_str)
 
     monto_letras = numero_a_letras(monto)
 
@@ -236,7 +273,6 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
         "datos_inmueble": inmueble,
         "fecha_expedicion": fecha_exp,
         "credito_a_salario": credito_salario,
-        # 🆕 Se añaden al diccionario final para la plantilla Word:
         "numero_escritura": num_escritura,
         "fecha_escritura": fecha_esc,
         "notario_origen_completo": notario_completo,
@@ -301,7 +337,6 @@ def home():
 # --- GESTIÓN DE PLANTILLAS ---
 @app.get("/api/plantillas")
 def obtener_lista_plantillas():
-    """Retorna la lista de nombres de archivos .docx disponibles en el directorio templates/"""
     if not os.path.exists(TEMPLATES_DIR):
         os.makedirs(TEMPLATES_DIR, exist_ok=True)
         return {"plantillas": []}
@@ -321,11 +356,8 @@ def obtener_historial(
     db: Session = Depends(get_db)
 ):
     usuario_activo = usuario or x_user_id
-
-    # Construimos la consulta base
     query = db.query(models.Expediente)
 
-    # Si hay un usuario activo, filtramos por él; si no, podemos traer todos o usar un respaldo
     if usuario_activo:
         query = query.filter(models.Expediente.usuario_propietario == usuario_activo)
 
@@ -368,16 +400,10 @@ def obtener_historial(
 async def procesar_documento(
     files: List[UploadFile] = File(...),
     usuario_propietario: Optional[str] = Form(None),
-    plantilla: Optional[str] = Form(None),  # Recibe la clave seleccionada en el frontend
+    plantilla: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     try:
-        # LOGS DE MONITOREO
-        print("================ [PROCESAMIENTO INDIVIDUAL] ================")
-        print(f"Usuario: {usuario_propietario}")
-        print(f"Plantilla recibida desde Frontend: {plantilla}")
-        print("============================================================")
-
         propietario_final = usuario_propietario if usuario_propietario else "admin"
 
         os.makedirs("uploads", exist_ok=True)
@@ -398,7 +424,6 @@ async def procesar_documento(
         
         datos_limpios = limpiar_datos_para_plantilla(datos_combinados, num_credito)
 
-        # Si el diccionario de datos requiere persistir la clave de la plantilla:
         if plantilla:
             datos_limpios["plantilla_seleccionada"] = plantilla
 
@@ -423,18 +448,6 @@ async def procesar_documento(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-import re
-
-# ==============================================================================
-# CONVENCIÓN DE NOMENCLATURA RECOMENDADA PARA EL PERSONAL:
-# Para garantizar una lectura y agrupación perfecta, los archivos deben nombrarse 
-# utilizando el número de crédito de 8 a 12 dígitos, seguido opcionalmente de un 
-# guion bajo o espacio y el tipo de documento. 
-# Ejemplos válidos:
-#   - 0903066392_Carta.pdf / 0903066392_Constancia.pdf
-#   - 0903066392 VIG.pdf   / 0903066392.pdf
-# ==============================================================================
-
 @app.post("/api/expedientes/procesar-masivo")
 async def procesar_masivo(
     files: List[UploadFile] = File(...),
@@ -448,16 +461,9 @@ async def procesar_masivo(
         os.makedirs("uploads", exist_ok=True)
         os.makedirs("uploads/generados", exist_ok=True)
         
-        # Selección dinámica de plantilla usando el resolvedor
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
-
-        print(f"\n================ [PROCESAMIENTO MASIVO INTELIGENTE] ================")
-        print(f"Total de archivos recibidos: {len(files)}")
-        print(f"Plantilla seleccionada: {ruta_plantilla}")
-
         archivos_procesados = []
 
-        # 1. Guardar y extraer datos preliminares de cada PDF individualmente
         for file in files:
             nombre_limpio_archivo = file.filename.replace('\\', '/').split('/')[-1]
 
@@ -473,7 +479,6 @@ async def procesar_masivo(
                 if not datos or (datos.get("numero_credito") == "NO_ENCONTRADO" and not datos.get("texto_raw")):
                     raise ValueError("El archivo PDF está vacío, corrupto o no contiene datos legibles.")
             except Exception as e_file:
-                print(f"Error al extraer datos del archivo individual {nombre_limpio_archivo}: {e_file}")
                 datos = {"error_extraccion": str(e_file), "numero_credito": "NO_ENCONTRADO"}
 
             archivos_procesados.append({
@@ -482,28 +487,23 @@ async def procesar_masivo(
                 "datos": datos
             })
 
-        # 2. Agrupación inteligente basada en el contenido extraído Y respaldo por nombre
         agrupados_por_credito = {}
-
         for item in archivos_procesados:
             ruta = item["ruta"]
             nombre = item["nombre"]
             datos = item["datos"]
 
-            # Intentamos obtener el crédito del contenido interno del PDF
             credito_extraido = datos.get("numero_credito")
             credito_key = None
 
             if credito_extraido and credito_extraido != "NO_ENCONTRADO":
                 credito_key = re.sub(r'\D', '', str(credito_extraido))
 
-            # Si el PDF no traía el crédito adentro, lo buscamos en el nombre del archivo
             if not credito_key or len(credito_key) < 8:
                 match_nombre = re.search(r'\d{8,12}', nombre)
                 if match_nombre:
                     credito_key = re.sub(r'\D', '', match_nombre.group(0))
 
-            # Último respaldo si de plano no hay números
             if not credito_key:
                 credito_key = re.sub(r'\D', '', nombre)
                 if not credito_key:
@@ -514,21 +514,18 @@ async def procesar_masivo(
             
             agrupados_por_credito[credito_key].append((ruta, datos))
 
-        # 3. Procesamiento y generación de documentos por cada grupo consolidado
         resultados = []
         for prefijo, grupo in agrupados_por_credito.items():
             try:
                 lista_datos = [item[1] for item in grupo]
                 
-                # Si todos los archivos del grupo fallaron
                 if all("error_extraccion" in d for d in lista_datos):
-                    raise ValueError("Los archivos PDF de este crédito están corruptos, vacíos o no contienen datos legibles.")
+                    raise ValueError("Los archivos PDF de este crédito están corruptos o vacíos.")
 
                 lista_datos_validos = [d for d in lista_datos if "error_extraccion" not in d]
                 if not lista_datos_validos:
                     lista_datos_validos = lista_datos
 
-                # Fusionamos los textos de ambos PDFs de la pareja
                 datos_raw = services.combinar_datos_pareja(lista_datos_validos)
                 
                 num_credito = datos_raw.get("numero_credito")
@@ -567,7 +564,6 @@ async def procesar_masivo(
                 })
             except Exception as e_grupo:
                 db.rollback()
-                print(f"ERROR AISLADO al procesar el expediente/crédito {prefijo}: {e_grupo}")
                 resultados.append({
                     "expediente_id": prefijo,
                     "archivos_asociados": len(grupo),
@@ -576,37 +572,9 @@ async def procesar_masivo(
 
         return {"status": "exito", "procesados": len([r for r in resultados if "error" not in r]), "detalles": resultados}
     except Exception as e:
-        print(f"ERROR GLOBAL EN /procesar-masivo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/expedientes/descargar-zip")
-def descargar_zip(expediente_ids: List[str] = Body(...), db: Session = Depends(get_db)):
-    os.makedirs("uploads/zips", exist_ok=True)
-    ruta_zip = "uploads/zips/Cancelaciones_Lote.zip"
-    
-    with zipfile.ZipFile(ruta_zip, 'w') as zipf:
-        for exp_id in expediente_ids:
-            # 1. Validar si el ID es un UUID válido (evita el error de Postgres con textos como "CANCELACIONES/1234")
-            try:
-                uuid_val = uuid.UUID(str(exp_id))
-            except ValueError:
-                continue  # Salta esta iteración si es una tarjeta de error o texto no válido
-            
-            # 2. Buscar usando el UUID convertido
-            exp = db.query(models.Expediente).filter(models.Expediente.id == uuid_val).first()
-            if exp and exp.ruta_word_generado and os.path.exists(exp.ruta_word_generado):
-                nombre_archivo = os.path.basename(exp.ruta_word_generado)
-                zipf.write(exp.ruta_word_generado, arcname=nombre_archivo)
-
-    return FileResponse(
-        path=ruta_zip,
-        filename="Cancelaciones_Lote.zip",
-        media_type="application/zip"
-    )
-
-
-# --- GUARDAR / ACTUALIZAR DATOS EDITADOS ---
 @app.put("/api/expedientes/{expediente_id}/actualizar")
 def actualizar_datos_expediente(
     expediente_id: str,
@@ -637,7 +605,6 @@ def actualizar_datos_expediente(
     }
 
 
-# --- GENERACIÓN DE WORD ---
 @app.post("/api/expedientes/{expediente_id}/generar-word")
 def generar_word(
     expediente_id: str, 
@@ -649,37 +616,25 @@ def generar_word(
     if not expediente:
         raise HTTPException(status_code=404, detail="Expediente no encontrado")
     
-    # 1. Normalizar payload recibido
     datos_payload = datos_payload or {}
     datos_modificados = datos_payload.get("datos", datos_payload)
     
-    # 2. Unificar datos guardados en BD con los nuevos modificados
     datos_actuales = dict(expediente.datos_extraidos or {})
     if isinstance(datos_modificados, dict):
         datos_actuales.update(datos_modificados)
 
-    # 3. Obtener la plantilla seleccionada (priorizando payload -> datos de BD -> fallback por defecto)
     nombre_plantilla = (
         datos_payload.get("plantilla") 
         or datos_actuales.get("plantilla_seleccionada") 
         or datos_actuales.get("plantilla")
         or "plantilla_manera2.docx"
     )
-
-    print(f"================ [GENERAR WORD] ================")
-    print(f"Expediente ID: {expediente_id}")
-    print(f"Plantilla a utilizar: {nombre_plantilla}")
-    print(f"================================================")
     
-    # 4. Resolver ruta de plantilla usando la función dinámica
     ruta_plantilla = resolver_ruta_plantilla(nombre_plantilla)
-
     os.makedirs("uploads/generados", exist_ok=True)
     
     num_credito = datos_actuales.get("numero_credito") or expediente.numero_credito
     datos_finales = limpiar_datos_para_plantilla(datos_actuales, num_credito)
-    
-    # Asegurar que se mantenga la plantilla en el diccionario guardado
     datos_finales["plantilla_seleccionada"] = nombre_plantilla
 
     expediente.datos_extraidos = datos_finales
@@ -751,20 +706,14 @@ def eliminar_usuario(
     usuario_actual: models.Usuario = Depends(auth.get_current_user)
 ):
     if not usuario_actual.es_admin:
-        raise HTTPException(
-            status_code=403, 
-            detail="No tienes permisos de administrador para realizar esta acción"
-        )
+        raise HTTPException(status_code=403, detail="No tienes permisos de administrador")
 
     usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     if usuario.es_admin or usuario.username.lower() == "admin":
-        raise HTTPException(
-            status_code=400, 
-            detail="No se puede eliminar a un usuario con rol de Administrador"
-        )
+        raise HTTPException(status_code=400, detail="No se puede eliminar a un administrador")
     
     try:
         db.delete(usuario)
@@ -772,13 +721,9 @@ def eliminar_usuario(
         return {"status": "exito", "mensaje": f"Usuario {usuario.username} eliminado correctamente"}
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=500, 
-            detail="Error al eliminar usuario. Es posible que tenga registros asociados en el historial."
-        )
+        raise HTTPException(status_code=500, detail="Error al eliminar usuario.")
 
 
-# --- MANTENEX EL POST QUE YA TIENES ---
 @app.post("/api/admin/plantilla")
 async def actualizar_plantilla(file: UploadFile = File(...)):
     if not file.filename.endswith(".docx"):
@@ -793,10 +738,8 @@ async def actualizar_plantilla(file: UploadFile = File(...)):
     return {"status": "exito", "mensaje": f"Plantilla '{file.filename}' subida correctamente"}
 
 
-# --- AGREGA ESTE GET NUEVO PARA EVITAR EL ERROR 405 ---
 @app.get("/api/admin/plantilla")
 def obtener_plantillas_admin():
-    """Retorna la lista de plantillas disponibles para el panel de administración."""
     if not os.path.exists("templates"):
         os.makedirs("templates", exist_ok=True)
         return {"plantillas": []}
@@ -807,9 +750,7 @@ def obtener_plantillas_admin():
     ]
     return {"plantillas": sorted(archivos)}
 
-# ==============================================================================
-# 1. ENDPOINT PARA CAPTURA MANUAL INDIVIDUAL (Formulario suelto)
-# ==============================================================================
+
 @app.post("/api/expedientes/generar-manual")
 def generar_expediente_manual(
     payload: Dict[str, Any] = Body(...),
@@ -823,21 +764,17 @@ def generar_expediente_manual(
         if not num_credito:
             raise HTTPException(status_code=400, detail="El número de crédito es obligatorio")
 
-        # Limpiar y preparar datos asegurando formato formal y letras en montos
         datos_limpios = limpiar_datos_para_plantilla(payload, num_credito)
         datos_limpios["plantilla_seleccionada"] = plantilla
 
-        # Resolver ruta física de la plantilla notarial
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
         os.makedirs("uploads/generados", exist_ok=True)
         ruta_salida = f"uploads/generados/Cancelacion_{num_credito}.docx"
         
-        # Generar documento Word
         exito = services.generar_word_cancelacion(ruta_plantilla, datos_limpios, ruta_salida)
         if not exito:
-            raise HTTPException(status_code=500, detail="Error al generar el documento Word con la plantilla seleccionada")
+            raise HTTPException(status_code=500, detail="Error al generar el documento Word")
 
-        # Guardar registro en PostgreSQL (Railway)
         nuevo_expediente = models.Expediente(
             usuario_propietario=usuario,
             numero_credito=num_credito,
@@ -851,7 +788,7 @@ def generar_expediente_manual(
 
         return {
             "status": "exito",
-            "mensaje": "¡Expediente manual generado correctamente, revisa tu Historial!",
+            "mensaje": "¡Expediente manual generado correctamente!",
             "id": str(nuevo_expediente.id),
             "expediente_id": str(nuevo_expediente.id),
             "datos_extraidos": datos_limpios,
@@ -860,26 +797,22 @@ def generar_expediente_manual(
         }
     except Exception as e:
         db.rollback()
-        print(f"ERROR EN /generar-manual: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ==============================================================================
-# 2. ENDPOINT PARA CARGA MASIVA MEDIANTE EXCEL O CSV (OPTIMIZADO POR BLOQUES)
-# ==============================================================================
 @app.post("/api/expedientes/procesar-excel")
 async def procesar_excel(
     file: UploadFile = File(...),
     usuario_propietario: Optional[str] = Form("admin"),
     plantilla: Optional[str] = Form("plantilla_manera2.docx"),
-    indices_bloque: Optional[str] = Form(None), # Parámetro opcional para recibir el bloque de 15
+    indices_bloque: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     try:
-        import json  # <--- Importación local directa para evitar cualquier error de alcance
+        import json
 
         if not file.filename.lower().endswith(('.xlsx', '.xls', '.csv')):
-            raise HTTPException(status_code=400, detail="El archivo debe ser un Excel válido (.xlsx, .xls) o CSV.")
+            raise HTTPException(status_code=400, detail="El archivo debe ser un Excel o CSV válido.")
 
         os.makedirs("uploads", exist_ok=True)
         os.makedirs("uploads/generados", exist_ok=True)
@@ -888,28 +821,23 @@ async def procesar_excel(
         with open(ruta_temp, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Cargar el archivo mediante pandas
         if file.filename.lower().endswith('.csv'):
             df = pd.read_csv(ruta_temp)
         else:
             df = pd.read_excel(ruta_temp)
 
         ruta_plantilla = resolver_ruta_plantilla(plantilla)
-        
-        # SI RECIBE BLOQUE: Procesa solo esos índices. SI NO: Procesa todo el archivo por compatibilidad.
         indices_a_procesar = json.loads(indices_bloque) if indices_bloque else list(df.index)
         
         resultados = []
         conteo_exitosos = 0
 
-        # Iterar únicamente sobre las filas del bloque actual
         for index in indices_a_procesar:
             if index >= len(df):
                 continue
             row = df.iloc[index]
             try:
                 fila_dict = row.to_dict()
-                # Normalizar nombres de columnas a minúsculas eliminando espacios extra
                 fila_normalizada = {str(k).strip().lower(): v for k, v in fila_dict.items() if pd.notna(v)}
 
                 num_credito = str(
@@ -980,7 +908,6 @@ async def procesar_excel(
 
             except Exception as e_row:
                 db.rollback()
-                print(f"Error procesando fila {index+1} del Excel: {e_row}")
                 resultados.append({
                     "expediente_id": f"Fila_{index+1}",
                     "error": str(e_row)
@@ -992,12 +919,8 @@ async def procesar_excel(
             "detalles": resultados
         }
     except Exception as e:
-        print(f"ERROR EN /procesar-excel: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ==============================================================================
-# 3. ENDPOINT PARA LEER LOS ARCHIVOS EXCEL DE LA CARGA DE EXCEL
-# ==============================================================================
 
 @app.post("/api/expedientes/previsualizar-excel")
 async def previsualizar_excel(file: UploadFile = File(...)):
@@ -1047,5 +970,4 @@ async def previsualizar_excel(file: UploadFile = File(...)):
             "filas": filas_preview
         }
     except Exception as e:
-        print(f"ERROR EN /previsualizar-excel: {e}")
         raise HTTPException(status_code=500, detail=str(e))
