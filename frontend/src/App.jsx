@@ -1619,94 +1619,7 @@ const filteredHistorial = (historial || []).filter((item) => {
 
             {/* CONTENEDOR DE TARJETA PRINCIPAL */}
             <div style={{ backgroundColor: theme.cardBg, borderRadius: '16px', border: `1px solid ${theme.border}`, padding: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-              {activeTab === 'single' && (
-                <div>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Gestión de Caso Individual</h3>
-                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Complete los datos necesarios para procesar el expediente notarial individual.</p>
-                </div>
-              )}
-
-              {activeTab === 'batch' && (
-                <div>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Carga Masiva de PDFs</h3>
-                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Procesamiento automatizado por lotes de documentos notariales.</p>
-                  <div style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '50px', textAlign: 'center', cursor: 'pointer' }}>
-                    <FolderPlus size={48} color={theme.accent} style={{ margin: '0 auto 16px auto', display: 'block' }} />
-                    <p style={{ margin: '0 0 6px 0', fontWeight: '600', fontSize: '15px', color: theme.textPrimary }}>Arrastre sus archivos PDF aquí o haga clic para explorar</p>
-                    <p style={{ margin: 0, fontSize: '13px', color: theme.textSecondary }}>Soporta múltiples archivos simultáneamente</p>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'manual' && (
-                <div>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Captura Manual de Expediente</h3>
-                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Formulario estructurado para registro directo de datos en el sistema.</p>
-                </div>
-              )}
-
-              {activeTab === 'excel' && (
-                <div>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Carga por Lote (Excel)</h3>
-                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Importación masiva mediante archivo de hoja de cálculo estructurada.</p>
-                </div>
-              )}
-
-              {activeTab === 'history' && (
-                <div>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Mi Historial de Trámites</h3>
-                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Consulta el registro y estatus de las solicitudes procesadas por su usuario.</p>
-                </div>
-              )}
-
-              {activeTab === 'users' && esAdmin && (
-                <div>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Administración de Usuarios</h3>
-                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Control de permisos, roles y altas de operadores del sistema.</p>
-                </div>
-              )}
-
-              {activeTab === 'templates' && esAdmin && (
-                <div>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Configuración Notarial</h3>
-                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Gestión de plantillas y parámetros predeterminados de la notaría.</p>
-                </div>
-              )}
-            </div>
-
-          </main>
-        </div>
-      )}
-
-      {/* MODAL DE CIERRE DE SESIÓN */}
-      {showLogoutModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
-          <div className="slide-up" style={{ backgroundColor: theme.cardBg, padding: '32px', borderRadius: '16px', maxWidth: '400px', width: '100%', border: `1px solid ${theme.border}`, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', textAlign: 'center' }}>
-            <div style={{ backgroundColor: isDarkMode ? '#450a0a' : '#fff1f2', width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
-              <LogOut color="#dc2626" size={28} />
-            </div>
-            <h3 style={{ margin: '0 0 8px 0', color: theme.textPrimary, fontSize: '20px', fontWeight: '700' }}>¿Cerrar sesión?</h3>
-            <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>¿Está seguro que desea salir del sistema de cancelación de hipotecas?</p>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: theme.subtleBg, color: theme.textPrimary, fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleLogout}
-                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', backgroundColor: '#dc2626', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
-              >
-                Sí, salir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
- {/* TAB: CASO INDIVIDUAL */}
+              {/* TAB: CASO INDIVIDUAL */}
 {activeTab === 'single' && (
   <div style={{ 
     display: 'grid', 
@@ -2060,6 +1973,86 @@ const filteredHistorial = (historial || []).filter((item) => {
     )}
   </div>
 )}
+
+              {activeTab === 'batch' && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Carga Masiva de PDFs</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Procesamiento automatizado por lotes de documentos notariales.</p>
+                  <div style={{ border: `2px dashed ${theme.dropzoneBorder}`, backgroundColor: theme.dropzoneBg, borderRadius: '12px', padding: '50px', textAlign: 'center', cursor: 'pointer' }}>
+                    <FolderPlus size={48} color={theme.accent} style={{ margin: '0 auto 16px auto', display: 'block' }} />
+                    <p style={{ margin: '0 0 6px 0', fontWeight: '600', fontSize: '15px', color: theme.textPrimary }}>Arrastre sus archivos PDF aquí o haga clic para explorar</p>
+                    <p style={{ margin: 0, fontSize: '13px', color: theme.textSecondary }}>Soporta múltiples archivos simultáneamente</p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'manual' && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Captura Manual de Expediente</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Formulario estructurado para registro directo de datos en el sistema.</p>
+                </div>
+              )}
+
+              {activeTab === 'excel' && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Carga por Lote (Excel)</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Importación masiva mediante archivo de hoja de cálculo estructurada.</p>
+                </div>
+              )}
+
+              {activeTab === 'history' && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Mi Historial de Trámites</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Consulta el registro y estatus de las solicitudes procesadas por su usuario.</p>
+                </div>
+              )}
+
+              {activeTab === 'users' && esAdmin && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Administración de Usuarios</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Control de permisos, roles y altas de operadores del sistema.</p>
+                </div>
+              )}
+
+              {activeTab === 'templates' && esAdmin && (
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '700', color: theme.textPrimary }}>Configuración Notarial</h3>
+                  <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>Gestión de plantillas y parámetros predeterminados de la notaría.</p>
+                </div>
+              )}
+            </div>
+
+          </main>
+        </div>
+      )}
+
+      {/* MODAL DE CIERRE DE SESIÓN */}
+      {showLogoutModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div className="slide-up" style={{ backgroundColor: theme.cardBg, padding: '32px', borderRadius: '16px', maxWidth: '400px', width: '100%', border: `1px solid ${theme.border}`, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', textAlign: 'center' }}>
+            <div style={{ backgroundColor: isDarkMode ? '#450a0a' : '#fff1f2', width: '56px', height: '56px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
+              <LogOut color="#dc2626" size={28} />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', color: theme.textPrimary, fontSize: '20px', fontWeight: '700' }}>¿Cerrar sesión?</h3>
+            <p style={{ color: theme.textSecondary, fontSize: '14px', margin: '0 0 24px 0' }}>¿Está seguro que desea salir del sistema de cancelación de hipotecas?</p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: theme.subtleBg, color: theme.textPrimary, fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleLogout}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', backgroundColor: '#dc2626', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
+              >
+                Sí, salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
 
 {/* TAB: CARGA MASIVA */}
