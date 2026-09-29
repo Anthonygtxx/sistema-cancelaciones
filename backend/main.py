@@ -194,6 +194,78 @@ def numero_a_letras(monto: Any) -> str:
         return str(monto)
 
 
+def numero_folio_a_letras(monto: Any) -> str:
+    """Convierte un número de folio a su representación en letras sin mención de moneda."""
+    if not monto:
+        return ""
+    try:
+        monto_str = re.sub(r"[^\d.]", "", str(monto))
+        if not monto_str:
+            return str(monto)
+        val = float(monto_str)
+        enteros = int(val)
+        
+        unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"]
+        decenas = ["", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"]
+        dieces = ["DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISÉIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"]
+        centenas = ["", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS", "OCHOCIENTOS", "NOVECIENTOS"]
+
+        def _convertir_grupo(n: int) -> str:
+            if n == 0:
+                return ""
+            if n == 100:
+                return "CIEN"
+            
+            c = n // 100
+            d = (n % 100) // 10
+            u = n % 10
+            
+            res = []
+            if c > 0:
+                res.append(centenas[c])
+            
+            if d == 1:
+                res.append(dieces[u])
+            else:
+                if d == 2 and u > 0:
+                    res.append(f"VEINTI{unidades[u].lower()}".upper())
+                else:
+                    if d > 0:
+                        res.append(decenas[d])
+                    if u > 0:
+                        if d > 0:
+                            res.append("Y")
+                        res.append(unidades[u])
+            return " ".join(res)
+
+        if enteros == 0:
+            return "CERO"
+        
+        partes = []
+        millones = enteros // 1_000_000
+        miles = (enteros % 1_000_000) // 1_000
+        unidades_restantes = enteros % 1_000
+
+        if millones > 0:
+            if millones == 1:
+                partes.append("UN MILLÓN")
+            else:
+                partes.append(f"{_convertir_grupo(millones)} MILLONES")
+        
+        if miles > 0:
+            if miles == 1:
+                partes.append("MIL")
+            else:
+                partes.append(f"{_convertir_grupo(miles)} MIL")
+        
+        if unidades_restantes > 0:
+            partes.append(_convertir_grupo(unidades_restantes))
+        
+        return " ".join(partes)
+    except Exception:
+        return str(monto)
+
+
 def corregir_numeros_compuestos(texto: str) -> str:
     """Corrige de forma automática la separación de números del 21 al 29 en textos legales."""
     if not texto:
@@ -223,10 +295,48 @@ def corregir_numeros_compuestos(texto: str) -> str:
     return texto
 
 
+def procesar_19_puntos_inmueble(texto_inmueble_raw: str, texto_completo: str = "") -> Dict[str, str]:
+    """
+    Extrae y organiza los datos del inmueble en el orden estricto de 19 puntos.
+    """
+    texto_base = f"{str(texto_completo)} {str(texto_inmueble_raw)}"
+    
+    def buscar(patrones, default="NO_ENCONTRADO"):
+        for p in patrones:
+            match = re.search(p, texto_base, re.IGNORECASE)
+            if match:
+                val = match.group(1).strip()
+                if val:
+                    return corregir_numeros_compuestos(val)
+        return default
+
+    return {
+        "1_vivienda": buscar([r'vivienda[:\s]*([^,;\n]+)', r'inmueble[:\s]*([^,;\n]+)', r'departamento|casa|lote']),
+        "2_uso_de_suelo": buscar([r'uso\s+de\s+suelo[:\s]*([^,;\n]+)', r'uso\s+suelo[:\s]*([^,;\n]+)']),
+        "3_no_interior": buscar([r'no\.?\s*int\.?[:\s]*([0-9a-zA-Z\-]+)', r'interior[:\s]*([0-9a-zA-Z\-]+)']),
+        "4_lote": buscar([r'\blote[:\s]*([0-9a-zA-Z\-]+)']),
+        "5_manzana": buscar([r'manzana[:\s]*([0-9a-zA-Z\-]+)', r'\bmza\.?[:\s]*([0-9a-zA-Z\-]+)']),
+        "6_supermanzana": buscar([r'supermanzana[:\s]*([0-9a-zA-Z\-]+)', r'\bsm\.?[:\s]*([0-9a-zA-Z\-]+)']),
+        "7_etapa": buscar([r'etapa[:\s]*([0-9a-zA-Z\-]+)']),
+        "8_condominio": buscar([r'condominio[:\s]*([0-9a-zA-Z\-]+)', r'conjunto\s+habitacional[:\s]*([^,;\n]+)']),
+        "9_calle": buscar([r'calle[:\s]*([^,;\n]+)', r'avenida[:\s]*([^,;\n]+)', r'blvd\.?[:\s]*([^,;\n]+)']),
+        "10_no_exterior": buscar([r'no\.?\s*ext\.?[:\s]*([0-9a-zA-Z\-]+)', r'exterior[:\s]*([0-9a-zA-Z\-]+)', r'número[:\s]*([0-9a-zA-Z\-]+)']),
+        "11_denominacion_del_inmueble": buscar([r'denominaci[oó]n\s+(?:del\s+inmueble)?[:\s]*([^,;\n]+)', r'edificio[:\s]*([^,;\n]+)']),
+        "12_seccion": buscar([r'secci[oó]n[:\s]*([0-9a-zA-Z\-]+)']),
+        "13_colonia": buscar([r'colonia[:\s]*([^,;\n]+)', r'fraccionamiento[:\s]*([^,;\n]+)', r'pueblo[:\s]*([^,;\n]+)']),
+        "14_sector": buscar([r'sector[:\s]*([^,;\n]+)', r'edf\.?[:\s]*([0-9a-zA-Z\-]+)']),
+        "15_municipio": buscar([r'municipio[:\s]*([^,;\n]+)', r'alcalad[ií]a[:\s]*([^,;\n]+)', r'delegaci[oó]n[:\s]*([^,;\n]+)']),
+        "16_distrito": buscar([r'distrito[:\s]*([^,;\n]+)']),
+        "17_estado": buscar([r'estado[:\s]*([^,;\n]+)', r'entidad[:\s]*([^,;\n]+)']),
+        "18_observaciones": buscar([r'observaciones[:\s]*([^.\n]+)', r'tr[aá]mite[:\s]*([^.\n]+)']),
+        "19_codigo_postal": buscar([r'c\.?p\.?[:\s]*(\d{5})', r'c[oó]digo\s+postal[:\s]*(\d{5})'])
+    }
+
+
 def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallback: str = "") -> Dict[str, Any]:
     """
     Filtra y devuelve los campos requeridos para la plantilla de Word,
-    aplicando corrección de números compuestos a todos los textos y fechas.
+    aplicando corrección de números compuestos y estructurando el inmueble en 19 puntos.
     """
     acreditado = corregir_numeros_compuestos(str(datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or ""))
     monto = datos_origen.get("monto_credito") or datos_origen.get("monto") or ""
@@ -235,12 +345,26 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
     carta = corregir_numeros_compuestos(str(datos_origen.get("numero_carta") or datos_origen.get("carta") or ""))
     entidad = corregir_numeros_compuestos(str(datos_origen.get("entidad_financiera") or datos_origen.get("banco") or ""))
     
-    # Aplicar corrección de números compuestos a las fechas y campos de texto
     fecha = corregir_numeros_compuestos(str(datos_origen.get("fecha_liquidacion") or datos_origen.get("fecha") or ""))
-    folio = corregir_numeros_compuestos(str(datos_origen.get("folio_real") or datos_origen.get("antecedente") or ""))
-    inmueble = corregir_numeros_compuestos(str(datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""))
-    fecha_exp = corregir_numeros_compuestos(str(datos_origen.get("fecha_expedicion") or ""))
     
+    # Formatear Folio Real con número entre comillas y conversión a letra entre paréntesis
+    folio_raw = str(datos_origen.get("folio_real") or datos_origen.get("antecedente") or "").strip()
+    folio_num_str = re.sub(r"[^\d]", "", folio_raw)
+    if folio_num_str:
+        folio_letras = corregir_numeros_compuestos(numero_folio_a_letras(folio_num_str))
+        folio = f'"{folio_num_str}" ({folio_letras})'
+    else:
+        folio = corregir_numeros_compuestos(folio_raw) if folio_raw else "NO_ENCONTRADO"
+    
+    inmueble_raw = datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""
+    texto_raw = datos_origen.get("texto_raw") or ""
+    puntos_inmueble = procesar_19_puntos_inmueble(str(inmueble_raw), str(texto_raw))
+    
+    inmueble_str = ", ".join([f"{k.split('_', 1)[1].replace('_', ' ').title()}: {v}" for k, v in puntos_inmueble.items() if v != "NO_ENCONTRADO"])
+    if not inmueble_str:
+        inmueble_str = corregir_numeros_compuestos(str(inmueble_raw))
+
+    fecha_exp = corregir_numeros_compuestos(str(datos_origen.get("fecha_expedicion") or ""))
     credito_salario = datos_origen.get("credito_a_salario") or datos_origen.get("crédito_a_salario") or ""
     
     num_escritura = corregir_numeros_compuestos(str(datos_origen.get("numero_escritura") or ""))
@@ -248,16 +372,17 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
     notario_completo = corregir_numeros_compuestos(str(datos_origen.get("notario_origen_completo") or ""))
     conyuge = datos_origen.get("tiene_conyuge") or "No"
 
-    # Validar Crédito a Salario: si no existe o es inválido, asignar NO_ENCONTRADO
+    # Validación estricta de Crédito a Salario (si no existe o no tiene contexto salarial, se marca NO_ENCONTRADO)
     credito_salario_str = str(credito_salario).strip()
-    if not credito_salario_str or credito_salario_str.lower() in ["none", "null", "n/a", "", "no_encontrado"]:
+    tiene_contexto_salario = any(kw in credito_salario_str.lower() for kw in ["salario", "salarios", "vsm", "veces", "uma"])
+    if not credito_salario_str or credito_salario_str.lower() in ["none", "null", "n/a", "", "no_encontrado"] or (not tiene_contexto_salario and re.match(r'^\d+[\.,]?\d*$', credito_salario_str)):
         credito_salario = "NO_ENCONTRADO"
     else:
         credito_salario = corregir_numeros_compuestos(credito_salario_str)
 
     monto_letras = numero_a_letras(monto)
 
-    return {
+    resultado = {
         "nombre_acreditado": acreditado,
         "monto_credito": monto,
         "monto_letras": monto_letras,
@@ -267,7 +392,7 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
         "entidad_financiera": entidad,
         "fecha_liquidacion": fecha,
         "folio_real": folio,
-        "datos_inmueble": inmueble,
+        "datos_inmueble": inmueble_str,
         "fecha_expedicion": fecha_exp,
         "credito_a_salario": credito_salario,
         "numero_escritura": num_escritura,
@@ -275,6 +400,8 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
         "notario_origen_completo": notario_completo,
         "tiene_conyuge": conyuge,
     }
+    resultado.update(puntos_inmueble)
+    return resultado
 
 
 @app.on_event("startup")
