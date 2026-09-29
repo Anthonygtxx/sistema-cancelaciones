@@ -266,6 +266,53 @@ def numero_folio_a_letras(monto: Any) -> str:
         return str(monto)
 
 
+def palabras_a_numero(texto: str) -> Optional[int]:
+    """Convierte un texto con números en palabras (ej. 'treinta y siete mil quinientos nueve') a un entero."""
+    if not texto:
+        return None
+    texto_str = str(texto).lower().strip()
+    digitos = re.sub(r"[^\d]", "", texto_str)
+    if digitos:
+        try:
+            return int(digitos)
+        except ValueError:
+            pass
+            
+    unidades = {"cero":0, "un":1, "uno":1, "una":1, "dos":2, "tres":3, "cuatro":4, "cinco":5, "seis":6, "siete":7, "ocho":8, "nueve":9}
+    decenas = {"diez":10, "once":11, "doce":12, "trece":13, "catorce":14, "quince":15, "dieciséis":16, "dieciseis":16, "diecisiete":17, "dieciocho":18, "diecinueve":19,
+               "veinte":20, "veintiuno":21, "veintidós":22, "veintidos":22, "veintitrés":23, "veintitres":23, "veinticuatro":24, "veinticinco":25,
+               "veintiséis":26, "veintiseis":26, "veintisiete":27, "veintiocho":28, "veintinueve":29,
+               "treinta":30, "cuarenta":40, "cincuenta":50, "sesenta":60, "setenta":70, "ochenta":80, "noventa":90}
+    centenas = {"cien":100, "ciento":100, "doscientos":200, "trescientos":300, "cuatrocientos":400, "quinientos":500, "seiscientos":600, "setecientos":700, "ochocientos":800, "novecientos":900}
+    
+    palabras = re.findall(r'[a-záéíóúñ]+', texto_str)
+    total = 0
+    actual = 0
+    
+    for p in palabras:
+        if p in unidades:
+            actual += unidades[p]
+        elif p in decenas:
+            actual += decenas[p]
+        elif p in centenas:
+            actual += centenas[p]
+        elif p == "mil":
+            if actual == 0:
+                actual = 1
+            total += actual * 1000
+            actual = 0
+        elif p == "millón" or p == "millones":
+            if actual == 0:
+                actual = 1
+            total += actual * 1000000
+            actual = 0
+        elif p == "y" or p == "de":
+            continue
+            
+    total += actual
+    return total if total > 0 else None
+
+
 def corregir_numeros_compuestos(texto: str) -> str:
     """Corrige de forma automática la separación de números del 21 al 29 en textos legales."""
     if not texto:
@@ -336,7 +383,7 @@ def procesar_19_puntos_inmueble(texto_inmueble_raw: str, texto_completo: str = "
 def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallback: str = "") -> Dict[str, Any]:
     """
     Filtra y devuelve los campos requeridos para la plantilla de Word,
-    aplicando corrección de números compuestos y estructurando el inmueble en 19 puntos.
+    aplicando conversión de folio real a número y letras, y manteniendo salario sin conversiones automáticas.
     """
     acreditado = corregir_numeros_compuestos(str(datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or ""))
     monto = datos_origen.get("monto_credito") or datos_origen.get("monto") or ""
@@ -347,14 +394,14 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
     
     fecha = corregir_numeros_compuestos(str(datos_origen.get("fecha_liquidacion") or datos_origen.get("fecha") or ""))
     
-    # Formatear Folio Real con número entre comillas y conversión a letra entre paréntesis
+    # Folio Real: Extraer número (ya sea de dígitos o palabras) y formatear como "[número]" (CONVERSIÓN)
     folio_raw = str(datos_origen.get("folio_real") or datos_origen.get("antecedente") or "").strip()
-    folio_num_str = re.sub(r"[^\d]", "", folio_raw)
-    if folio_num_str:
-        folio_letras = corregir_numeros_compuestos(numero_folio_a_letras(folio_num_str))
-        folio = f'"{folio_num_str}" ({folio_letras})'
+    num_folio = palabras_a_numero(folio_raw)
+    if num_folio is not None:
+        folio_letras = corregir_numeros_compuestos(numero_folio_a_letras(num_folio))
+        folio = f'"{num_folio}" ({folio_letras})'
     else:
-        folio = corregir_numeros_compuestos(folio_raw) if folio_raw else "NO_ENCONTRADO"
+        folio = corregir_numeros_compuestos(folio_raw) if folio_raw and folio_raw.lower() not in ["none", "null", "n/a", ""] else "NO_ENCONTRADO"
     
     inmueble_raw = datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""
     texto_raw = datos_origen.get("texto_raw") or ""
@@ -365,20 +412,19 @@ def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallb
         inmueble_str = corregir_numeros_compuestos(str(inmueble_raw))
 
     fecha_exp = corregir_numeros_compuestos(str(datos_origen.get("fecha_expedicion") or ""))
+    
+    # Crédito a Salario: Mantener valor original tal cual viene en documento sin conversiones automáticas a letras
     credito_salario = datos_origen.get("credito_a_salario") or datos_origen.get("crédito_a_salario") or ""
+    credito_salario_str = str(credito_salario).strip()
+    if not credito_salario_str or credito_salario_str.lower() in ["none", "null", "n/a", "", "no_encontrado"]:
+        credito_salario = "NO_ENCONTRADO"
+    else:
+        credito_salario = corregir_numeros_compuestos(credito_salario_str)
     
     num_escritura = corregir_numeros_compuestos(str(datos_origen.get("numero_escritura") or ""))
     fecha_esc = corregir_numeros_compuestos(str(datos_origen.get("fecha_escritura") or ""))
     notario_completo = corregir_numeros_compuestos(str(datos_origen.get("notario_origen_completo") or ""))
     conyuge = datos_origen.get("tiene_conyuge") or "No"
-
-    # Validación estricta de Crédito a Salario (si no existe o no tiene contexto salarial, se marca NO_ENCONTRADO)
-    credito_salario_str = str(credito_salario).strip()
-    tiene_contexto_salario = any(kw in credito_salario_str.lower() for kw in ["salario", "salarios", "vsm", "veces", "uma"])
-    if not credito_salario_str or credito_salario_str.lower() in ["none", "null", "n/a", "", "no_encontrado"] or (not tiene_contexto_salario and re.match(r'^\d+[\.,]?\d*$', credito_salario_str)):
-        credito_salario = "NO_ENCONTRADO"
-    else:
-        credito_salario = corregir_numeros_compuestos(credito_salario_str)
 
     monto_letras = numero_a_letras(monto)
 
