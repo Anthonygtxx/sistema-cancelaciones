@@ -226,30 +226,27 @@ def corregir_numeros_compuestos(texto: str) -> str:
 def limpiar_datos_para_plantilla(datos_origen: Dict[str, Any], num_credito_fallback: str = "") -> Dict[str, Any]:
     """
     Filtra y devuelve los campos requeridos para la plantilla de Word,
-    incluyendo los campos de fecha_expedicion, crédito y datos de la constancia.
+    aplicando corrección de números compuestos a todos los textos y fechas.
     """
-    acreditado = datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or ""
+    acreditado = corregir_numeros_compuestos(str(datos_origen.get("nombre_acreditado") or datos_origen.get("acreditado") or datos_origen.get("cliente") or ""))
     monto = datos_origen.get("monto_credito") or datos_origen.get("monto") or ""
     num_credito = datos_origen.get("numero_credito") or num_credito_fallback or ""
-    oficina = datos_origen.get("oficina_registral") or datos_origen.get("oficina") or ""
-    carta = datos_origen.get("numero_carta") or datos_origen.get("carta") or ""
-    entidad = datos_origen.get("entidad_financiera") or datos_origen.get("banco") or ""
-    fecha = datos_origen.get("fecha_liquidacion") or datos_origen.get("fecha") or ""
-    folio = datos_origen.get("folio_real") or datos_origen.get("antecedente") or ""
-    inmueble = datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""
-    fecha_exp = datos_origen.get("fecha_expedicion") or ""
+    oficina = corregir_numeros_compuestos(str(datos_origen.get("oficina_registral") or datos_origen.get("oficina") or ""))
+    carta = corregir_numeros_compuestos(str(datos_origen.get("numero_carta") or datos_origen.get("carta") or ""))
+    entidad = corregir_numeros_compuestos(str(datos_origen.get("entidad_financiera") or datos_origen.get("banco") or ""))
+    
+    # Aplicar corrección de números compuestos a las fechas y campos de texto
+    fecha = corregir_numeros_compuestos(str(datos_origen.get("fecha_liquidacion") or datos_origen.get("fecha") or ""))
+    folio = corregir_numeros_compuestos(str(datos_origen.get("folio_real") or datos_origen.get("antecedente") or ""))
+    inmueble = corregir_numeros_compuestos(str(datos_origen.get("datos_inmueble") or datos_origen.get("inmueble") or ""))
+    fecha_exp = corregir_numeros_compuestos(str(datos_origen.get("fecha_expedicion") or ""))
+    
     credito_salario = datos_origen.get("credito_a_salario") or datos_origen.get("crédito_a_salario") or ""
     
-    # Nuevos campos extraídos de la constancia
-    num_escritura = datos_origen.get("numero_escritura") or ""
-    fecha_esc = datos_origen.get("fecha_escritura") or ""
-    notario_completo = datos_origen.get("notario_origen_completo") or ""
+    num_escritura = corregir_numeros_compuestos(str(datos_origen.get("numero_escritura") or ""))
+    fecha_esc = corregir_numeros_compuestos(str(datos_origen.get("fecha_escritura") or ""))
+    notario_completo = corregir_numeros_compuestos(str(datos_origen.get("notario_origen_completo") or ""))
     conyuge = datos_origen.get("tiene_conyuge") or "No"
-
-    # Aplicar corrección de números compuestos (del 21 al 29)
-    fecha_exp = corregir_numeros_compuestos(str(fecha_exp))
-    inmueble = corregir_numeros_compuestos(str(inmueble))
-    acreditado = corregir_numeros_compuestos(str(acreditado))
 
     # Validar Crédito a Salario: si no existe o es inválido, asignar NO_ENCONTRADO
     credito_salario_str = str(credito_salario).strip()
